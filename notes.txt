@@ -1,0 +1,143 @@
+OK, database location is specified as a directory path, where the library
+controls the files for whatever needs it has.
+
+---
+Do we need any metadata assigned to edges?
+
+We need to express that this revision is a child of another revision, because
+it's a new revision of a patchset. OTOH, the fact that a revision's edge
+target is a patchset says that this revision is a new version of one. No
+matter if this revision is a git commit or a patchset itself.
+
+So, let's say we have a series of patchset versions each based on a particular
+commit, which then gets merged as the following commit, with a few commits on
+top:
+
+[a]
+ ^
+[b]
+ ^
+[c] <- (1)
+ ^      ^
+ |-----(2)
+ |      ^
+ |-----(3)
+ |      ^
+ |-----(4)
+ |      ^
+ `-----[d]
+        ^
+       [e]
+        ^
+       [f]
+
+What if the patchset version (3) fixes an issue which was introduced in
+commit [b]?
+
+In the absence of other information we're supposed to say that the branch has
+the issue fixed now.
+
+However, if we travel down both edges from [d], one will contain the issue,
+and another would not. At the same time, the fix would be the same distance
+from it as the issue itself. What should we say? Is the issue there, or not?
+
+We could say that since there's a commit without the issue *after* the one
+with it, it's *probably* fixed. So the test would be get all closest mentions
+of issues, and if there are any ambiguities, check which one is before which.
+
+If we can't "see" the issue from where we are (i.e. a revision with it
+reproducing is masked by another with it *not* reproducing), then we can say
+the issue is *likely* fixed.
+
+We can only say that the issue is "definitely" fixed if we tested the
+particular commit.
+
+Here's a more involved history:
+
+
+[a]
+ ^
+[b] <- (1)
+ ^      ^
+[c]     |
+ ^      |
+[d] <- (2)
+ ^      ^
+[e]     |
+ ^      |
+[f] <- (3)
+ ^      ^
+[g]     |
+ ^      |
+[h] ----'
+ ^
+[i]
+
+So, for [i], if an issue is detected in [e], and not in (2), then it's still
+there.
+
+Or, if an issue is detected in [e], but not (3), then it's probably not there.
+
+Then, if an issue is detected in (3), but not in [h], then it's likely not
+there.
+
+Finally if an issue is detected in [a], but not in [i] itself, then it's
+definitely not there.
+
+In all these cases, we don't actually need to know if a revision is a commit
+or a patchset.
+
+What about merge requests getting merged?
+
+Can we record them like this:
+
+[a]
+ ^
+[b] <- [A1] < [B1] < [C1]
+ ^                    ^
+[c]                   |
+ ^                    |
+[d] <- [A2] < [B2] < [C2]
+ ^                    ^
+[e]                   |
+ ^                    |
+[f]                   |
+ ^                    |
+[g] <- [A3] < [B3] < [C3]
+ ^                    ^
+[h]                   |
+ ^                    |
+[i] ------------------'
+ ^
+[j]
+
+Well, first of all the merge requests consist of actual commits themselves,
+and then they can be actually merged, or simply rebased and fast-forwarded to.
+
+In this case, if [B2] was found to fix an issue, then we can assume that [C3]
+has the fix (but note, not B3, with this model), and therefore [i] can be
+assumed to contain the fix as well.
+
+Here we have both actual merge and a succession of the merge request version
+expressed with the same type of edges, and we have no way of distinguishing
+them.
+
+Should we introduce edge types, and if yes, how are we going to use them in
+queries? Bitmasks? Numbers?
+
+Should we have more edge types? E.g. between releases? The latter, probably
+not, as they're connected after all.
+
+Nooooo... This would require us to build separate generation numbers, and
+bloom filters for different sets of edges. So perhaps we can mark the
+revisions somehow instead? E.g. say if both the parent and the child are merge
+request heads, then the edge is an MR version update? Hmm, that's actually not
+necessarily true. What if an MR version was fast-forwarded to, then the next
+MR was a single commit, which got fast-forwarded to as well? What would the
+edge between them signify? Ah, they would have to have the same MR IDs
+assigned to version heads to qualify as versions of the same MR.
+
+So, no we won't have different types of edges. That would be too much.
+
+I wonder if we could simply have separate graphs for separate edge types?
+Hmm, that could do it!
