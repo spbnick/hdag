@@ -7,6 +7,7 @@
 #ifndef _HDAG_FILE_H
 #define _HDAG_FILE_H
 
+#include <hdag/misc.h>
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <sys/mman.h>
@@ -34,17 +35,16 @@ struct hdag_file_header {
     uint32_t    node_num;
     /** Number of (extra) edges */
     uint32_t    edge_num;
-} __attribute__((packed));
+};
 
-static_assert(
-    sizeof(struct hdag_file_header) ==
-    sizeof(((struct hdag_file_header *)0)->signature) +
-    sizeof(((struct hdag_file_header *)0)->version.major) +
-    sizeof(((struct hdag_file_header *)0)->version.minor) +
-    sizeof(((struct hdag_file_header *)0)->hash_len) +
-    sizeof(((struct hdag_file_header *)0)->node_num) +
-    sizeof(((struct hdag_file_header *)0)->edge_num),
-    "The hdag_file_header structure is not packed"
+HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
+    hdag_file_header,
+    signature,
+    version.major,
+    version.minor,
+    hash_len,
+    node_num,
+    edge_num
 );
 
 /**
