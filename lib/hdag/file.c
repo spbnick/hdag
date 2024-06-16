@@ -236,6 +236,7 @@ hdag_file_close(struct hdag_file *pfile)
         }
         *pfile = (struct hdag_file){0,};
         assert(hdag_file_is_valid(pfile));
+        assert(!hdag_file_is_open(pfile));
     }
     return true;
 }
