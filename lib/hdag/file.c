@@ -120,6 +120,14 @@ hdag_file_create(struct hdag_file *pfile,
             file.header->node_num
     );
 
+    /* Copy the bundle data */
+    file.header->node_num = bundle.nodes_num;
+    memcpy(file.nodes, bundle.nodes,
+           hdag_node_size(file.header->hash_len) * bundle.nodes_num);
+    file.header->node_num = bundle.nodes_num;
+    memcpy(file.edges, bundle.extra_edges,
+           sizeof(*bundle.extra_edges) * bundle.extra_edges_num);
+
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
 

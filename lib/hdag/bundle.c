@@ -263,6 +263,12 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
         }
     }
 
+    /* Remove target hashes */
+    bundle->target_hashes_num = 0;
+    bundle->target_hashes_allocated = 0;
+    free(bundle->target_hashes);
+    bundle->target_hashes = NULL;
+
     return true;
 }
 
@@ -407,6 +413,12 @@ hdag_bundle_create(struct hdag_bundle *pbundle,
                                       &bundle.target_hashes_allocated,
                                       bundle.target_hashes_num,
                                       bundle.hash_len)) {
+            goto cleanup;
+        }
+        if (!hdag_bundle_shrink_space((void **)&bundle.extra_edges,
+                                      &bundle.extra_edges_allocated,
+                                      bundle.extra_edges_num,
+                                      sizeof(*bundle.extra_edges))) {
             goto cleanup;
         }
         *pbundle = bundle;
