@@ -42,8 +42,68 @@ struct hdag_bundle {
     struct hdag_edge   *extra_edges;
 };
 
-/** An empty bundle */
-#define HDAG_BUNDLE_EMPTY (struct hdag_bundle){0, }
+/** An empty bundle with specified hash length */
+#define HDAG_BUNDLE_EMPTY(_hash_len) \
+    (struct hdag_bundle){.hash_len = hdag_hash_len_validate(_hash_len), 0}
+
+/**
+ * Check if a bundle is valid.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bundle is valid, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_valid(const struct hdag_bundle *bundle)
+{
+    return bundle != NULL &&
+        hdag_hash_len_is_valid(bundle->hash_len) &&
+        bundle->nodes_num <= bundle->nodes_allocated &&
+        (bundle->nodes != NULL ||
+         bundle->nodes_allocated == 0) &&
+        bundle->target_hashes_num <= bundle->target_hashes_allocated &&
+        (bundle->target_hashes != NULL ||
+         bundle->target_hashes_allocated == 0) &&
+        bundle->extra_edges_num <= bundle->extra_edges_allocated &&
+        (bundle->extra_edges != NULL ||
+         bundle->extra_edges_allocated == 0);
+}
+
+/**
+ * Check if a bundle is empty.
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the bundle is empty, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_empty(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return !(
+        bundle->nodes_num ||
+        bundle->target_hashes_num ||
+        bundle->extra_edges_num
+    );
+}
+
+/**
+ * Check if a bundle is clean (does not reference allocated data).
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the bundle is clean, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_clean(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return !(
+        bundle->nodes_allocated ||
+        bundle->target_hashes_allocated ||
+        bundle->extra_edges_allocated
+    );
+}
 
 /**
  * Cleanup a bundle, freeing associated resources (but not the bundle
@@ -56,18 +116,16 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 /**
  * Load a node sequence (adjacency list) into a bundle.
  *
- * @param pbundle   Location for the bundle.
- *                  Not modified in case of error.
- *                  Can be NULL to have the bundle discarded.
- * @param hash_len  The length of the node hashes.
- * @param node_seq  The sequence of nodes (and optionally their
- *                  targets) to load.
+ * @param bundle    The bundle to load the node sequence into.
+ *                  Must be valid and empty. Can be left unclean on failure.
+ * @param node_seq  The sequence of nodes (and optionally their targets)
+ *                  to load. Node hash length is assumed to be the bundle's
+ *                  hash length.
  *
  * @return True if the data was loaded and processed successfully,
  *         false if not. The errno is set in case of failure.
  */
-extern bool hdag_bundle_create(struct hdag_bundle *pbundle,
-                               uint16_t hash_len,
-                               struct hdag_node_seq node_seq);
+extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
+                                      struct hdag_node_seq node_seq);
 
 #endif /* _HDAG_BUNDLE_H */

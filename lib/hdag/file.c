@@ -39,7 +39,7 @@ hdag_file_create(struct hdag_file *pfile,
     bool result = false;
     int orig_errno;
     int fd = -1;
-    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
     struct hdag_file file = HDAG_FILE_CLOSED;
     struct hdag_file_header header = {
         .signature = HDAG_FILE_SIGNATURE,
@@ -52,7 +52,7 @@ hdag_file_create(struct hdag_file *pfile,
     assert(hdag_hash_len_is_valid(hash_len));
 
     /* Load the nodes and their targets into a bundle */
-    if (!hdag_bundle_create(&bundle, hash_len, node_seq)) {
+    if (!hdag_bundle_load_node_seq(&bundle, node_seq)) {
         goto cleanup;
     }
 
