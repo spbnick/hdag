@@ -1,16 +1,16 @@
 /*
- * Hash DAG file preprocessing
+ * Hash DAG bundle - a file in the making
  */
 
-#ifndef _HDAG_FILE_PRE_H
-#define _HDAG_FILE_PRE_H
+#ifndef _HDAG_BUNDLE_H
+#define _HDAG_BUNDLE_H
 
 #include <hdag/edge.h>
 #include <hdag/node.h>
 #include <hdag/node_seq.h>
 
-/** A preprocessed file */
-struct hdag_file_pre {
+/** A bundle */
+struct hdag_bundle {
     /** The length of the node hash */
     uint16_t            hash_len;
 
@@ -42,32 +42,32 @@ struct hdag_file_pre {
     struct hdag_edge   *extra_edges;
 };
 
-/** An empty preprocessed file */
-#define HDAG_FILE_PRE_EMPTY (struct hdag_file_pre){0, }
+/** An empty bundle */
+#define HDAG_BUNDLE_EMPTY (struct hdag_bundle){0, }
 
 /**
- * Cleanup a preprocessed file, freeing associated resources (but not the
- * file structure itself).
+ * Cleanup a bundle, freeing associated resources (but not the bundle
+ * structure itself).
  *
- * @param file_pre  The preprocessed file to cleanup.
+ * @param bundle    The bundle to cleanup.
  */
-extern void hdag_file_pre_cleanup(struct hdag_file_pre *file_pre);
+extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 
 /**
- * Load a node sequence (adjacency list) into a preprocessed file.
+ * Load a node sequence (adjacency list) into a bundle.
  *
- * @param pfile_pre Location for the preprocessed file.
+ * @param pbundle   Location for the bundle.
  *                  Not modified in case of error.
- *                  Can be NULL to have the preprocessed file discarded.
+ *                  Can be NULL to have the bundle discarded.
  * @param hash_len  The length of the node hashes.
  * @param node_seq  The sequence of nodes (and optionally their
  *                  targets) to load.
  *
- * @return True if the data was loaded and preprocessed successfully,
+ * @return True if the data was loaded and processed successfully,
  *         false if not. The errno is set in case of failure.
  */
-extern bool hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
-                                 uint16_t hash_len,
-                                 struct hdag_node_seq node_seq);
+extern bool hdag_bundle_create(struct hdag_bundle *pbundle,
+                               uint16_t hash_len,
+                               struct hdag_node_seq node_seq);
 
-#endif /* _HDAG_FILE_PRE_H */
+#endif /* _HDAG_BUNDLE_H */

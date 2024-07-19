@@ -2,7 +2,7 @@
  * Hash DAG file operations
  */
 
-#include <hdag/file_pre.h>
+#include <hdag/bundle.h>
 #include <hdag/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -39,7 +39,7 @@ hdag_file_create(struct hdag_file *pfile,
     bool result = false;
     int orig_errno;
     int fd = -1;
-    struct hdag_file_pre file_pre = HDAG_FILE_PRE_EMPTY;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY;
     struct hdag_file file = HDAG_FILE_CLOSED;
     struct hdag_file_header header = {
         .signature = HDAG_FILE_SIGNATURE,
@@ -51,16 +51,16 @@ hdag_file_create(struct hdag_file *pfile,
     assert(strlen(pathname) < sizeof(file.pathname));
     assert(hdag_hash_len_is_valid(hash_len));
 
-    /* Load the nodes and their targets into a "preprocessed file" */
-    if (!hdag_file_pre_create(&file_pre, hash_len, node_seq)) {
+    /* Load the nodes and their targets into a bundle */
+    if (!hdag_bundle_create(&bundle, hash_len, node_seq)) {
         goto cleanup;
     }
 
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
     /* Calculate the file size */
-    file.size = hdag_file_size(hash_len, file_pre.nodes_num,
-                               file_pre.extra_edges_num);
+    file.size = hdag_file_size(hash_len, bundle.nodes_num,
+                               bundle.extra_edges_num);
 
     /* If creating an anonymous mapping */
     if (*file.pathname == 0) {
@@ -140,7 +140,7 @@ cleanup:
     if (file.contents != NULL) {
         munmap(file.contents, file.size);
     }
-    hdag_file_pre_cleanup(&file_pre);
+    hdag_bundle_cleanup(&bundle);
     errno = orig_errno;
     return result;
 }

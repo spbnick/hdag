@@ -1,8 +1,8 @@
 /*
- * Hash DAG file preprocessing
+ * Hash DAG bundle - a file in the making
  */
 
-#include <hdag/file_pre.h>
+#include <hdag/bundle.h>
 #include <hdag/nodes.h>
 #include <hdag/hash.h>
 #include <string.h>
@@ -25,8 +25,8 @@
  *         and pamemb locations are not changed.
  */
 static bool
-hdag_file_pre_make_space(void **parray, size_t *pamemb, size_t init_amemb,
-                         size_t nmemb, size_t size)
+hdag_bundle_make_space(void **parray, size_t *pamemb, size_t init_amemb,
+                       size_t nmemb, size_t size)
 {
     assert(parray != NULL);
     assert(pamemb != NULL);
@@ -60,8 +60,8 @@ hdag_file_pre_make_space(void **parray, size_t *pamemb, size_t init_amemb,
  *         and pamemb locations are not changed.
  */
 static bool
-hdag_file_pre_shrink_space(void **parray, size_t *pamemb,
-                           size_t nmemb, size_t size)
+hdag_bundle_shrink_space(void **parray, size_t *pamemb,
+                         size_t nmemb, size_t size)
 {
     assert(parray != NULL);
     assert(pamemb != NULL);
@@ -82,29 +82,29 @@ hdag_file_pre_shrink_space(void **parray, size_t *pamemb,
 }
 
 void
-hdag_file_pre_cleanup(struct hdag_file_pre *file_pre)
+hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
-    free(file_pre->nodes);
-    free(file_pre->target_hashes);
-    free(file_pre->extra_edges);
-    *file_pre = HDAG_FILE_PRE_EMPTY;
+    free(bundle->nodes);
+    free(bundle->target_hashes);
+    free(bundle->extra_edges);
+    *bundle = HDAG_BUNDLE_EMPTY;
 }
 
 /**
- * Remove duplicate node entries, preferring known ones, from a preprocessed
- * file, assuming nodes are sorted by hash.
+ * Remove duplicate node entries, preferring known ones, from a bundle,
+ * assuming nodes are sorted by hash.
  *
- * @param file_pre  The preprocessed file to deduplicate nodes in.
+ * @param bundle    The bundle to deduplicate nodes in.
  */
 static void
-hdag_file_pre_dedup(struct hdag_file_pre *file_pre)
+hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
-    assert(file_pre != NULL);
-    assert(hdag_hash_len_is_valid(file_pre->hash_len));
+    assert(bundle != NULL);
+    assert(hdag_hash_len_is_valid(bundle->hash_len));
 
-#define NODE_OFF(_node, _off) hdag_node_off(_node, file_pre->hash_len, _off)
+#define NODE_OFF(_node, _off) hdag_node_off(_node, bundle->hash_len, _off)
 
-#define NODE(_idx) NODE_OFF(file_pre->nodes, _idx)
+#define NODE(_idx) NODE_OFF(bundle->nodes, _idx)
 
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
@@ -121,12 +121,12 @@ hdag_file_pre_dedup(struct hdag_file_pre *file_pre)
     int relation;
 
     /* For each node, starting from the end */
-    for (idx = (ssize_t)file_pre->nodes_num - 1, node = NODE(idx),
+    for (idx = (ssize_t)bundle->nodes_num - 1, node = NODE(idx),
          first_idx = idx, first_node = node;
          idx >= 0;
          idx--, prev_node = node, node = NODE_OFF(node, -1)) {
         assert(hdag_node_is_valid(node));
-        relation = memcmp(node->hash, first_node->hash, file_pre->hash_len);
+        relation = memcmp(node->hash, first_node->hash, bundle->hash_len);
         assert(relation <= 0);
         /* If the nodes have the same hash */
         if (relation == 0) {
@@ -146,8 +146,8 @@ hdag_file_pre_dedup(struct hdag_file_pre *file_pre)
                 }
                 /* Move the already-deduped nodes over the rest of this run */
                 memmove(NODE(idx + 2), NODE(first_idx + 1),
-                        file_pre->nodes_num - (first_idx + 1));
-                file_pre->nodes_num -= first_idx - (idx + 1);
+                        bundle->nodes_num - (first_idx + 1));
+                bundle->nodes_num -= first_idx - (idx + 1);
             }
             first_idx = idx;
             first_node = node;
@@ -161,13 +161,13 @@ hdag_file_pre_dedup(struct hdag_file_pre *file_pre)
  * Compact edge targets into nodes, putting the rest into "extra edges",
  * assuming the nodes are sorted and de-duplicated.
  *
- * @param file_pre  The preprocessed file to compact edges in.
+ * @param bundle    The bundle to compact edges in.
  *
  * @return True if compaction succeeded, false if it failed.
  *         Errno is set in case of failure.
  */
 static bool
-hdag_file_pre_compact(struct hdag_file_pre *file_pre)
+hdag_bundle_compact(struct hdag_bundle *bundle)
 {
     /* Minimal number of extra edges to allocate */
     const size_t init_extra_edges_allocated = 64;
@@ -180,13 +180,13 @@ hdag_file_pre_compact(struct hdag_file_pre *file_pre)
     /* Currently traversed node */
     struct hdag_node *node;
 
-    assert(file_pre != NULL);
-    assert(hdag_hash_len_is_valid(file_pre->hash_len));
+    assert(bundle != NULL);
+    assert(hdag_hash_len_is_valid(bundle->hash_len));
 
     /* For each node, from start to end */
-    for (idx = 0, node = file_pre->nodes;
-         idx < file_pre->nodes_num;
-         idx++, node = hdag_node_off(node, file_pre->hash_len, 1)) {
+    for (idx = 0, node = bundle->nodes;
+         idx < bundle->nodes_num;
+         idx++, node = hdag_node_off(node, bundle->hash_len, 1)) {
         assert(hdag_node_is_valid(node));
         /* If the node's targets are unknown */
         if (hdag_targets_are_unknown(&node->targets)) {
@@ -194,55 +194,55 @@ hdag_file_pre_compact(struct hdag_file_pre *file_pre)
         }
         /* If there's more than two targets */
         if (node->targets.last - node->targets.first > 1) {
-            size_t first_extra_edge_idx = file_pre->extra_edges_num;
+            size_t first_extra_edge_idx = bundle->extra_edges_num;
 
             /* Convert all target hashes to extra edges */
             for (hash_idx = hdag_target_to_ind_idx(node->targets.first);
                  hash_idx <= hdag_target_to_ind_idx(node->targets.last);
                  hash_idx++) {
                 found_idx = hdag_nodes_find(
-                    file_pre->nodes, file_pre->nodes_num, file_pre->hash_len,
-                    file_pre->target_hashes + file_pre->hash_len * hash_idx
+                    bundle->nodes, bundle->nodes_num, bundle->hash_len,
+                    bundle->target_hashes + bundle->hash_len * hash_idx
                 );
                 /* All hashes must be locatable */
                 assert(found_idx < INT32_MAX);
                 /* Hash indices must be valid */
-                assert(found_idx < file_pre->target_hashes_num);
+                assert(found_idx < bundle->target_hashes_num);
 
                 /* Make space for another edge */
-                if (!hdag_file_pre_make_space(
-                        (void **)&file_pre->extra_edges,
-                        &file_pre->extra_edges_allocated,
+                if (!hdag_bundle_make_space(
+                        (void **)&bundle->extra_edges,
+                        &bundle->extra_edges_allocated,
                         init_extra_edges_allocated,
-                        file_pre->extra_edges_num,
-                        sizeof(file_pre->extra_edges)
+                        bundle->extra_edges_num,
+                        sizeof(bundle->extra_edges)
                 )) {
                     return false;
                 }
 
                 /* Store the edge */
-                file_pre->extra_edges[
-                    file_pre->extra_edges_num
+                bundle->extra_edges[
+                    bundle->extra_edges_num
                 ].node_idx = found_idx;
-                file_pre->extra_edges_num++;
+                bundle->extra_edges_num++;
             }
 
             /* Store the extra edge indices */
             node->targets.first =
                 hdag_target_from_ind_idx(first_extra_edge_idx);
             node->targets.last =
-                hdag_target_from_ind_idx(file_pre->extra_edges_num - 1);
+                hdag_target_from_ind_idx(bundle->extra_edges_num - 1);
         } else {
             /* Store targets inside the node */
             hash_idx = hdag_target_to_ind_idx(node->targets.first);
             found_idx = hdag_nodes_find(
-                file_pre->nodes, file_pre->nodes_num, file_pre->hash_len,
-                file_pre->target_hashes + file_pre->hash_len * hash_idx
+                bundle->nodes, bundle->nodes_num, bundle->hash_len,
+                bundle->target_hashes + bundle->hash_len * hash_idx
             );
             /* All hashes must be locatable */
             assert(found_idx < INT32_MAX);
             /* Hash indices must be valid */
-            assert(found_idx < file_pre->target_hashes_num);
+            assert(found_idx < bundle->target_hashes_num);
             /* Store the first target */
             node->targets.first = hdag_target_from_ind_idx(found_idx);
 
@@ -250,13 +250,13 @@ hdag_file_pre_compact(struct hdag_file_pre *file_pre)
             if (node->targets.last > node->targets.first) {
                 hash_idx = hdag_target_to_ind_idx(node->targets.first);
                 found_idx = hdag_nodes_find(
-                    file_pre->nodes, file_pre->nodes_num, file_pre->hash_len,
-                    file_pre->target_hashes + file_pre->hash_len * hash_idx
+                    bundle->nodes, bundle->nodes_num, bundle->hash_len,
+                    bundle->target_hashes + bundle->hash_len * hash_idx
                 );
                 /* All hashes must be locatable */
                 assert(found_idx < INT32_MAX);
                 /* Hash indices must be valid */
-                assert(found_idx < file_pre->target_hashes_num);
+                assert(found_idx < bundle->target_hashes_num);
                 /* Store the last target */
                 node->targets.last = hdag_target_from_ind_idx(found_idx);
             }
@@ -267,15 +267,15 @@ hdag_file_pre_compact(struct hdag_file_pre *file_pre)
 }
 
 bool
-hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
-                     uint16_t hash_len,
-                     struct hdag_node_seq node_seq)
+hdag_bundle_create(struct hdag_bundle *pbundle,
+                   uint16_t hash_len,
+                   struct hdag_node_seq node_seq)
 {
     bool                    result = false;
     const size_t            init_nodes_allocated = 64;
     const size_t            init_target_hashes_allocated = 64;
 
-    struct hdag_file_pre    file_pre = HDAG_FILE_PRE_EMPTY;
+    struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY;
     const size_t            node_size = hdag_node_size(hash_len);
 
     uint8_t                *node_hash = NULL;
@@ -286,13 +286,13 @@ hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
 
     size_t                  first_target_hash_idx;
 
-    file_pre.hash_len = hash_len;
+    bundle.hash_len = hash_len;
 
-    node_hash = malloc(file_pre.hash_len);
+    node_hash = malloc(bundle.hash_len);
     if (node_hash == NULL) {
         goto cleanup;
     }
-    target_hash = malloc(file_pre.hash_len);
+    target_hash = malloc(bundle.hash_len);
     if (target_hash == NULL) {
         goto cleanup;
     }
@@ -300,46 +300,46 @@ hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
     /* Add a new node */
     #define ADD_NODE(_hash, _first_target, _last_target) \
         do {                                                \
-            if (!hdag_file_pre_make_space(                  \
-                    (void **)&file_pre.nodes,               \
-                    &file_pre.nodes_allocated,              \
+            if (!hdag_bundle_make_space(                    \
+                    (void **)&bundle.nodes,                 \
+                    &bundle.nodes_allocated,                \
                     init_nodes_allocated,                   \
-                    file_pre.nodes_num, node_size           \
+                    bundle.nodes_num, node_size             \
             )) {                                            \
                 goto cleanup;                               \
             }                                               \
                                                             \
             struct hdag_node *_node = (struct hdag_node *)( \
-                (uint8_t *)file_pre.nodes +                 \
-                file_pre.nodes_num * node_size              \
+                (uint8_t *)bundle.nodes +                   \
+                bundle.nodes_num * node_size                \
             );                                              \
                                                             \
-            memcpy(_node->hash, _hash, file_pre.hash_len);  \
+            memcpy(_node->hash, _hash, bundle.hash_len);    \
             _node->targets.first = _first_target;           \
             _node->targets.last = _last_target;             \
-            file_pre.nodes_num++;                           \
+            bundle.nodes_num++;                             \
         } while (0)
 
     /* Add a new target hash (and the corresponding node) */
     #define ADD_TARGET_HASH(_hash) \
-        do {                                                \
-            if (!hdag_file_pre_make_space(                  \
-                    (void **)&file_pre.target_hashes,       \
-                    &file_pre.target_hashes_allocated,      \
-                    init_target_hashes_allocated,           \
-                    file_pre.target_hashes_num,             \
-                    file_pre.hash_len                       \
-            )) {                                            \
-                goto cleanup;                               \
-            }                                               \
-            memcpy(file_pre.target_hashes +                 \
-                   file_pre.hash_len *                      \
-                    file_pre.target_hashes_num,             \
-                   _hash, file_pre.hash_len);               \
-            file_pre.target_hashes_num++;                   \
-            ADD_NODE(_hash,                                 \
-                     HDAG_TARGET_UNKNOWN,                   \
-                     HDAG_TARGET_UNKNOWN);                  \
+        do {                                            \
+            if (!hdag_bundle_make_space(                \
+                    (void **)&bundle.target_hashes,     \
+                    &bundle.target_hashes_allocated,    \
+                    init_target_hashes_allocated,       \
+                    bundle.target_hashes_num,           \
+                    bundle.hash_len                     \
+            )) {                                        \
+                goto cleanup;                           \
+            }                                           \
+            memcpy(bundle.target_hashes +               \
+                   bundle.hash_len *                    \
+                    bundle.target_hashes_num,           \
+                   _hash, bundle.hash_len);             \
+            bundle.target_hashes_num++;                 \
+            ADD_NODE(_hash,                             \
+                     HDAG_TARGET_UNKNOWN,               \
+                     HDAG_TARGET_UNKNOWN);              \
         } while (0)
 
     /* Collect each node (and its targets) in the sequence */
@@ -354,7 +354,7 @@ hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
             }
         }
 
-        first_target_hash_idx = file_pre.target_hashes_num;
+        first_target_hash_idx = bundle.target_hashes_num;
 
         /* Collect each target hash */
         while (true) {
@@ -370,13 +370,13 @@ hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
         }
 
         /* Add the node */
-        if (first_target_hash_idx == file_pre.target_hashes_num) {
+        if (first_target_hash_idx == bundle.target_hashes_num) {
             ADD_NODE(node_hash, HDAG_TARGET_INVALID, HDAG_TARGET_INVALID);
         } else {
             ADD_NODE(
                 node_hash,
                 hdag_target_from_ind_idx(first_target_hash_idx),
-                hdag_target_from_ind_idx(file_pre.target_hashes_num - 1)
+                hdag_target_from_ind_idx(bundle.target_hashes_num - 1)
             );
         }
     }
@@ -385,38 +385,38 @@ hdag_file_pre_create(struct hdag_file_pre *pfile_pre,
     #undef MAKE_NODE_SPACE
 
     /* Sort the nodes by hash lexicographically */
-    qsort_r(file_pre.nodes, file_pre.nodes_num, node_size,
-            hdag_node_cmp, &file_pre.hash_len);
+    qsort_r(bundle.nodes, bundle.nodes_num, node_size,
+            hdag_node_cmp, &bundle.hash_len);
 
     /* Deduplicate the nodes */
-    hdag_file_pre_dedup(&file_pre);
+    hdag_bundle_dedup(&bundle);
 
     /* Attempt to compact the edges */
-    if (!hdag_file_pre_compact(&file_pre)) {
+    if (!hdag_bundle_compact(&bundle)) {
         goto cleanup;
     }
 
-    /* Hand over the preprocessed file, if requested */
-    if (pfile_pre != NULL) {
-        if (!hdag_file_pre_shrink_space((void **)&file_pre.nodes,
-                                        &file_pre.nodes_allocated,
-                                        file_pre.nodes_num, node_size)) {
+    /* Hand over the bundle, if requested */
+    if (pbundle != NULL) {
+        if (!hdag_bundle_shrink_space((void **)&bundle.nodes,
+                                      &bundle.nodes_allocated,
+                                      bundle.nodes_num, node_size)) {
             goto cleanup;
         }
-        if (!hdag_file_pre_shrink_space((void **)&file_pre.target_hashes,
-                                        &file_pre.target_hashes_allocated,
-                                        file_pre.target_hashes_num,
-                                        file_pre.hash_len)) {
+        if (!hdag_bundle_shrink_space((void **)&bundle.target_hashes,
+                                      &bundle.target_hashes_allocated,
+                                      bundle.target_hashes_num,
+                                      bundle.hash_len)) {
             goto cleanup;
         }
-        *pfile_pre = file_pre;
-        file_pre = HDAG_FILE_PRE_EMPTY;
+        *pbundle = bundle;
+        bundle = HDAG_BUNDLE_EMPTY;
     }
 
     result = true;
 
 cleanup:
-    hdag_file_pre_cleanup(&file_pre);
+    hdag_bundle_cleanup(&bundle);
     free(target_hash);
     free(node_hash);
     return result;
