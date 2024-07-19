@@ -141,3 +141,160 @@ So, no we won't have different types of edges. That would be too much.
 
 I wonder if we could simply have separate graphs for separate edge types?
 Hmm, that could do it!
+---
+OK, how do we fill a newly-created HDAG file with data?
+
+We can supply it at the moment of creation.
+Afterwards we don't allow changing it, except deleting nodes (marking them
+unknown).
+
+Perhaps the hdag_file_create can accept a callback which would return the node
+data, plus a function for retrieving its outgoing edges.
+
+We shouldn't expect to know the number of nodes from the start, because we
+need a node allocated for targets as well, which might not be in the nodes (be
+unknown at the moment, or be in another HDAG file?).
+
+Aaah, and here we need to know which nodes are already present in other files
+and which not. That means that the database needs to look them up through all
+the HDAG files. That also means that the database can take care of sorting and
+arranging the data for each file. And the hdag_file_create can accept
+pre-cooked data, and can be kept simple. Or even the database code can fill in
+whatever is needed itself, once the file is created. This would mean that the
+file module wouldn't need to think about locking, consistency, or anything
+else. Can we do that? Well, it would be good if it was the job of the file
+module to take care of internal consistency, and for database module to take
+care overall database consistency (no duplicates, no loops, and so on).
+
+Although, the file module would also need to take care of loops. Does it make
+easier the database's job of looking out for loops? Say, it could look for
+unknown nodes in each file and see if they're present in other files. If
+a node in one file refers to a node in another file, then they should have the
+same component ID. That should be arranged by the database code.
+
+We need to distinguish the components, so that we can compare generation
+numbers.
+
+Yes, the file module would need to do sorting as well, or at least verify it,
+because it has to provide the interface for looking up nodes.
+
+We don't need an online sorting algorithm when ingesting nodes, as our storage
+structure cannot be reshuffled efficiently, and so we cannot use it as our
+storage for sorting in progress. We would need to accumulate the received
+nodes, then sort them, and then output them into our storage sorted.
+---
+OK, we don't know how many node entries we'll have in the file, so we need to
+either store the incoming data in a separate structure, or be able to resize a
+file. The problem with sorting the file structure is updating the target
+references. In particular, we have to walk them back, which the file has no
+optimization for.
+
+So, perhaps we would need to sort them in a separate structure, after all.
+And then we don't really need to make the file resizeable.
+
+We can allow supplying both an adjacency list and an edge list when creating
+the file, because we would have to have an edge list anyway to avoid
+variable-length node records, or updating references.
+
+Hmm, actually, perhaps each node in this representation can reference the
+starting and the ending indices in a separate list of targets instead?
+
+This way we can first fill up the unsorted node list... no...
+
+We would have a problem with consuming a separate edge list, because we won't
+know how many targets a node would have, only after we've seen the whole list,
+and that would require us to reshuffle the list constantly as we're consuming
+it.
+
+So let's drop it and just consume the adjacency list.
+
+So:
+    * Fill in a (deduplicated) array of node hashes:
+        * The hashes returned by node_seq
+        * The hashes returned by hash_seq
+
+    NOTE: We gotta mark hashes for which we haven't received a node yet,
+          somehow
+
+    * Fill in an array of target hashes
+
+    * Sort the node hash array.
+
+Actually, we *can* use struct hdag_file_node, and simply always use target
+list references. But we would need a different target list from the one in the
+file, as it should contain hashes, rather than indexes into the node list.
+
+OK, which sorting approach do we take? If we use qsort, the performance should
+be good, since the data is randomly distributed, but we will need to store the
+list of all nodes and *all* targets, because deduplicating requires lookup.
+
+I.e. we just store all node hashes, and all target hashes, without
+deduplicating, then we sort, then we deduplicate. In general, in git history
+graphs, there's not much duplication of target nodes. So it probably won't be
+a big deal. Ah, wait, we would need at least 2N-1 memory to put both the
+nodes and their targets in the same array, without deduplication. So, maybe we
+better use skip list sort for online sorting and deduplication.
+
+OK, another try:
+
+    For each received node and its adjacency list
+        Insert 
+
+Ah, wait, if we're going to simply put *all* the target hashes into an array,
+without packing most of them into the node, then we would take a similar
+amount of memory as the qsort approach does.
+
+OK, let's start with the simplest, qsort approach.
+
+So:
+
+    For each received node and its adjacency list
+        Remember the length of the target array
+        For each hash in the adjacency list
+            Add an entry into the node array:
+                hash
+                first target index = unknown
+                second target index = unknown
+            Add an entry into the target array:
+                hash
+
+        Add node info to the array:
+            hash
+            if current target array length == remembered length
+                first target index = invalid
+                second target index = invalid
+            else
+                first target index = remembered length
+                second target index = current length - 1
+
+    Sort node array
+
+---
+
+Sooo, how would we deduplicate the preprocessed array of nodes?
+
+We need to leave only one node of each hash. After sorting they will be put
+together.
+
+If there's a node with known targets among same-hash nodes, it should be used.
+Otherwise, any node with unknown targets should used.
+---
+Add nodes and target hashes to corresponding arrays, as they come in
+Sort nodes by their hashes
+De-duplicate nodes by their hashes
+Compact the targets
+---
+# Compacting
+for each node, start to end
+    if node targets are unknown
+        continue
+    if there's more than two of known targets
+        set node's first target to indirect index of next available extra edge slot
+        for each target hash
+            lookup node index
+            add an extra edge with that target index
+        set node's second target to indirect index of the last taken extra edge slot
+    else
+        for each target hash
+            lookup node index
+            store it in the node's targets as direct index

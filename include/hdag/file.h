@@ -7,6 +7,11 @@
 #ifndef _HDAG_FILE_H
 #define _HDAG_FILE_H
 
+#include <hdag/edge.h>
+#include <hdag/node_seq.h>
+#include <hdag/node.h>
+#include <hdag/targets.h>
+#include <hdag/hash.h>
 #include <hdag/misc.h>
 #include <fcntl.h>
 #include <linux/limits.h>
@@ -29,7 +34,7 @@ struct hdag_file_header {
         uint8_t major;
         uint8_t minor;
     } version;
-    /** Hash length, bytes */
+    /** Hash length, bytes, must be divisible by four */
     uint16_t    hash_len;
     /** Number of nodes */
     uint32_t    node_num;
@@ -61,120 +66,9 @@ hdag_file_header_is_valid(const struct hdag_file_header *header)
         header->signature == HDAG_FILE_SIGNATURE &&
         header->version.major == 0 &&
         header->version.minor == 0 &&
+        hdag_hash_len_is_valid(header->hash_len) &&
         ffs(header->node_num) <= header->hash_len * 8;
 }
-
-/** An node's (outgoing edge's) target value */
-typedef uint32_t    hdag_file_target;
-
-/** A node's invalid (absent) target (outgoing edge's target) */
-#define HDAG_FILE_TARGET_INVALID    (hdag_file_target)0
-
-/** A node's unknown target (outgoing edge's target) */
-#define HDAG_FILE_TARGET_UNKNOWN    (hdag_file_target)UINT32_MAX
-
-/** Minimum target value for a node index */
-#define HDAG_FILE_TARGET_NODE_IDX_MIN   (HDAG_FILE_TARGET_INVALID + 1)
-/** Maximum target value for a node index */
-#define HDAG_FILE_TARGET_NODE_IDX_MAX   (hdag_file_target)INT32_MAX
-
-/** Minimum target value for an edge index */
-#define HDAG_FILE_TARGET_EDGE_IDX_MIN   (HDAG_FILE_TARGET_NODE_IDX_MAX + 1)
-/** Maximum target value for an edge index */
-#define HDAG_FILE_TARGET_EDGE_IDX_MAX   (HDAG_FILE_TARGET_UNKNOWN - 1)
-
-/**
- * Check if a node's target is a node index.
- *
- * @param target    The target value to check.
- *
- * @return True if the target is a node index, false otherwise.
- */
-static inline bool
-hdag_file_target_is_node_idx(hdag_file_target target)
-{
-    return target >= HDAG_FILE_TARGET_NODE_IDX_MIN &&
-        target <= HDAG_FILE_TARGET_NODE_IDX_MAX;
-}
-
-/**
- * Check if a node's target is an outgoing edge list boundary index.
- *
- * @param target    The target value to check.
- *
- * @return True if the target is an outgoing edge list boundary index,
- *         false otherwise.
- */
-static inline bool
-hdag_file_target_is_edge_idx(hdag_file_target target)
-{
-    return target >= HDAG_FILE_TARGET_EDGE_IDX_MIN &&
-        target <= HDAG_FILE_TARGET_EDGE_IDX_MAX;
-}
-
-/**
- * Extract the target node's index from a target value.
- *
- * @param target    The target value to extract the node index from.
- *
- * @return The node index.
- */
-static inline size_t
-hdag_file_target_get_node_idx(hdag_file_target target)
-{
-    assert(hdag_file_target_is_node_idx(target));
-    return target - HDAG_FILE_TARGET_NODE_IDX_MIN;
-}
-
-/**
- * Extract the outgoing edge list boundary from a target value.
- *
- * @param target    The target value to extract outgoing edge list boundary
- *                  index from.
- *
- * @return The edge index.
- */
-static inline size_t
-hdag_file_target_get_edge_idx(hdag_file_target target)
-{
-    assert(hdag_file_target_is_edge_idx(target));
-    return target - HDAG_FILE_TARGET_EDGE_IDX_MIN;
-}
-
-/** A reference to targets of a node */
-struct hdag_file_targets {
-    /** The first target */
-    hdag_file_target    first;
-    /** The last target */
-    hdag_file_target    last;
-};
-
-/** A node */
-struct hdag_file_node {
-    /** The node's generation number */
-    uint32_t generation;
-    /** The targets of outgoing edges */
-    struct hdag_file_targets targets;
-    /** The hash with length of struct hdag_file_header.hash_len */
-    uint8_t hash[];
-};
-
-/**
- * Calculate the size of a node based on the ID hash length.
- *
- * @param hash_len  The length of the node ID hash, bytes.
- */
-static inline size_t
-hdag_file_node_size(uint16_t hash_len)
-{
-    return sizeof(struct hdag_file_node) + hash_len;
-}
-
-/** An edge */
-struct hdag_file_edge {
-    /** The edge's target node index */
-    uint32_t    node_idx;
-};
 
 /**
  * The file state.
@@ -193,11 +87,16 @@ struct hdag_file {
     /** The file header */
     struct hdag_file_header    *header;
 
-    /** The node array */
-    struct hdag_file_node      *nodes;
+    /**
+     * The node array.
+     *
+     * The node's target's direct indexes point into this array.
+     * The indirect ones point into the edges array.
+     */
+    struct hdag_node           *nodes;
 
     /** The edge array */
-    struct hdag_file_edge      *edges;
+    struct hdag_edge           *edges;
 };
 
 /** An initializer for a closed file */
@@ -218,17 +117,19 @@ hdag_file_size(uint16_t hash_len,
                uint32_t node_num,
                uint32_t edge_num)
 {
+    assert(hdag_hash_len_is_valid(hash_len));
     return sizeof(struct hdag_file_header) +
-           hdag_file_node_size(hash_len) * node_num +
-           sizeof(struct hdag_file_edge) * edge_num;
+           hdag_node_size(hash_len) * node_num +
+           sizeof(struct hdag_edge) * edge_num;
 }
 
 /**
- * Create and open an empty hash DAG file with specified parameters.
+ * Create and open a hash DAG file with specified parameters.
  *
  * @param pfile             Location for the state of the opened file.
  *                          Not modified in case of failure.
- *                          Can be NULL to have the file closed after opening.
+ *                          Can be NULL to have the file closed after
+ *                          creation.
  * @param pathname          The file's pathname (template), or empty string to
  *                          open an in-memory file. Cannot be longer than
  *                          PATH_MAX, including the terminating '\0'.
@@ -240,11 +141,11 @@ hdag_file_size(uint16_t hash_len,
  *                          empty.
  * @param open_mode         The mode bitmap to supply to open(2).
  *                          Ignored, if pathname is empty.
- * @param hash_len          The length of the hashes, bytes.
- * @param node_num          Number of blank nodes to allocate.
- * @param edge_num          Number of blank edges to allocate.
+ * @param hash_len          The length of the node hashes, bytes.
+ * @param node_seq          The sequence of nodes (and optionally their
+ *                          targets) to store in the created file.
  *
- * @return True if the file was successfully created and open, false if not.
+ * @return True if the file was successfully created and opened, false if not.
  *         The errno is set in case of failure.
  */
 extern bool hdag_file_create(struct hdag_file *pfile,
@@ -252,8 +153,7 @@ extern bool hdag_file_create(struct hdag_file *pfile,
                              int template_sfxlen,
                              mode_t open_mode,
                              uint16_t hash_len,
-                             uint32_t node_num,
-                             uint32_t edge_num);
+                             struct hdag_node_seq node_seq);
 
 /**
  * Open a previously-created hash DAG file.
@@ -288,10 +188,13 @@ hdag_file_is_valid(const struct hdag_file *file)
         (file->contents == NULL) == (file->edges == NULL) &&
         (
             file->contents == NULL ||
-            file->size == hdag_file_size(
-                file->header->hash_len,
-                file->header->node_num,
-                file->header->edge_num
+            (
+                hdag_file_header_is_valid(file->header) &&
+                file->size == hdag_file_size(
+                    file->header->hash_len,
+                    file->header->node_num,
+                    file->header->edge_num
+                )
             )
         );
 }

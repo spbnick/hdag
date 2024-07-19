@@ -21,7 +21,7 @@ main(void)
     /*
      * In-memory file.
      */
-    if (!hdag_file_create(&file, "", -1, 0, 256 / 8, 0, 0)) {
+    if (!hdag_file_create(&file, "", -1, 0, 256 / 8, HDAG_NODE_SEQ_EMPTY)) {
         printf("Failed creating in-memory file: %s\n", strerror(errno));
         return 1;
     }
@@ -47,7 +47,7 @@ main(void)
      */
     if (!hdag_file_create(&file, "test.XXXXXX.hdag", 5,
                           S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                          256 / 8, 0, 0)) {
+                          256 / 8, HDAG_NODE_SEQ_EMPTY)) {
         printf("Failed creating on-disk file: %s\n", strerror(errno));
         return 1;
     }
