@@ -8,16 +8,13 @@
 #include <hdag/edge.h>
 #include <hdag/node.h>
 #include <hdag/node_seq.h>
+#include <hdag/darr.h>
 
 /** A bundle */
 struct hdag_bundle {
     /** The length of the node hash */
     uint16_t            hash_len;
 
-    /** Number of collected nodes */
-    size_t              nodes_num;
-    /** Number of allocated node slots */
-    size_t              nodes_allocated;
     /**
      * Nodes.
      * Before compacting, their targets are either unknown, or are indirect
@@ -25,26 +22,26 @@ struct hdag_bundle {
      * targets are either unknown, direct indices pointing into the same
      * array, or indirect indices pointing into the extra_edges array.
      */
-    struct hdag_node   *nodes;
+    struct hdag_darr    nodes;
 
-    /** Number of collected target hashes */
-    size_t              target_hashes_num;
-    /** Number of allocated target hash slots */
-    size_t              target_hashes_allocated;
     /** Target hashes */
-    uint8_t            *target_hashes;
+    struct hdag_darr    target_hashes;
 
-    /** Number of collected extra edges */
-    size_t              extra_edges_num;
-    /** Number of allocated extra edge slots */
-    size_t              extra_edges_allocated;
     /** The array of extra edges, which didn't fit into nodes themselves */
-    struct hdag_edge   *extra_edges;
+    struct hdag_darr    extra_edges;
 };
 
-/** An empty bundle with specified hash length */
-#define HDAG_BUNDLE_EMPTY(_hash_len) \
-    (struct hdag_bundle){.hash_len = hdag_hash_len_validate(_hash_len), 0}
+/**
+ * An initializer for an empty bundle.
+ *
+ * @param _hash_len The length of node hashes.
+ */
+#define HDAG_BUNDLE_EMPTY(_hash_len) (struct hdag_bundle){ \
+    .hash_len = hdag_hash_len_validate(_hash_len),                  \
+    .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),        \
+    .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                \
+    .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),   \
+}
 
 /**
  * Check if a bundle is valid.
@@ -58,15 +55,12 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 {
     return bundle != NULL &&
         hdag_hash_len_is_valid(bundle->hash_len) &&
-        bundle->nodes_num <= bundle->nodes_allocated &&
-        (bundle->nodes != NULL ||
-         bundle->nodes_allocated == 0) &&
-        bundle->target_hashes_num <= bundle->target_hashes_allocated &&
-        (bundle->target_hashes != NULL ||
-         bundle->target_hashes_allocated == 0) &&
-        bundle->extra_edges_num <= bundle->extra_edges_allocated &&
-        (bundle->extra_edges != NULL ||
-         bundle->extra_edges_allocated == 0);
+        hdag_darr_is_valid(&bundle->nodes) &&
+        bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
+        hdag_darr_is_valid(&bundle->target_hashes) &&
+        bundle->target_hashes.slot_size == bundle->hash_len &&
+        hdag_darr_is_valid(&bundle->extra_edges) &&
+        bundle->extra_edges.slot_size == sizeof(struct hdag_edge);
 }
 
 /**
@@ -80,11 +74,10 @@ static inline bool
 hdag_bundle_is_empty(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return !(
-        bundle->nodes_num ||
-        bundle->target_hashes_num ||
-        bundle->extra_edges_num
-    );
+    return
+        hdag_darr_is_empty(&bundle->nodes) &&
+        hdag_darr_is_empty(&bundle->target_hashes) &&
+        hdag_darr_is_empty(&bundle->extra_edges);
 }
 
 /**
@@ -98,11 +91,10 @@ static inline bool
 hdag_bundle_is_clean(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return !(
-        bundle->nodes_allocated ||
-        bundle->target_hashes_allocated ||
-        bundle->extra_edges_allocated
-    );
+    return
+        hdag_darr_is_clean(&bundle->nodes) &&
+        hdag_darr_is_clean(&bundle->target_hashes) &&
+        hdag_darr_is_clean(&bundle->extra_edges);
 }
 
 /**

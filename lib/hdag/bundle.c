@@ -8,87 +8,13 @@
 #include <string.h>
 
 
-/**
- * Make sure an allocated array has enough space to append another element, by
- * reallocating it to twice the current size when it's full.
- *
- * @param parray        Location of and for the array pointer.
- * @param pamemb        Location of and for the number of allocated member
- *                      slots.
- * @param init_amemb    Number of member slots to allocate initially, when the
- *                      array is zero size.
- * @param nmemb         The number of currently-occupied member slots.
- * @param size          The member size in bytes.
- *
- * @return True if there was enough space, or if the reallocation succeeded.
- *         False if it failed. The errno is set in case of failure and parray
- *         and pamemb locations are not changed.
- */
-static bool
-hdag_bundle_make_space(void **parray, size_t *pamemb, size_t init_amemb,
-                       size_t nmemb, size_t size)
-{
-    assert(parray != NULL);
-    assert(pamemb != NULL);
-    assert(nmemb <= *pamemb);
-    assert(size != 0);
-
-    if (nmemb == *pamemb) {
-        size_t new_amemb = (*pamemb << 1) || init_amemb;
-        void *new_array = reallocarray(*parray, new_amemb, size);
-        if (new_array == NULL) {
-            return false;
-        }
-        *pamemb = new_amemb;
-        *parray = new_array;
-    }
-
-    return true;
-}
-
-/**
- * Remove any extra space allocated for an array.
- *
- * @param parray        Location of and for the array pointer.
- * @param pamemb        Location of and for the number of allocated member
- *                      slots.
- * @param nmemb         The number of currently-occupied member slots.
- * @param size          The member size in bytes.
- *
- * @return True if there was no extra space, or if the reallocation succeeded.
- *         False if it failed. The errno is set in case of failure and parray
- *         and pamemb locations are not changed.
- */
-static bool
-hdag_bundle_shrink_space(void **parray, size_t *pamemb,
-                         size_t nmemb, size_t size)
-{
-    assert(parray != NULL);
-    assert(pamemb != NULL);
-    assert(nmemb <= *pamemb);
-    assert(size != 0);
-
-    if (nmemb != *pamemb) {
-        size_t new_amemb = nmemb;
-        void *new_array = reallocarray(*parray, new_amemb, size);
-        if (new_amemb != 0 && new_array == NULL) {
-            return false;
-        }
-        *pamemb = new_amemb;
-        *parray = new_array;
-    }
-
-    return true;
-}
-
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    free(bundle->nodes);
-    free(bundle->target_hashes);
-    free(bundle->extra_edges);
-    *bundle = HDAG_BUNDLE_EMPTY(bundle->hash_len);
+    hdag_darr_cleanup(&bundle->nodes);
+    hdag_darr_cleanup(&bundle->target_hashes);
+    hdag_darr_cleanup(&bundle->extra_edges);
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_clean(bundle));
 }
@@ -105,9 +31,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     assert(bundle != NULL);
     assert(hdag_hash_len_is_valid(bundle->hash_len));
 
-#define NODE_OFF(_node, _off) hdag_node_off(_node, bundle->hash_len, _off)
-
-#define NODE(_idx) NODE_OFF(bundle->nodes, _idx)
+#define NODE(_idx) hdag_darr_element(&bundle->nodes, _idx)
 
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
@@ -124,10 +48,9 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     int relation;
 
     /* For each node, starting from the end */
-    for (idx = (ssize_t)bundle->nodes_num - 1, node = NODE(idx),
-         first_idx = idx, first_node = node;
-         idx >= 0;
-         idx--, prev_node = node, node = NODE_OFF(node, -1)) {
+    HDAG_DARR_ITER_BACKWARD(&bundle->nodes, idx, node,
+                            (first_idx = idx, first_node = node),
+                            (prev_node = node)) {
         assert(hdag_node_is_valid(node));
         relation = memcmp(node->hash, first_node->hash, bundle->hash_len);
         assert(relation <= 0);
@@ -149,15 +72,14 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
                 }
                 /* Move the already-deduped nodes over the rest of this run */
                 memmove(NODE(idx + 2), NODE(first_idx + 1),
-                        bundle->nodes_num - (first_idx + 1));
-                bundle->nodes_num -= first_idx - (idx + 1);
+                        bundle->nodes.slots_occupied - (first_idx + 1));
+                bundle->nodes.slots_occupied -= first_idx - (idx + 1);
             }
             first_idx = idx;
             first_node = node;
         }
     }
 #undef NODE
-#undef NODE_OFF
 }
 
 /**
@@ -172,10 +94,8 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
 static bool
 hdag_bundle_compact(struct hdag_bundle *bundle)
 {
-    /* Minimal number of extra edges to allocate */
-    const size_t init_extra_edges_allocated = 64;
     /* The index of the currently-traversed node */
-    size_t idx;
+    ssize_t idx;
     /* A hash index */
     size_t hash_idx;
     /* The index of a found node */
@@ -187,9 +107,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     assert(hdag_hash_len_is_valid(bundle->hash_len));
 
     /* For each node, from start to end */
-    for (idx = 0, node = bundle->nodes;
-         idx < bundle->nodes_num;
-         idx++, node = hdag_node_off(node, bundle->hash_len, 1)) {
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         assert(hdag_node_is_valid(node));
         /* If the node's targets are unknown */
         if (hdag_targets_are_unknown(&node->targets)) {
@@ -197,55 +115,46 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
         }
         /* If there's more than two targets */
         if (node->targets.last - node->targets.first > 1) {
-            size_t first_extra_edge_idx = bundle->extra_edges_num;
+            size_t first_extra_edge_idx = bundle->extra_edges.slots_occupied;
 
             /* Convert all target hashes to extra edges */
             for (hash_idx = hdag_target_to_ind_idx(node->targets.first);
                  hash_idx <= hdag_target_to_ind_idx(node->targets.last);
                  hash_idx++) {
                 found_idx = hdag_nodes_find(
-                    bundle->nodes, bundle->nodes_num, bundle->hash_len,
-                    bundle->target_hashes + bundle->hash_len * hash_idx
+                    bundle->nodes.slots, bundle->nodes.slots_occupied,
+                    bundle->hash_len,
+                    hdag_darr_element(&bundle->target_hashes, hash_idx)
                 );
                 /* All hashes must be locatable */
                 assert(found_idx < INT32_MAX);
                 /* Hash indices must be valid */
-                assert(found_idx < bundle->target_hashes_num);
-
-                /* Make space for another edge */
-                if (!hdag_bundle_make_space(
-                        (void **)&bundle->extra_edges,
-                        &bundle->extra_edges_allocated,
-                        init_extra_edges_allocated,
-                        bundle->extra_edges_num,
-                        sizeof(bundle->extra_edges)
-                )) {
-                    return false;
-                }
-
+                assert(found_idx < bundle->target_hashes.slots_occupied);
                 /* Store the edge */
-                bundle->extra_edges[
-                    bundle->extra_edges_num
-                ].node_idx = found_idx;
-                bundle->extra_edges_num++;
+                ((struct hdag_edge *)hdag_darr_calloc_one(
+                    &bundle->extra_edges
+                ))->node_idx = found_idx;
             }
 
             /* Store the extra edge indices */
             node->targets.first =
                 hdag_target_from_ind_idx(first_extra_edge_idx);
             node->targets.last =
-                hdag_target_from_ind_idx(bundle->extra_edges_num - 1);
+                hdag_target_from_ind_idx(
+                        bundle->extra_edges.slots_occupied - 1
+                );
         } else {
             /* Store targets inside the node */
             hash_idx = hdag_target_to_ind_idx(node->targets.first);
             found_idx = hdag_nodes_find(
-                bundle->nodes, bundle->nodes_num, bundle->hash_len,
-                bundle->target_hashes + bundle->hash_len * hash_idx
+                bundle->nodes.slots, bundle->nodes.slots_occupied,
+                bundle->hash_len,
+                hdag_darr_element(&bundle->target_hashes, hash_idx)
             );
             /* All hashes must be locatable */
             assert(found_idx < INT32_MAX);
             /* Hash indices must be valid */
-            assert(found_idx < bundle->target_hashes_num);
+            assert(found_idx < bundle->target_hashes.slots_occupied);
             /* Store the first target */
             node->targets.first = hdag_target_from_ind_idx(found_idx);
 
@@ -253,13 +162,14 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
             if (node->targets.last > node->targets.first) {
                 hash_idx = hdag_target_to_ind_idx(node->targets.first);
                 found_idx = hdag_nodes_find(
-                    bundle->nodes, bundle->nodes_num, bundle->hash_len,
-                    bundle->target_hashes + bundle->hash_len * hash_idx
+                    bundle->nodes.slots, bundle->nodes.slots_occupied,
+                    bundle->hash_len,
+                    hdag_darr_element(&bundle->target_hashes, hash_idx)
                 );
                 /* All hashes must be locatable */
                 assert(found_idx < INT32_MAX);
                 /* Hash indices must be valid */
-                assert(found_idx < bundle->target_hashes_num);
+                assert(found_idx < bundle->target_hashes.slots_occupied);
                 /* Store the last target */
                 node->targets.last = hdag_target_from_ind_idx(found_idx);
             }
@@ -267,10 +177,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     }
 
     /* Remove target hashes */
-    bundle->target_hashes_num = 0;
-    bundle->target_hashes_allocated = 0;
-    free(bundle->target_hashes);
-    bundle->target_hashes = NULL;
+    hdag_darr_cleanup(&bundle->target_hashes);
 
     return true;
 }
@@ -280,17 +187,10 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                           struct hdag_node_seq node_seq)
 {
     bool                    result = false;
-    const size_t            init_nodes_allocated = 64;
-    const size_t            init_target_hashes_allocated = 64;
-
-    const size_t            node_size = hdag_node_size(bundle->hash_len);
-
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
     struct hdag_hash_seq    target_hash_seq;
-
     int                     seq_rc;
-
     size_t                  first_target_hash_idx;
 
     assert(hdag_bundle_is_valid(bundle));
@@ -308,46 +208,26 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     /* Add a new node */
     #define ADD_NODE(_hash, _first_target, _last_target) \
         do {                                                \
-            if (!hdag_bundle_make_space(                    \
-                    (void **)&bundle->nodes,                 \
-                    &bundle->nodes_allocated,                \
-                    init_nodes_allocated,                   \
-                    bundle->nodes_num, node_size             \
-            )) {                                            \
+            struct hdag_node *_node = (struct hdag_node *)  \
+                hdag_darr_calloc_one(&bundle->nodes);       \
+            if (_node == NULL) {                            \
                 goto cleanup;                               \
             }                                               \
-                                                            \
-            struct hdag_node *_node = (struct hdag_node *)( \
-                (uint8_t *)bundle->nodes +                   \
-                bundle->nodes_num * node_size                \
-            );                                              \
-                                                            \
-            memcpy(_node->hash, _hash, bundle->hash_len);    \
+            memcpy(_node->hash, _hash, bundle->hash_len);   \
             _node->targets.first = _first_target;           \
             _node->targets.last = _last_target;             \
-            bundle->nodes_num++;                             \
         } while (0)
 
     /* Add a new target hash (and the corresponding node) */
     #define ADD_TARGET_HASH(_hash) \
-        do {                                            \
-            if (!hdag_bundle_make_space(                \
-                    (void **)&bundle->target_hashes,     \
-                    &bundle->target_hashes_allocated,    \
-                    init_target_hashes_allocated,       \
-                    bundle->target_hashes_num,           \
-                    bundle->hash_len                     \
-            )) {                                        \
-                goto cleanup;                           \
-            }                                           \
-            memcpy(bundle->target_hashes +               \
-                   bundle->hash_len *                    \
-                    bundle->target_hashes_num,           \
-                   _hash, bundle->hash_len);             \
-            bundle->target_hashes_num++;                 \
-            ADD_NODE(_hash,                             \
-                     HDAG_TARGET_UNKNOWN,               \
-                     HDAG_TARGET_UNKNOWN);              \
+        do {                                                    \
+            if (hdag_darr_append_one(                           \
+                    &bundle->target_hashes, _hash) == NULL) {   \
+                goto cleanup;                                   \
+            }                                                   \
+            ADD_NODE(_hash,                                     \
+                     HDAG_TARGET_UNKNOWN,                       \
+                     HDAG_TARGET_UNKNOWN);                      \
         } while (0)
 
     /* Collect each node (and its targets) in the sequence */
@@ -362,7 +242,7 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
             }
         }
 
-        first_target_hash_idx = bundle->target_hashes_num;
+        first_target_hash_idx = bundle->target_hashes.slots_occupied;
 
         /* Collect each target hash */
         while (true) {
@@ -378,13 +258,15 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
         }
 
         /* Add the node */
-        if (first_target_hash_idx == bundle->target_hashes_num) {
+        if (first_target_hash_idx == bundle->target_hashes.slots_occupied) {
             ADD_NODE(node_hash, HDAG_TARGET_INVALID, HDAG_TARGET_INVALID);
         } else {
             ADD_NODE(
                 node_hash,
                 hdag_target_from_ind_idx(first_target_hash_idx),
-                hdag_target_from_ind_idx(bundle->target_hashes_num - 1)
+                hdag_target_from_ind_idx(
+                    bundle->target_hashes.slots_occupied - 1
+                )
             );
         }
     }
@@ -393,8 +275,8 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     #undef MAKE_NODE_SPACE
 
     /* Sort the nodes by hash lexicographically */
-    qsort_r(bundle->nodes, bundle->nodes_num, node_size,
-            hdag_node_cmp, &bundle->hash_len);
+    qsort_r(bundle->nodes.slots, bundle->nodes.slots_occupied,
+            bundle->nodes.slot_size, hdag_node_cmp, &bundle->hash_len);
 
     /* Deduplicate the nodes */
     hdag_bundle_dedup(bundle);
@@ -404,23 +286,10 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
         goto cleanup;
     }
 
-    /* Hand over the bundle, if requested */
-    /* Shrink the allocated space in the bundle */
-    if (!hdag_bundle_shrink_space((void **)&bundle->nodes,
-                                  &bundle->nodes_allocated,
-                                  bundle->nodes_num, node_size)) {
-        goto cleanup;
-    }
-    if (!hdag_bundle_shrink_space((void **)&bundle->target_hashes,
-                                  &bundle->target_hashes_allocated,
-                                  bundle->target_hashes_num,
-                                  bundle->hash_len)) {
-        goto cleanup;
-    }
-    if (!hdag_bundle_shrink_space((void **)&bundle->extra_edges,
-                                  &bundle->extra_edges_allocated,
-                                  bundle->extra_edges_num,
-                                  sizeof(*bundle->extra_edges))) {
+    /* Shrink the extra space allocated for the bundle */
+    if (!(hdag_darr_deflate(&bundle->nodes) &&
+          hdag_darr_deflate(&bundle->target_hashes) &&
+          hdag_darr_deflate(&bundle->extra_edges))) {
         goto cleanup;
     }
 
