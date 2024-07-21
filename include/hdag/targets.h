@@ -94,4 +94,19 @@ hdag_targets_are_indirect(const struct hdag_targets *targets)
     return hdag_target_is_ind_idx(targets->first);
 }
 
+/**
+ * Check if any targets are direct.
+ *
+ * @param targets   The targets to check.
+ *
+ * @return True if any of the targets are direct, false otherwise.
+ */
+static inline bool
+hdag_targets_are_direct(const struct hdag_targets *targets)
+{
+    assert(hdag_targets_are_valid(targets));
+    return hdag_target_is_dir_idx(targets->first) ||
+        hdag_target_is_dir_idx(targets->last);
+}
+
 #endif /* _HDAG_TARGETS_H */

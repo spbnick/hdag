@@ -15,23 +15,23 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
     hdag_darr_cleanup(&bundle->nodes);
     hdag_darr_cleanup(&bundle->target_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
+    bundle->ind_extra_edges = false;
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_clean(bundle));
 }
 
 /**
  * Remove duplicate node entries, preferring known ones, from a bundle,
- * assuming nodes are sorted by hash.
+ * assuming nodes are sorted by hash, and are not using direct-index targets.
  *
  * @param bundle    The bundle to deduplicate nodes in.
  */
 static void
 hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
-    assert(bundle != NULL);
-    assert(hdag_hash_len_is_valid(bundle->hash_len));
-
-#define NODE(_idx) hdag_darr_element(&bundle->nodes, _idx)
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted(bundle));
+    assert(!hdag_bundle_is_dir(bundle));
 
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
@@ -71,7 +71,8 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
                     *prev_node = *first_known_node;
                 }
                 /* Move the already-deduped nodes over the rest of this run */
-                memmove(NODE(idx + 2), NODE(first_idx + 1),
+                memmove(hdag_darr_element(&bundle->nodes, idx + 2),
+                        hdag_darr_element(&bundle->nodes, first_idx + 1),
                         bundle->nodes.slots_occupied - (first_idx + 1));
                 bundle->nodes.slots_occupied -= first_idx - (idx + 1);
             }
@@ -79,12 +80,12 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
             first_node = node;
         }
     }
-#undef NODE
 }
 
 /**
  * Compact edge targets into nodes, putting the rest into "extra edges",
- * assuming the nodes are sorted and de-duplicated.
+ * assuming the nodes are sorted, de-duplicated, reference target hashes
+ * as their indirect targets and don't have direct targets.
  *
  * @param bundle    The bundle to compact edges in.
  *
@@ -103,8 +104,10 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* Currently traversed node */
     struct hdag_node *node;
 
-    assert(bundle != NULL);
-    assert(hdag_hash_len_is_valid(bundle->hash_len));
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted_and_deduped(bundle));
+    assert(!hdag_bundle_is_dir(bundle));
+    assert(!bundle->ind_extra_edges);
 
     /* For each node, from start to end */
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
@@ -178,6 +181,8 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     /* Remove target hashes */
     hdag_darr_cleanup(&bundle->target_hashes);
+    /* Mark indirect targets as referencing extra_edges */
+    bundle->ind_extra_edges = true;
 
     return true;
 }

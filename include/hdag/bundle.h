@@ -16,6 +16,12 @@ struct hdag_bundle {
     uint16_t            hash_len;
 
     /**
+     * True, if the indirect target indices in nodes point to the
+     * "extra_edges" array, false if they point to "target_hashes" instead.
+     */
+    bool ind_extra_edges;
+
+    /**
      * Nodes.
      * Before compacting, their targets are either unknown, or are indirect
      * indices pointing into the target_hashes array. After compacting their
@@ -61,6 +67,76 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_is_valid(&bundle->extra_edges) &&
         bundle->extra_edges.slot_size == sizeof(struct hdag_edge);
+}
+
+/**
+ * Check if a bundle's nodes are sorted (lexicographically).
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the nodes are sorted, false if not.
+ */
+static inline bool
+hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *prev_node;
+    const struct hdag_node *node;
+    assert(hdag_bundle_is_valid(bundle));
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node,
+                           prev_node = NULL, prev_node=node) {
+        if (prev_node != NULL &&
+            memcmp(node->hash, prev_node->hash, bundle->hash_len) < 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Check if a bundle's nodes are sorted (lexicographically) and deduplicated.
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the nodes are sorted and deduplicated, false if not.
+ */
+static inline bool
+hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *prev_node;
+    const struct hdag_node *node;
+    assert(hdag_bundle_is_valid(bundle));
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node,
+                           prev_node = NULL, prev_node = node) {
+        if (prev_node != NULL &&
+            memcmp(node->hash, prev_node->hash, bundle->hash_len) <= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Check if a bundle's nodes are using direct target indices to refer to other
+ * nodes in the same array.
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if nodes are using direct target indices, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_dir(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+    assert(hdag_bundle_is_valid(bundle));
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (hdag_targets_are_direct(&node->targets)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
