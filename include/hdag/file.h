@@ -38,8 +38,8 @@ struct hdag_file_header {
     uint16_t    hash_len;
     /** Number of nodes */
     uint32_t    node_num;
-    /** Number of (extra) edges */
-    uint32_t    edge_num;
+    /** Number of extra edges */
+    uint32_t    extra_edge_num;
 };
 
 HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
@@ -49,7 +49,7 @@ HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
     version.minor,
     hash_len,
     node_num,
-    edge_num
+    extra_edge_num
 );
 
 /**
@@ -91,12 +91,12 @@ struct hdag_file {
      * The node array.
      *
      * The node's target's direct indexes point into this array.
-     * The indirect ones point into the edges array.
+     * The indirect ones point into the extra_edges array.
      */
     struct hdag_node           *nodes;
 
     /** The edge array */
-    struct hdag_edge           *edges;
+    struct hdag_edge           *extra_edges;
 };
 
 /** An initializer for a closed file */
@@ -105,22 +105,23 @@ struct hdag_file {
 /**
  * Calculate the file size from the contents parameters.
  *
- * @param hash_len  The length of the node ID hash.
- * @param node_num  Number of nodes.
- * @param edge_num  Number of extra edges (the sum of number of outgoing edges
- *                  of all nodes, which have more than two of them).
+ * @param hash_len          The length of the node ID hash.
+ * @param node_num          Number of nodes.
+ * @param extra_edge_num    Number of extra edges (the sum of number of
+ *                          outgoing edges of all nodes, which have more than
+ *                          two of them).
  *
  * @return The size of the file, in bytes.
  */
 static size_t
 hdag_file_size(uint16_t hash_len,
                uint32_t node_num,
-               uint32_t edge_num)
+               uint32_t extra_edge_num)
 {
     assert(hdag_hash_len_is_valid(hash_len));
     return sizeof(struct hdag_file_header) +
            hdag_node_size(hash_len) * node_num +
-           sizeof(struct hdag_edge) * edge_num;
+           sizeof(struct hdag_edge) * extra_edge_num;
 }
 
 /**
@@ -185,7 +186,7 @@ hdag_file_is_valid(const struct hdag_file *file)
         memchr(file->pathname, 0, sizeof(file->pathname)) != NULL &&
         file->contents == file->header &&
         (file->contents == NULL) == (file->nodes == NULL) &&
-        (file->contents == NULL) == (file->edges == NULL) &&
+        (file->contents == NULL) == (file->extra_edges == NULL) &&
         (
             file->contents == NULL ||
             (
@@ -193,7 +194,7 @@ hdag_file_is_valid(const struct hdag_file *file)
                 file->size == hdag_file_size(
                     file->header->hash_len,
                     file->header->node_num,
-                    file->header->edge_num
+                    file->header->extra_edge_num
                 )
             )
         );

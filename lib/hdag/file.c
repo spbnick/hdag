@@ -114,7 +114,7 @@ hdag_file_create(struct hdag_file *pfile,
     /* Initialize the file */
     *(file.header = file.contents) = header;
     file.nodes = (struct hdag_node *)(file.header + 1);
-    file.edges = (struct hdag_edge *)(
+    file.extra_edges = (struct hdag_edge *)(
             (uint8_t *)file.nodes +
             hdag_node_size(file.header->hash_len) *
             file.header->node_num
@@ -124,8 +124,8 @@ hdag_file_create(struct hdag_file *pfile,
     file.header->node_num = bundle.nodes.slots_occupied;
     memcpy(file.nodes, bundle.nodes.slots,
            hdag_darr_occupied_size(&bundle.nodes));
-    file.header->edge_num = bundle.extra_edges.slots_occupied;
-    memcpy(file.edges, bundle.extra_edges.slots,
+    file.header->extra_edge_num = bundle.extra_edges.slots_occupied;
+    memcpy(file.extra_edges, bundle.extra_edges.slots,
            hdag_darr_occupied_size(&bundle.extra_edges));
 
     /* The file state should be valid now */
@@ -205,14 +205,14 @@ hdag_file_open(struct hdag_file *pfile,
         file.size != hdag_file_size(
             file.header->hash_len,
             file.header->node_num,
-            file.header->edge_num
+            file.header->extra_edge_num
         )
     ) {
         errno = EINVAL;
         goto fail;
     }
     file.nodes = (struct hdag_node *)(file.header + 1);
-    file.edges = (struct hdag_edge *)(
+    file.extra_edges = (struct hdag_edge *)(
             (uint8_t *)file.nodes +
             hdag_node_size(file.header->hash_len) *
             file.header->node_num
