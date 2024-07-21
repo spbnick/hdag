@@ -20,13 +20,7 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_clean(bundle));
 }
 
-/**
- * Remove duplicate node entries, preferring known ones, from a bundle,
- * assuming nodes are sorted by hash, and are not using direct-index targets.
- *
- * @param bundle    The bundle to deduplicate nodes in.
- */
-static void
+void
 hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
@@ -82,17 +76,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     }
 }
 
-/**
- * Compact edge targets into nodes, putting the rest into "extra edges",
- * assuming the nodes are sorted, de-duplicated, reference target hashes
- * as their indirect targets and don't have direct targets.
- *
- * @param bundle    The bundle to compact edges in.
- *
- * @return True if compaction succeeded, false if it failed.
- *         Errno is set in case of failure.
- */
-static bool
+bool
 hdag_bundle_compact(struct hdag_bundle *bundle)
 {
     /* The index of the currently-traversed node */

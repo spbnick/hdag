@@ -196,4 +196,24 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                                       struct hdag_node_seq node_seq);
 
+/**
+ * Remove duplicate node entries from a bundle, preferring known ones,
+ * assuming nodes are sorted by hash, and are not using direct-index targets.
+ *
+ * @param bundle    The bundle to deduplicate nodes in.
+ */
+extern void hdag_bundle_dedup(struct hdag_bundle *bundle);
+
+/**
+ * Compact a bundle's edge targets into nodes, putting the rest into
+ * "extra_edges", assuming the nodes are sorted, de-duplicated, reference
+ * target hashes as their indirect targets and don't have direct targets.
+ *
+ * @param bundle    The bundle to compact edges in.
+ *
+ * @return True if compaction succeeded, false if it failed.
+ *         Errno is set in case of failure.
+ */
+extern bool hdag_bundle_compact(struct hdag_bundle *bundle);
+
 #endif /* _HDAG_BUNDLE_H */
