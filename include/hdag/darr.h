@@ -232,6 +232,42 @@ hdag_darr_append_one(struct hdag_darr *darr, void *element)
 }
 
 /**
+ * Append the specified number of zero-filled elements to a dynamic array.
+ *
+ * @param darr      The dynamic array to append elements to
+ * @param num       The number of zeroed elements to append.
+ *
+ * @return The pointer to the appended elements in the array, if
+ *         succeeded. NULL, if allocation failed, and errno was set.
+ */
+static inline void *
+hdag_darr_cappend(struct hdag_darr *darr, size_t num)
+{
+    void *appended_slots;
+    assert(hdag_darr_is_valid(darr));
+    appended_slots = hdag_darr_calloc(darr, num);
+    if (appended_slots != NULL) {
+        darr->slots_occupied += num;
+    }
+    return appended_slots;
+}
+
+/**
+ * Append a zero-filled element to a dynamic array.
+ *
+ * @param darr      The dynamic array to append the zeroed element to.
+ *
+ * @return The pointer to the appended element, if succeeded.
+ *         NULL, if allocation failed, and errno was set.
+ */
+static inline void *
+hdag_darr_cappend_one(struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return hdag_darr_cappend(darr, 1);
+}
+
+/**
  * Retrieve the pointer to a dynamic array element slot at specified index.
  *
  * @param darr  The array to retrieve the element pointer from.
@@ -245,7 +281,7 @@ static inline void *
 hdag_darr_slot(struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
-    assert(idx < darr->slots_allocated);
+    assert(idx <= darr->slots_allocated);
     return (char *)darr->slots + darr->slot_size * idx;
 }
 
@@ -332,6 +368,39 @@ hdag_darr_is_clean(const struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
     return darr->slots_allocated == 0;
+}
+
+/**
+ * Remove a slice of elements from a dynamic array.
+ *
+ * @param darr  The dynamic array to remove the slice from.
+ * @param start The index of the first slot of the slice to remove.
+ * @param end   The index of the first slot after the slice being removed.
+ *              Must be equal to, or greater than "start".
+ */
+static inline void
+hdag_darr_remove(struct hdag_darr *darr, size_t start, size_t end)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(start <= end);
+    assert(end <= darr->slots_occupied);
+    memmove(hdag_darr_slot(darr, start), hdag_darr_slot(darr, end),
+            (darr->slots_occupied - end) * darr->slot_size);
+    darr->slots_occupied -= end - start;
+}
+
+/**
+ * Remove an element from a dynamic array.
+ *
+ * @param darr  The dynamic array to remove the slice from.
+ * @param idx   The index of the element to remove.
+ */
+static inline void
+hdag_darr_remove_one(struct hdag_darr *darr, size_t idx)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(idx < darr->slots_occupied);
+    hdag_darr_remove(darr, idx, idx + 1);
 }
 
 /**

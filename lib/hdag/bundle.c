@@ -7,6 +7,8 @@
 #include <hdag/hash.h>
 #include <string.h>
 
+#include <stdio.h>
+
 
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
@@ -30,11 +32,11 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
     /* The first node in the same-hash run which had targets */
-    struct hdag_node *first_known_node = NULL;
+    struct hdag_node *first_known_node;
     /* Currently traversed node */
     struct hdag_node *node;
     /* Previously traversed node */
-    struct hdag_node *prev_node = NULL;
+    struct hdag_node *prev_node;
     /* The index of the first node in the same-hash run (first_node) */
     ssize_t first_idx;
     /* The index of the currently-traversed node */
@@ -42,37 +44,64 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     int relation;
 
     /* For each node, starting from the end */
-    HDAG_DARR_ITER_BACKWARD(&bundle->nodes, idx, node,
-                            (first_idx = idx, first_node = node),
-                            (prev_node = node)) {
+    HDAG_DARR_ITER_BACKWARD(
+        &bundle->nodes, idx, node,
+        (
+            first_idx = idx,
+            first_node = node,
+            first_known_node = NULL,
+            prev_node = NULL
+        ),
+        (prev_node = node)
+    ) {
         assert(hdag_node_is_valid(node));
+        /* If it's the very first node */
+        if (prev_node == NULL) {
+            if (hdag_targets_are_known(&node->targets)) {
+                first_known_node = node;
+            }
+            continue;
+        }
+        /* Compare hashes of this and the first node in the current run */
         relation = memcmp(node->hash, first_node->hash, bundle->hash_len);
         assert(relation <= 0);
-        /* If the nodes have the same hash */
+        /* If the hashes are the same (we're still in the run) */
         if (relation == 0) {
             if (first_known_node == NULL &&
                 hdag_targets_are_known(&node->targets)) {
                 first_known_node = node;
             }
-        /* Else nodes have different hash */
+        /* Else nodes have different hash (we're in the next run) */
         } else {
-            /* If there was more than one node */
+            /* If there was more than one node in the previous run */
             if (first_idx - idx > 1) {
                 /* If the first known node wasn't the last node in the run */
                 if (first_known_node != NULL &&
                     first_known_node != prev_node) {
                     /* Make it the last one */
-                    *prev_node = *first_known_node;
+                    memcpy(prev_node, first_known_node, bundle->nodes.slot_size);
                 }
                 /* Move the already-deduped nodes over the rest of this run */
-                memmove(hdag_darr_element(&bundle->nodes, idx + 2),
-                        hdag_darr_element(&bundle->nodes, first_idx + 1),
-                        bundle->nodes.slots_occupied - (first_idx + 1));
-                bundle->nodes.slots_occupied -= first_idx - (idx + 1);
+                hdag_darr_remove(&bundle->nodes, idx + 2, first_idx + 1);
             }
+            /* Start a new run with this node */
             first_idx = idx;
             first_node = node;
+            first_known_node =
+                hdag_targets_are_known(&node->targets) ? node : NULL;
         }
+    }
+
+    /* If there was more than one node in the last run */
+    if (first_idx > 0) {
+        /* If the first known node wasn't the last node in the run */
+        if (first_known_node != NULL &&
+            first_known_node != prev_node) {
+            /* Make it the last one */
+            memcpy(prev_node, first_known_node, bundle->nodes.slot_size);
+        }
+        /* Move the already-deduped nodes over the rest of this run */
+        hdag_darr_remove(&bundle->nodes, 1, first_idx + 1);
     }
 }
 
@@ -96,8 +125,10 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* For each node, from start to end */
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         assert(hdag_node_is_valid(node));
-        /* If the node's targets are unknown */
-        if (hdag_targets_are_unknown(&node->targets)) {
+        /* If the node's targets are unknown or are both invalid */
+        if (hdag_targets_are_unknown(&node->targets) ||
+            (node->targets.first == HDAG_TARGET_INVALID &&
+             node->targets.last == HDAG_TARGET_INVALID)) {
             continue;
         }
         /* If there's more than two targets */
@@ -131,7 +162,27 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
                         bundle->extra_edges.slots_occupied - 1
                 );
         } else {
-            /* Store targets inside the node */
+            /* If there are two targets */
+            if (node->targets.last > node->targets.first) {
+                /* Store the second target inside the node */
+                hash_idx = hdag_target_to_ind_idx(node->targets.last);
+                found_idx = hdag_nodes_find(
+                    bundle->nodes.slots, bundle->nodes.slots_occupied,
+                    bundle->hash_len,
+                    hdag_darr_element(&bundle->target_hashes, hash_idx)
+                );
+                /* All hashes must be locatable */
+                assert(found_idx < INT32_MAX);
+                /* Hash indices must be valid */
+                assert(found_idx < bundle->nodes.slots_occupied);
+                /* Store the last target */
+                node->targets.last = hdag_target_from_dir_idx(found_idx);
+            } else {
+                /* Mark second target absent */
+                node->targets.last = HDAG_TARGET_INVALID;
+            }
+
+            /* Store first target inside the node */
             hash_idx = hdag_target_to_ind_idx(node->targets.first);
             found_idx = hdag_nodes_find(
                 bundle->nodes.slots, bundle->nodes.slots_occupied,
@@ -141,26 +192,11 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
             /* All hashes must be locatable */
             assert(found_idx < INT32_MAX);
             /* Hash indices must be valid */
-            assert(found_idx < bundle->target_hashes.slots_occupied);
+            assert(found_idx < bundle->nodes.slots_occupied);
             /* Store the first target */
-            node->targets.first = hdag_target_from_ind_idx(found_idx);
-
-            /* If there's a second target */
-            if (node->targets.last > node->targets.first) {
-                hash_idx = hdag_target_to_ind_idx(node->targets.first);
-                found_idx = hdag_nodes_find(
-                    bundle->nodes.slots, bundle->nodes.slots_occupied,
-                    bundle->hash_len,
-                    hdag_darr_element(&bundle->target_hashes, hash_idx)
-                );
-                /* All hashes must be locatable */
-                assert(found_idx < INT32_MAX);
-                /* Hash indices must be valid */
-                assert(found_idx < bundle->target_hashes.slots_occupied);
-                /* Store the last target */
-                node->targets.last = hdag_target_from_ind_idx(found_idx);
-            }
+            node->targets.first = hdag_target_from_dir_idx(found_idx);
         }
+        assert(hdag_node_is_valid(node));
     }
 
     /* Remove target hashes */
@@ -168,6 +204,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* Mark indirect targets as referencing extra_edges */
     bundle->ind_extra_edges = true;
 
+    assert(hdag_bundle_is_valid(bundle));
     return true;
 }
 
@@ -264,8 +301,7 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     #undef MAKE_NODE_SPACE
 
     /* Sort the nodes by hash lexicographically */
-    qsort_r(bundle->nodes.slots, bundle->nodes.slots_occupied,
-            bundle->nodes.slot_size, hdag_node_cmp, &bundle->hash_len);
+    hdag_bundle_sort(bundle);
 
     /* Deduplicate the nodes */
     hdag_bundle_dedup(bundle);

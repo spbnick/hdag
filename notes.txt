@@ -302,3 +302,5 @@ for each node, start to end
 ---
 TODO: Rename 'edges' to 'extra_edges' in the file.
 TODO: Use 'nodes_num' and 'extra_edges_num' for consistency.
+TODO: Consider renaming HDAG_TARGET_INVALID to HDAG_TARGET_NONE, or
+      HDAG_TARGET_ABSENT.

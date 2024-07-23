@@ -30,6 +30,10 @@ add_executable(hdagt-file src/hdagt/hdagt-file.c)
 target_link_libraries(hdagt-file hdag)
 add_test(NAME file COMMAND hdagt-file)
 
+add_executable(hdagt-bundle src/hdagt/hdagt-bundle.c)
+target_link_libraries(hdagt-bundle hdag)
+add_test(NAME bundle COMMAND hdagt-bundle)
+
 set_target_properties(hdag PROPERTIES VERSION ${PROJECT_VERSION})
 
 install(

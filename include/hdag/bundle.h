@@ -197,6 +197,22 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                                       struct hdag_node_seq node_seq);
 
 /**
+ * Sort the bundle's nodes by hash, lexicographically, assuming they don't
+ * have any direct-index targets.
+ *
+ * @param bundle    The bundle to deduplicate nodes in.
+ */
+static inline void
+hdag_bundle_sort(struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_dir(bundle));
+    /* Sort the nodes by hash lexicographically */
+    qsort_r(bundle->nodes.slots, bundle->nodes.slots_occupied,
+            bundle->nodes.slot_size, hdag_node_cmp, &bundle->hash_len);
+}
+
+/**
  * Remove duplicate node entries from a bundle, preferring known ones,
  * assuming nodes are sorted by hash, and are not using direct-index targets.
  *

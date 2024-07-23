@@ -12,7 +12,7 @@
 
 /** A node */
 struct hdag_node {
-    /** The ID of the component the node belongs to */
+    /** The ID of the graph component the node belongs to */
     uint32_t component;
     /** The node's generation number */
     uint32_t generation;
@@ -82,5 +82,39 @@ hdag_node_off(struct hdag_node *node, uint16_t hash_len, ssize_t off)
  *          1, if a > b
  */
 extern int hdag_node_cmp(const void *a, const void *b, void *phash_len);
+
+/**
+ * Fill a node's hash with specified 32-bit unsigned integer.
+ *
+ * @param node      The node to have the hash filled.
+ * @param hash_len  The length of the node's hash.
+ * @param fill      The value to fill the hash with.
+ */
+static inline void
+hdag_node_hash_fill(struct hdag_node *node, uint16_t hash_len, uint32_t fill)
+{
+    assert(hdag_node_is_valid(node));
+    assert(hdag_hash_len_is_valid(hash_len));
+    hdag_hash_fill(node->hash, hash_len, fill);
+}
+
+/**
+ * Check if a node's hash is filled with specified 32-bit unsigned integer.
+ *
+ * @param node      The node to have the hash checked.
+ * @param hash_len  The length of the node's hash.
+ * @param fill      The fill value to check against
+ *
+ * @return True if the node's hash is filled with the specified value,
+ *         false otherwise.
+ */
+static inline bool
+hdag_node_hash_is_filled(struct hdag_node *node,
+                         uint16_t hash_len, uint32_t fill)
+{
+    assert(hdag_node_is_valid(node));
+    assert(hdag_hash_len_is_valid(hash_len));
+    return hdag_hash_is_filled(node->hash, hash_len, fill);
+}
 
 #endif /* _HDAG_NODE_H */

@@ -32,4 +32,46 @@ hdag_hash_len_validate(uint16_t hash_len)
     return hash_len;
 }
 
+/**
+ * Fill a hash with specified 32-bit unsigned integer.
+ *
+ * @param hash  The hash to fill.
+ * @param len   The length of the hash.
+ * @param fill  The value to fill the hash with.
+ */
+static inline void
+hdag_hash_fill(uint8_t *hash, uint16_t len, uint32_t fill)
+{
+    size_t i;
+    assert(hash != NULL);
+    assert(hdag_hash_len_is_valid(len));
+    for (i = 0; i < len >> 2; i++) {
+        ((uint32_t *)hash)[i] = fill;
+    }
+}
+
+/**
+ * Check if a hash is filled with specified 32-bit unsigned integer.
+ *
+ * @param hash  The hash to check.
+ * @param len   The length of the hash.
+ * @param fill  The fill value to check against
+ *
+ * @return True if the node's hash is filled with the specified value,
+ *         false otherwise.
+ */
+static inline bool
+hdag_hash_is_filled(uint8_t *hash, uint16_t len, uint32_t fill)
+{
+    size_t i;
+    assert(hash != NULL);
+    assert(hdag_hash_len_is_valid(len));
+    for (i = 0; i < len >> 2; i++) {
+        if (((uint32_t *)hash)[i] != fill) {
+            return false;
+        }
+    }
+    return true;
+}
+
 #endif /* _HDAG_HASH_H */
