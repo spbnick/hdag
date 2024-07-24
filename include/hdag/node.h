@@ -117,4 +117,36 @@ hdag_node_hash_is_filled(struct hdag_node *node,
     return hdag_hash_is_filled(node->hash, hash_len, fill);
 }
 
+/**
+ * Get first indirect target index from a node.
+ *
+ * @param node  The node to get the index from. Must have indirect targets.
+ *
+ * @return The first indirect index.
+ *         Interpretation is up to the node's container.
+ */
+static inline size_t
+hdag_node_get_first_ind_idx(const struct hdag_node *node)
+{
+    assert(hdag_node_is_valid(node));
+    assert(hdag_targets_are_indirect(&node->targets));
+    return hdag_target_to_ind_idx(node->targets.first);
+}
+
+/**
+ * Get last indirect target index from a node.
+ *
+ * @param node  The node to get the index from. Must have indirect targets.
+ *
+ * @return The last indirect index.
+ *         Interpretation is up to the node's container.
+ */
+static inline size_t
+hdag_node_get_last_ind_idx(const struct hdag_node *node)
+{
+    assert(hdag_node_is_valid(node));
+    assert(hdag_targets_are_indirect(&node->targets));
+    return hdag_target_to_ind_idx(node->targets.last);
+}
+
 #endif /* _HDAG_NODE_H */

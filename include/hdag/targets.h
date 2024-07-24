@@ -77,7 +77,7 @@ static inline bool
 hdag_targets_are_known(const struct hdag_targets *targets)
 {
     assert(hdag_targets_are_valid(targets));
-    return targets->first != HDAG_TARGET_UNKNOWN;
+    return !hdag_targets_are_unknown(targets);
 }
 
 /**
@@ -107,6 +107,21 @@ hdag_targets_are_direct(const struct hdag_targets *targets)
     assert(hdag_targets_are_valid(targets));
     return hdag_target_is_dir_idx(targets->first) ||
         hdag_target_is_dir_idx(targets->last);
+}
+
+/**
+ * Check if all targets are absent.
+ *
+ * @param targets   The targets to check.
+ *
+ * @return True if all targets are HDAG_TARGET_INVALID, that is missing.
+ */
+static inline bool
+hdag_targets_are_absent(const struct hdag_targets *targets)
+{
+    assert(hdag_targets_are_valid(targets));
+    return targets->first == HDAG_TARGET_INVALID &&
+        targets->last == HDAG_TARGET_INVALID;
 }
 
 #endif /* _HDAG_TARGETS_H */

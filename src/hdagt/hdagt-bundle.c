@@ -146,10 +146,13 @@ main(void)
             TEST(hdag_targets_are_direct(&node->targets));
             TEST(hdag_target_is_dir_idx(node->targets.first));
             TEST(node->targets.last == HDAG_TARGET_INVALID);
-            TEST(hdag_target_to_dir_idx(node->targets.first) == (size_t)idx - 1);
+            TEST(hdag_target_to_dir_idx(node->targets.first) ==
+                 (size_t)idx - 1);
         }
     }
 
+    /* Output the bundle in DOT format */
+    hdag_bundle_write_dot(&bundle, "directed path", stdout);
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);
 

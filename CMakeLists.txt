@@ -2,12 +2,14 @@ cmake_minimum_required(VERSION 3.21)
 
 project(hdag VERSION 1 DESCRIPTION "Hash DAG database library and tools")
 include(CTest)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GRAPHVIZ REQUIRED libcgraph)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED True)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
-include_directories(include)
+include_directories(include ${GRAPHVIZ_INCLUDE_DIRS})
 
 add_compile_options(
     -Wall -Wextra -Wpedantic
@@ -24,7 +26,9 @@ add_library(
     lib/hdag/nodes.c
     lib/hdag/node.c
     lib/hdag/darr.c
+    lib/hdag/misc.c
 )
+target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
 
 add_executable(hdagt-file src/hdagt/hdagt-file.c)
 target_link_libraries(hdagt-file hdag)

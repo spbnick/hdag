@@ -5,6 +5,9 @@
 #ifndef _HDAG_MISC_H
 #define _HDAG_MISC_H
 
+#include <stdlib.h>
+#include <stdint.h>
+
 /** Get the 11th argument passed */
 #define HDAG_MACRO_11TH_ARG( \
     _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, ARG, ...   \
@@ -153,5 +156,20 @@
         HDAG_STRUCT_MEMBERS_PACKED(_struct, ##__VA_ARGS__),     \
         "The " #_struct " structure is not packed"              \
     )
+
+/**
+ * Convert bytes to a hexadecimal string.
+ *
+ * @param hex_ptr   The buffer to write hexadecimal string to.
+ *                  Must be at least bytes_num * 2 + 1 long.
+ *                  Will be zero-terminated.
+ * @param bytes_ptr The pointer to the bytes to convert.
+ * @param bytes_num The number of bytes to convert.
+ *
+ * @return The "buf_ptr".
+ */
+extern char *hdag_bytes_to_hex(char *hex_ptr,
+                               const void *bytes_ptr,
+                               size_t bytes_num);
 
 #endif /* _HDAG_MISC_H */

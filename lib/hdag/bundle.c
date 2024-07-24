@@ -5,10 +5,9 @@
 #include <hdag/bundle.h>
 #include <hdag/nodes.h>
 #include <hdag/hash.h>
+#include <hdag/misc.h>
+#include <cgraph.h>
 #include <string.h>
-
-#include <stdio.h>
-
 
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
@@ -127,8 +126,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
         assert(hdag_node_is_valid(node));
         /* If the node's targets are unknown or are both invalid */
         if (hdag_targets_are_unknown(&node->targets) ||
-            (node->targets.first == HDAG_TARGET_INVALID &&
-             node->targets.last == HDAG_TARGET_INVALID)) {
+            hdag_targets_are_absent(&node->targets)) {
             continue;
         }
         /* If there's more than two targets */
@@ -324,5 +322,245 @@ cleanup:
     free(target_hash);
     free(node_hash);
     assert(hdag_bundle_is_valid(bundle));
+    return result;
+}
+
+/**
+ * Create the destination agnode and the agedge for a particular source node
+ * and its direct-index target, unless the target is invalid.
+ *
+ * @param bundle        The bundle the nodes and targets belong to.
+ * @param src_node      The source node.
+ * @param target        The target.
+ * @param dst_hash_buf  The buffer for formatting the destination node hash
+ *                      in. Must be big enough for the hash length and
+ *                      terminating zero.
+ * @param agraph        The output agraph.
+ * @param src_agnode    The output source node.
+ *
+ * @return True, if the agnode and the agedge were created successfully,
+ *         or the target was invalid. False if creation failed.
+ */
+static bool
+hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
+                                 const struct hdag_node *src_node,
+                                 hdag_target target,
+                                 char *dst_hash_buf,
+                                 Agraph_t *agraph,
+                                 Agnode_t *src_agnode)
+{
+    /* Destination node */
+    const struct hdag_node *dst_node;
+    /* Output graph destination node */
+    Agnode_t               *dst_agnode;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_node_is_valid(src_node));
+    assert(hdag_target_is_dir_idx(target) || target == HDAG_TARGET_INVALID);
+    assert(src_node->targets.first == target || src_node->targets.last == target);
+    assert(dst_hash_buf != NULL);
+    assert(agraph != NULL);
+    assert(src_agnode != NULL);
+
+    if (target == HDAG_TARGET_INVALID) {
+        return true;
+    }
+
+    /* Fetch destination node (we won't change it) */
+    dst_node = hdag_darr_element((struct hdag_darr *)&bundle->nodes,
+                                 hdag_target_to_dir_idx(target));
+
+    /* Create/fetch destination agnode */
+    hdag_bytes_to_hex(dst_hash_buf, dst_node->hash, bundle->hash_len);
+    dst_agnode = agnode(agraph, dst_hash_buf, true);
+    if (dst_agnode == NULL) {
+        return false;
+    }
+    /* Create/fetch the edge */
+    if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Create the destination agnode's and agedge's for a particular source node
+ * and all its indirect-index targets.
+ *
+ * @param bundle        The bundle the nodes and targets belong to.
+ * @param src_node      The source node.
+ * @param dst_hash_buf  The buffer for formatting the destination node hash
+ *                      in. Must be big enough for the hash length and
+ *                      terminating zero.
+ * @param agraph        The output agraph.
+ * @param src_agnode    The output source node.
+ *
+ * @return True, if the agnode's and the agtarget's were created successfully.
+ *         False, if the creation failed.
+ */
+static bool
+hdag_bundle_write_dot_ind_targets(const struct hdag_bundle *bundle,
+                                  const struct hdag_node *src_node,
+                                  char *dst_hash_buf,
+                                  Agraph_t *agraph,
+                                  Agnode_t *src_agnode)
+{
+    /* Target index */
+    size_t                  idx;
+    /* Outgoing edge */
+    const struct hdag_edge *edge;
+    /* Destination node */
+    const struct hdag_node *dst_node;
+    /* Destination hash */
+    const uint8_t          *dst_hash;
+    /* Output graph destination node */
+    Agnode_t               *dst_agnode;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_node_is_valid(src_node));
+    assert(hdag_targets_are_indirect(&src_node->targets));
+    assert(dst_hash_buf != NULL);
+    assert(agraph != NULL);
+    assert(src_agnode != NULL);
+
+    /* For each indirect index */
+    for (idx = hdag_node_get_first_ind_idx(src_node);
+         idx <= hdag_node_get_last_ind_idx(src_node);
+         idx++) {
+        /* If indirect indices are pointing to the "extra edges" */
+        if (bundle->ind_extra_edges) {
+            edge = hdag_darr_element(
+                /* We won't change it */
+                (struct hdag_darr *)&bundle->extra_edges, idx
+            );
+            dst_node = hdag_darr_element(
+                /* We won't change it */
+                (struct hdag_darr *)&bundle->nodes, edge->node_idx
+            );
+            dst_hash = dst_node->hash;
+        /* Else, indirect indices are pointing to the "target hashes" */
+        } else {
+            dst_hash = hdag_darr_element(
+                /* We won't change it */
+                (struct hdag_darr *)&bundle->target_hashes, idx
+            );
+        }
+        /* Create/fetch destination agnode */
+        hdag_bytes_to_hex(dst_hash_buf, dst_hash, bundle->hash_len);
+        dst_agnode = agnode(agraph, dst_hash_buf, true);
+        if (dst_agnode == NULL) {
+            return false;
+        }
+        /* Create/fetch the edge */
+        if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool
+hdag_bundle_write_dot(const struct hdag_bundle *bundle,
+                      const char *name, FILE *stream)
+{
+    /* Assume failure */
+    bool                result = false;
+    /* The output graph */
+    Agraph_t           *agraph = NULL;
+    /* Output graph source node */
+    Agnode_t           *src_agnode;
+    /* The "unknown" attribute symbol */
+    Agsym_t            *unknown_sym;
+    /* The index of the currently-traversed node */
+    ssize_t             idx;
+    /* Currently traversed source node */
+    const struct hdag_node *src_node;
+    /* The buffer for source node hash hex representation */
+    char               *src_hash_buf = NULL;
+    /* The buffer for destination node hash hex representation */
+    char               *dst_hash_buf = NULL;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(name != NULL);
+    assert(stream != NULL);
+
+    /* Allocate buffers for hash hex representations */
+    src_hash_buf = malloc(bundle->hash_len * 2 + 1);
+    dst_hash_buf = malloc(bundle->hash_len * 2 + 1);
+    if (src_hash_buf == NULL || dst_hash_buf == NULL) {
+        goto cleanup;
+    }
+
+    /* Create the graph (they won't change the "name") */
+    agraph = agopen((char *)name, Agdirected, NULL);
+    if (agraph == NULL) {
+        goto cleanup;
+    }
+
+    /* Define the "unknown" node attribute */
+    unknown_sym = agattr(agraph, AGNODE, "unknown", "false");
+    if (unknown_sym == NULL) {
+        goto cleanup;
+    }
+
+    /* For each node */
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, src_node, (void)0, (void)0) {
+        /* Create or fetch the node */
+        hdag_bytes_to_hex(src_hash_buf,
+                          src_node->hash, bundle->hash_len);
+        src_agnode = agnode(agraph, src_hash_buf, true);
+        if (src_agnode == NULL) {
+            goto cleanup;
+        }
+        /* If the node has no targets */
+        if (hdag_targets_are_absent(&src_node->targets)) {
+            continue;
+        }
+        /* If the node's targets are unknown */
+        if (hdag_targets_are_unknown(&src_node->targets)) {
+            agxset(src_agnode, unknown_sym, "true");
+        /* Else, if the node targets are node indices */
+        } else if (hdag_targets_are_direct(&src_node->targets)) {
+            /* Output first target and edge, if any */
+            if (!hdag_bundle_write_dot_dir_target(bundle, src_node,
+                                                  src_node->targets.first,
+                                                  dst_hash_buf,
+                                                  agraph, src_agnode)) {
+                goto cleanup;
+            }
+            /* Output last (second) target and edge, if any */
+            if (!hdag_bundle_write_dot_dir_target(bundle, src_node,
+                                                  src_node->targets.last,
+                                                  dst_hash_buf,
+                                                  agraph, src_agnode)) {
+                goto cleanup;
+            }
+        /* Else, node targets are indirect target hash/extra edge indices */
+        } else {
+            /* Output indirect target nodes and edges */
+            if (!hdag_bundle_write_dot_ind_targets(bundle, src_node,
+                                                   dst_hash_buf,
+                                                   agraph, src_agnode)) {
+                goto cleanup;
+            }
+        }
+    }
+
+    /* Write the graph */
+    if (agwrite(agraph, stream) != 0) {
+        goto cleanup;
+    }
+
+    /* Report success */
+    result = true;
+
+cleanup:
+    if (agraph != NULL) {
+        agclose(agraph);
+    }
+    free(dst_hash_buf);
+    free(src_hash_buf);
     return result;
 }
