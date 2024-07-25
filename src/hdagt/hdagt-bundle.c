@@ -157,7 +157,7 @@ main(void)
     hdag_bundle_empty(&bundle);
 
     /*
-     * Check unknown nodes are handled correctly
+     * Check unknown nodes are handled correctly, and extra edges are created
      */
     hdag_darr_cappend(&bundle.nodes, 9);
     hdag_darr_cappend(&bundle.target_hashes, 8);
@@ -181,10 +181,99 @@ main(void)
         }
         assert(hdag_node_is_valid(node));
     }
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 8);
+    TEST(bundle.extra_edges.slots_occupied == 0);
     hdag_bundle_sort(&bundle);
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 8);
+    TEST(bundle.extra_edges.slots_occupied == 0);
     hdag_bundle_dedup(&bundle);
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 8);
+    TEST(bundle.extra_edges.slots_occupied == 0);
     hdag_bundle_compact(&bundle);
-    hdag_bundle_write_dot(&bundle, "invalid nodes", stdout);
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 0);
+    TEST(bundle.extra_edges.slots_occupied == 8);
+    hdag_bundle_empty(&bundle);
+
+    /*
+     * Check duplicate node priority is handled correctly
+     */
+    idx = 0;
+    hash_idx = 0;
+
+#define APPEND_NODE_UNKNOWN \
+    do {                                                \
+        node = hdag_darr_cappend_one(&bundle.nodes);    \
+        hdag_node_hash_fill(node, hash_len, hash_idx);  \
+        node->component = idx++;                        \
+        node->targets = HDAG_TARGETS_UNKNOWN;           \
+    } while(0)
+
+#define APPEND_NODE_INVALID \
+    do {                                                \
+        node = hdag_darr_cappend_one(&bundle.nodes);    \
+        hdag_node_hash_fill(node, hash_len, hash_idx);  \
+        node->component = idx++;                        \
+        node->targets = HDAG_TARGETS_INVALID;           \
+    } while(0)
+
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_INVALID;
+    hash_idx++;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_INVALID;
+    hash_idx++;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_INVALID;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_INVALID;
+    hash_idx++;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_INVALID;
+    hash_idx++;
+    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+
+    assert(bundle.nodes.slots_occupied == 26);
+    hdag_bundle_dedup(&bundle);
+    TEST(bundle.nodes.slots_occupied == 10);
+
+#define GET_NODE_COMPONENT(_idx) \
+    ((struct hdag_node *)hdag_darr_element(&bundle.nodes, (_idx)))->component
+
+    TEST(GET_NODE_COMPONENT(0) == 0);
+    TEST(GET_NODE_COMPONENT(1) == 3);
+    TEST(GET_NODE_COMPONENT(2) == 4);
+    TEST(GET_NODE_COMPONENT(3) == 7);
+    TEST(GET_NODE_COMPONENT(4) == 10);
+    TEST(GET_NODE_COMPONENT(5) == 12);
+    TEST(GET_NODE_COMPONENT(6) == 16);
+    TEST(GET_NODE_COMPONENT(7) == 18);
+    TEST(GET_NODE_COMPONENT(8) == 22);
+    TEST(GET_NODE_COMPONENT(9) == 23);
 
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);

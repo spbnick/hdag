@@ -16,6 +16,16 @@ struct hdag_targets {
     hdag_target    last;
 };
 
+/** An initializer for unknown targets */
+#define HDAG_TARGETS_UNKNOWN (struct hdag_targets){ \
+    HDAG_TARGET_UNKNOWN, HDAG_TARGET_UNKNOWN        \
+}
+
+/** An initializer for invalid targets */
+#define HDAG_TARGETS_INVALID (struct hdag_targets){ \
+    HDAG_TARGET_INVALID, HDAG_TARGET_INVALID        \
+}
+
 /**
  * Check if targets are valid.
  *
