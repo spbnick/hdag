@@ -22,6 +22,18 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
 }
 
 void
+hdag_bundle_empty(struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    hdag_darr_empty(&bundle->nodes);
+    hdag_darr_empty(&bundle->target_hashes);
+    hdag_darr_empty(&bundle->extra_edges);
+    bundle->ind_extra_edges = false;
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_empty(bundle));
+}
+
+void
 hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
@@ -145,9 +157,9 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
                 /* All hashes must be locatable */
                 assert(found_idx < INT32_MAX);
                 /* Hash indices must be valid */
-                assert(found_idx < bundle->target_hashes.slots_occupied);
+                assert(found_idx < bundle->nodes.slots_occupied);
                 /* Store the edge */
-                ((struct hdag_edge *)hdag_darr_calloc_one(
+                ((struct hdag_edge *)hdag_darr_cappend_one(
                     &bundle->extra_edges
                 ))->node_idx = found_idx;
             }
@@ -471,8 +483,8 @@ hdag_bundle_write_dot(const struct hdag_bundle *bundle,
     Agraph_t           *agraph = NULL;
     /* Output graph source node */
     Agnode_t           *src_agnode;
-    /* The "unknown" attribute symbol */
-    Agsym_t            *unknown_sym;
+    /* The "style" attribute symbol */
+    Agsym_t            *style_sym;
     /* The index of the currently-traversed node */
     ssize_t             idx;
     /* Currently traversed source node */
@@ -499,9 +511,14 @@ hdag_bundle_write_dot(const struct hdag_bundle *bundle,
         goto cleanup;
     }
 
-    /* Define the "unknown" node attribute */
-    unknown_sym = agattr(agraph, AGNODE, "unknown", "false");
-    if (unknown_sym == NULL) {
+    /* Define the "style" node attribute */
+    style_sym = agattr(agraph, AGNODE, "style", "solid");
+    if (style_sym == NULL) {
+        goto cleanup;
+    }
+
+    /* Set the default "shape" node attribute */
+    if (agattr(agraph, AGNODE, "shape", "box") == NULL) {
         goto cleanup;
     }
 
@@ -520,7 +537,7 @@ hdag_bundle_write_dot(const struct hdag_bundle *bundle,
         }
         /* If the node's targets are unknown */
         if (hdag_targets_are_unknown(&src_node->targets)) {
-            agxset(src_agnode, unknown_sym, "true");
+            agxset(src_agnode, style_sym, "dashed");
         /* Else, if the node targets are node indices */
         } else if (hdag_targets_are_direct(&src_node->targets)) {
             /* Output first target and edge, if any */

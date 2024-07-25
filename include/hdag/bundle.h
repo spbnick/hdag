@@ -175,7 +175,14 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
 }
 
 /**
- * Cleanup a bundle, freeing associated resources (but not the bundle
+ * Empty a bundle, removing all data, but not releasing any memory.
+ *
+ * @param bundle    The bundle to empty.
+ */
+extern void hdag_bundle_empty(struct hdag_bundle *bundle);
+
+/**
+ * Cleanup a bundle, freeing associated memory (but not the bundle
  * structure itself).
  *
  * @param bundle    The bundle to cleanup.

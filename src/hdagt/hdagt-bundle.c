@@ -27,6 +27,8 @@ main(void)
     struct hdag_bundle bundle;
     ssize_t idx;
     struct hdag_node *node;
+    ssize_t hash_idx;
+    uint8_t *hash_ptr;
 
     TEST(hdag_bundle_is_valid(&empty_bundle));
     TEST(hdag_bundle_is_clean(&empty_bundle));
@@ -107,8 +109,8 @@ main(void)
     TEST(hdag_bundle_is_sorted(&bundle));
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
 
-    /* Cleanup the bundle */
-    hdag_bundle_cleanup(&bundle);
+    /* Empty the bundle */
+    hdag_bundle_empty(&bundle);
 
     /*
      * Check compacting works.
@@ -151,8 +153,39 @@ main(void)
         }
     }
 
-    /* Output the bundle in DOT format */
-    hdag_bundle_write_dot(&bundle, "directed path", stdout);
+    /* Empty the bundle */
+    hdag_bundle_empty(&bundle);
+
+    /*
+     * Check unknown nodes are handled correctly
+     */
+    hdag_darr_cappend(&bundle.nodes, 9);
+    hdag_darr_cappend(&bundle.target_hashes, 8);
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
+        hdag_node_hash_fill(node, hash_len, idx);
+        if (idx == 0) {
+            node->targets.first = hdag_target_from_ind_idx(0);
+            node->targets.last = hdag_target_from_ind_idx(
+                bundle.target_hashes.slots_occupied - 1
+            );
+            HDAG_DARR_ITER_FORWARD(&bundle.target_hashes,
+                                   hash_idx, hash_ptr, (void)0, (void)0) {
+                hdag_hash_fill(hash_ptr, hash_len, hash_idx + 1);
+            }
+        } else if (idx & 1) {
+            node->targets.first = HDAG_TARGET_UNKNOWN;
+            node->targets.last = HDAG_TARGET_UNKNOWN;
+        } else {
+            node->targets.first = HDAG_TARGET_INVALID;
+            node->targets.last = HDAG_TARGET_INVALID;
+        }
+        assert(hdag_node_is_valid(node));
+    }
+    hdag_bundle_sort(&bundle);
+    hdag_bundle_dedup(&bundle);
+    hdag_bundle_compact(&bundle);
+    hdag_bundle_write_dot(&bundle, "invalid nodes", stdout);
+
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);
 
