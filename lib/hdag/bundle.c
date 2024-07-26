@@ -254,18 +254,6 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
             _node->targets.last = _last_target;             \
         } while (0)
 
-    /* Add a new target hash (and the corresponding node) */
-    #define ADD_TARGET_HASH(_hash) \
-        do {                                                    \
-            if (hdag_darr_append_one(                           \
-                    &bundle->target_hashes, _hash) == NULL) {   \
-                goto cleanup;                                   \
-            }                                                   \
-            ADD_NODE(_hash,                                     \
-                     HDAG_TARGET_UNKNOWN,                       \
-                     HDAG_TARGET_UNKNOWN);                      \
-        } while (0)
-
     /* Collect each node (and its targets) in the sequence */
     while (true) {
         /* Get next node */
@@ -290,7 +278,12 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                     break;
                 }
             }
-            ADD_TARGET_HASH(target_hash);
+            /* Add a new target hash (and the corresponding node) */
+            if (hdag_darr_append_one(
+                    &bundle->target_hashes, target_hash) == NULL) {
+                goto cleanup;
+            }
+            ADD_NODE(target_hash, HDAG_TARGET_UNKNOWN, HDAG_TARGET_UNKNOWN);
         }
 
         /* Add the node */
