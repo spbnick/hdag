@@ -300,8 +300,6 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
         }
     }
 
-    #undef MAKE_TARGET_HASH_SPACE
-    #undef MAKE_NODE_SPACE
     #undef ADD_NODE
 
     /* Sort the nodes by hash lexicographically */
