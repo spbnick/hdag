@@ -48,7 +48,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted(bundle));
-    assert(!hdag_bundle_is_dir(bundle));
+    assert(!hdag_bundle_is_indexed(bundle));
 
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
@@ -140,7 +140,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
-    assert(!hdag_bundle_is_dir(bundle));
+    assert(!hdag_bundle_is_indexed(bundle));
     assert(!bundle->ind_extra_edges);
 
     /* For each node, from start to end */

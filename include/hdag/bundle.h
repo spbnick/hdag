@@ -119,21 +119,25 @@ hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
 }
 
 /**
- * Check if a bundle's nodes are using direct target indices to refer to other
- * nodes in the same array.
+ * Check if a bundle's nodes are referencing their target nodes via their
+ * indices in the nodes array (directly or via "extra_edges", as opposed to
+ * referencing them by their hashes (via "target_hashes").
  *
  * @param bundle    The bundle to check. Must be valid.
  *
- * @return True if nodes are using direct target indices, false otherwise.
+ * @return True if nodes are referencing their target nodes by their
+ *         indices, false if they are referencing them by hashes.
  */
 static inline bool
-hdag_bundle_is_dir(const struct hdag_bundle *bundle)
+hdag_bundle_is_indexed(const struct hdag_bundle *bundle)
 {
     ssize_t idx;
     const struct hdag_node *node;
     assert(hdag_bundle_is_valid(bundle));
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (hdag_targets_are_direct(&node->targets)) {
+        if (hdag_targets_are_direct(&node->targets) ||
+            (bundle->ind_extra_edges &&
+             hdag_targets_are_indirect(&node->targets))) {
             return true;
         }
     }
@@ -216,7 +220,7 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
 
 /**
  * Sort the bundle's nodes by hash, lexicographically, assuming they don't
- * have any direct-index targets.
+ * reference their target nodes by their indices.
  *
  * @param bundle    The bundle to sort the nodes in.
  */
@@ -224,7 +228,7 @@ static inline void
 hdag_bundle_sort(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_is_dir(bundle));
+    assert(!hdag_bundle_is_indexed(bundle));
     /* Sort the nodes by hash lexicographically */
     qsort_r(bundle->nodes.slots, bundle->nodes.slots_occupied,
             bundle->nodes.slot_size, hdag_node_cmp, &bundle->hash_len);

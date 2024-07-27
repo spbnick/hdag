@@ -47,7 +47,7 @@ test_compacting(uint16_t hash_len)
     hdag_bundle_dedup(&bundle);
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     hdag_bundle_compact(&bundle);
-    TEST(hdag_bundle_is_dir(&bundle));
+    TEST(hdag_bundle_is_indexed(&bundle));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         TEST(hdag_node_is_valid(node));
         TEST(hdag_node_hash_is_filled(node, hash_len, idx));
@@ -208,7 +208,7 @@ test(uint16_t hash_len)
     TEST(hdag_bundle_is_clean(&empty_bundle));
     TEST(hdag_bundle_is_sorted(&empty_bundle));
     TEST(hdag_bundle_is_sorted_and_deduped(&empty_bundle));
-    TEST(!hdag_bundle_is_dir(&empty_bundle));
+    TEST(!hdag_bundle_is_indexed(&empty_bundle));
 
     bundle = empty_bundle;
     hdag_bundle_dedup(&bundle);
