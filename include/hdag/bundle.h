@@ -235,8 +235,9 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
 }
 
 /**
- * Remove duplicate node entries from a bundle, preferring known ones,
- * assuming nodes are sorted by hash, and are not using direct-index targets.
+ * Remove duplicate node entries from a bundle, preferring known ones, as well
+ * as duplicate edges. Assume nodes are sorted by hash, and are not using
+ * direct-index targets.
  *
  * @param bundle    The bundle to deduplicate nodes in.
  */

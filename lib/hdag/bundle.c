@@ -62,8 +62,16 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     ssize_t first_idx;
     /* The index of the currently-traversed node */
     ssize_t idx;
+    /* Relation between nodes' hashes */
     int relation;
+    /* The index of the currently-traversed hash */
+    size_t hash_idx;
+    /* The index of a previously-traversed hash */
+    size_t prev_hash_idx;
 
+    /*
+     * Remove duplicate nodes, preferring known ones.
+     */
     /* For each node, starting from the end */
     HDAG_DARR_ITER_BACKWARD(
         &bundle->nodes, idx, node,
@@ -123,6 +131,46 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
         }
         /* Move the already-deduped nodes over the rest of this run */
         hdag_darr_remove(&bundle->nodes, 1, first_idx + 1);
+    }
+
+    /*
+     * Remove duplicate edges
+     */
+    assert(!bundle->ind_extra_edges);
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (!hdag_targets_are_indirect(&node->targets)) {
+            continue;
+        }
+        /* For each target hash starting with the second one */
+        for (hash_idx = hdag_node_get_first_ind_idx(node) + 1;
+             hash_idx <= hdag_node_get_last_ind_idx(node);) {
+            /* Check if the current hash is equal to a previous one */
+            for (prev_hash_idx = hdag_node_get_first_ind_idx(node);
+                 prev_hash_idx < hash_idx &&
+                 memcmp(hdag_darr_element(&bundle->target_hashes, hash_idx),
+                        hdag_darr_element(&bundle->target_hashes,
+                                          prev_hash_idx),
+                        bundle->hash_len) != 0;
+                 prev_hash_idx++);
+            /* If it is not */
+            if (prev_hash_idx >= hash_idx) {
+                /* Continue with the next one */
+                hash_idx++;
+                continue;
+            }
+            /* Shift following hashes one slot closer */
+            memmove(hdag_darr_slot(&bundle->target_hashes, hash_idx),
+                    hdag_darr_slot(&bundle->target_hashes, hash_idx + 1),
+                    (hdag_node_get_last_ind_idx(node) - hash_idx) *
+                    bundle->target_hashes.slot_size);
+            /* Zero last hash slot */
+            memset(hdag_darr_element(&bundle->target_hashes,
+                                     hdag_node_get_last_ind_idx(node)),
+                   0, bundle->target_hashes.slot_size);
+            /* Remove it from the node's targets */
+            node->targets.last--;
+            /* And continue with the next hash */
+        }
     }
 }
 

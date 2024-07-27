@@ -147,6 +147,176 @@ test_deduplicating(uint16_t hash_len)
     TEST(GET_NODE_COMPONENT(8) == 22);
     TEST(GET_NODE_COMPONENT(9) == 23);
 
+    /* Empty the bundle */
+    hdag_bundle_empty(&bundle);
+
+    /*
+     * Check edge deduping works
+     */
+
+    /*
+     * Create a bundle with various combinations of duplicate edges:
+     *
+     * 0 - 1 - 2 - 4 - 6 - 8
+     *                   - 8
+     *                   - 8
+     *               - 6
+     *               - 7
+     *           - 5
+     *           - 4
+     *       - 3
+     *       - 3
+     *   - 1
+     */
+    /* Two same edges */
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 0);
+    node->targets.first =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 1);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 1);
+    node->targets.last =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
+
+    /* Edge a, edge b, edge b */
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 1);
+    node->targets.first =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 2);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 3);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 3);
+    node->targets.last =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
+
+    /* Edge a, edge b, edge a */
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 2);
+    node->targets.first =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 4);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 5);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 4);
+    node->targets.last =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 3);
+
+    /* Edge a, edge a, edge b */
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 4);
+    node->targets.first =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 6);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 6);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 7);
+    node->targets.last =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 5);
+
+    /* Three same edges */
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 6);
+    node->targets.first =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 8);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 8);
+    hdag_hash_fill(hdag_darr_cappend_one(&bundle.target_hashes),
+                   hash_len, 8);
+    node->targets.last =
+        hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 7);
+    node = hdag_darr_cappend_one(&bundle.nodes);
+    hdag_node_hash_fill(node, hash_len, 8);
+
+    /* Check we have the expected number of nodes and target hashes */
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 14);
+
+    /* Sort and dedup */
+    hdag_bundle_sort(&bundle);
+    hdag_bundle_dedup(&bundle);
+
+    /* Check the expected results:
+     *
+     * 0 - 1 - 2 - 4 - 6 - 8
+     *               - 7
+     *           - 5
+     *       - 3
+     */
+    TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.target_hashes.slots_occupied == 14);
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
+        TEST(hdag_node_hash_is_filled(node, hash_len, idx));
+    }
+    node = hdag_darr_element(&bundle.nodes, 0);
+    TEST(hdag_targets_are_indirect(&node->targets));
+    TEST(hdag_target_to_ind_idx(node->targets.first) == 0);
+    TEST(hdag_target_to_ind_idx(node->targets.last) == 0);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 0),
+                             hash_len, 1));
+
+    node = hdag_darr_element(&bundle.nodes, 1);
+    TEST(hdag_targets_are_indirect(&node->targets));
+    TEST(hdag_target_to_ind_idx(node->targets.first) == 2);
+    TEST(hdag_target_to_ind_idx(node->targets.last) == 3);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 2),
+                             hash_len, 2));
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 3),
+                             hash_len, 3));
+
+    node = hdag_darr_element(&bundle.nodes, 2);
+    TEST(hdag_targets_are_indirect(&node->targets));
+    TEST(hdag_target_to_ind_idx(node->targets.first) == 5);
+    TEST(hdag_target_to_ind_idx(node->targets.last) == 6);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 5),
+                             hash_len, 4));
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 6),
+                             hash_len, 5));
+
+    node = hdag_darr_element(&bundle.nodes, 3);
+    TEST(hdag_targets_are_absent(&node->targets));
+
+    node = hdag_darr_element(&bundle.nodes, 4);
+    TEST(hdag_targets_are_indirect(&node->targets));
+    TEST(hdag_target_to_ind_idx(node->targets.first) == 8);
+    TEST(hdag_target_to_ind_idx(node->targets.last) == 9);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 8),
+                             hash_len, 6));
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 9),
+                             hash_len, 7));
+
+    node = hdag_darr_element(&bundle.nodes, 5);
+    TEST(hdag_targets_are_absent(&node->targets));
+
+    node = hdag_darr_element(&bundle.nodes, 6);
+    TEST(hdag_targets_are_indirect(&node->targets));
+    TEST(hdag_target_to_ind_idx(node->targets.first) == 11);
+    TEST(hdag_target_to_ind_idx(node->targets.last) == 11);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 11),
+                             hash_len, 8));
+
+    node = hdag_darr_element(&bundle.nodes, 7);
+    TEST(hdag_targets_are_absent(&node->targets));
+
+    node = hdag_darr_element(&bundle.nodes, 8);
+    TEST(hdag_targets_are_absent(&node->targets));
+
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);
 
