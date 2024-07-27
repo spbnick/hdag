@@ -208,7 +208,7 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
  * Sort the bundle's nodes by hash, lexicographically, assuming they don't
  * have any direct-index targets.
  *
- * @param bundle    The bundle to deduplicate nodes in.
+ * @param bundle    The bundle to sort the nodes in.
  */
 static inline void
 hdag_bundle_sort(struct hdag_bundle *bundle)
