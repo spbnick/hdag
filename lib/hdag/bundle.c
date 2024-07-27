@@ -386,7 +386,7 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
     /* Sort the nodes by hash lexicographically */
     hdag_bundle_sort(bundle);
 
-    /* Deduplicate the nodes */
+    /* Deduplicate the nodes and edges */
     hdag_bundle_dedup(bundle);
 
     /* Attempt to compact the edges */
