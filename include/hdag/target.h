@@ -13,14 +13,14 @@
 /** An node's (outgoing edge's) target value */
 typedef uint32_t    hdag_target;
 
-/** A node's invalid (absent) target (outgoing edge's target) */
-#define HDAG_TARGET_INVALID    (hdag_target)0
+/** A node's target is absent (and so is the outgoing edge) */
+#define HDAG_TARGET_ABSENT    (hdag_target)0
 
 /** A node's unknown target (outgoing edge's target) */
 #define HDAG_TARGET_UNKNOWN    (hdag_target)UINT32_MAX
 
 /** Minimum value for a direct target index */
-#define HDAG_TARGET_DIR_IDX_MIN   (HDAG_TARGET_INVALID + 1)
+#define HDAG_TARGET_DIR_IDX_MIN   (HDAG_TARGET_ABSENT + 1)
 /** Maximum value for a direct target index */
 #define HDAG_TARGET_DIR_IDX_MAX   (hdag_target)INT32_MAX
 
@@ -39,7 +39,7 @@ typedef uint32_t    hdag_target;
 static inline bool
 hdag_target_is_idx(hdag_target target)
 {
-    return target != HDAG_TARGET_INVALID &&
+    return target != HDAG_TARGET_ABSENT &&
         target != HDAG_TARGET_UNKNOWN;
 }
 

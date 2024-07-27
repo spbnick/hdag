@@ -53,13 +53,13 @@ test_compacting(uint16_t hash_len)
         TEST(hdag_node_hash_is_filled(node, hash_len, idx));
         if (idx == 0) {
             TEST(hdag_targets_are_known(&node->targets));
-            TEST(node->targets.first == HDAG_TARGET_INVALID);
-            TEST(node->targets.last == HDAG_TARGET_INVALID);
+            TEST(node->targets.first == HDAG_TARGET_ABSENT);
+            TEST(node->targets.last == HDAG_TARGET_ABSENT);
         } else {
             TEST(hdag_targets_are_known(&node->targets));
             TEST(hdag_targets_are_direct(&node->targets));
             TEST(hdag_target_is_dir_idx(node->targets.first));
-            TEST(node->targets.last == HDAG_TARGET_INVALID);
+            TEST(node->targets.last == HDAG_TARGET_ABSENT);
             TEST(hdag_target_to_dir_idx(node->targets.first) ==
                  (size_t)idx - 1);
         }
@@ -88,8 +88,8 @@ test_compacting(uint16_t hash_len)
             node->targets.first = HDAG_TARGET_UNKNOWN;
             node->targets.last = HDAG_TARGET_UNKNOWN;
         } else {
-            node->targets.first = HDAG_TARGET_INVALID;
-            node->targets.last = HDAG_TARGET_INVALID;
+            node->targets.first = HDAG_TARGET_ABSENT;
+            node->targets.last = HDAG_TARGET_ABSENT;
         }
         assert(hdag_node_is_valid(node));
     }
@@ -124,47 +124,47 @@ test_compacting(uint16_t hash_len)
         node->targets = HDAG_TARGETS_UNKNOWN;           \
     } while(0)
 
-#define APPEND_NODE_INVALID \
+#define APPEND_NODE_ABSENT \
     do {                                                \
         node = hdag_darr_cappend_one(&bundle.nodes);    \
         hdag_node_hash_fill(node, hash_len, hash_idx);  \
         node->component = idx++;                        \
-        node->targets = HDAG_TARGETS_INVALID;           \
+        node->targets = HDAG_TARGETS_ABSENT;            \
     } while(0)
 
     APPEND_NODE_UNKNOWN;
     APPEND_NODE_UNKNOWN;
     hash_idx++;
-    APPEND_NODE_INVALID;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_ABSENT;
+    APPEND_NODE_ABSENT;
     hash_idx++;
-    APPEND_NODE_INVALID;
-    APPEND_NODE_UNKNOWN;
-    hash_idx++;
-    APPEND_NODE_UNKNOWN;
-    APPEND_NODE_INVALID;
-    hash_idx++;
-    APPEND_NODE_INVALID;
-    APPEND_NODE_UNKNOWN;
-    APPEND_NODE_INVALID;
-    hash_idx++;
-    APPEND_NODE_UNKNOWN;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_ABSENT;
     APPEND_NODE_UNKNOWN;
     hash_idx++;
     APPEND_NODE_UNKNOWN;
-    APPEND_NODE_UNKNOWN;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_ABSENT;
     hash_idx++;
-    APPEND_NODE_INVALID;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_ABSENT;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_ABSENT;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_ABSENT;
     APPEND_NODE_UNKNOWN;
     hash_idx++;
     APPEND_NODE_UNKNOWN;
-    APPEND_NODE_INVALID;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_ABSENT;
     hash_idx++;
-    APPEND_NODE_INVALID;
+    APPEND_NODE_ABSENT;
+    APPEND_NODE_ABSENT;
+    APPEND_NODE_UNKNOWN;
+    hash_idx++;
+    APPEND_NODE_UNKNOWN;
+    APPEND_NODE_ABSENT;
+    APPEND_NODE_ABSENT;
+    hash_idx++;
+    APPEND_NODE_ABSENT;
     APPEND_NODE_UNKNOWN;
     APPEND_NODE_UNKNOWN;
     hash_idx++;

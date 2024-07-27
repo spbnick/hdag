@@ -21,9 +21,9 @@ struct hdag_targets {
     HDAG_TARGET_UNKNOWN, HDAG_TARGET_UNKNOWN        \
 }
 
-/** An initializer for invalid targets */
-#define HDAG_TARGETS_INVALID (struct hdag_targets){ \
-    HDAG_TARGET_INVALID, HDAG_TARGET_INVALID        \
+/** An initializer for absent targets */
+#define HDAG_TARGETS_ABSENT (struct hdag_targets){ \
+    HDAG_TARGET_ABSENT, HDAG_TARGET_ABSENT         \
 }
 
 /**
@@ -42,15 +42,15 @@ hdag_targets_are_valid(const struct hdag_targets *targets)
             targets->first == HDAG_TARGET_UNKNOWN &&
             targets->last == HDAG_TARGET_UNKNOWN
         ) ||
-        /** Any combination of invalid and direct index targets */
+        /** Any combination of absent and direct index targets */
         (
             (
                 hdag_target_is_dir_idx(targets->first) ||
-                targets->first == HDAG_TARGET_INVALID
+                targets->first == HDAG_TARGET_ABSENT
             ) &&
             (
                 hdag_target_is_dir_idx(targets->last) ||
-                targets->last == HDAG_TARGET_INVALID
+                targets->last == HDAG_TARGET_ABSENT
             )
         ) ||
         (
@@ -120,18 +120,18 @@ hdag_targets_are_direct(const struct hdag_targets *targets)
 }
 
 /**
- * Check if all targets are absent.
+ * Check if all targets are absent (HDAG_TARGET_ABSENT).
  *
  * @param targets   The targets to check.
  *
- * @return True if all targets are HDAG_TARGET_INVALID, that is missing.
+ * @return True if all targets are absent.
  */
 static inline bool
 hdag_targets_are_absent(const struct hdag_targets *targets)
 {
     assert(hdag_targets_are_valid(targets));
-    return targets->first == HDAG_TARGET_INVALID &&
-        targets->last == HDAG_TARGET_INVALID;
+    return targets->first == HDAG_TARGET_ABSENT &&
+        targets->last == HDAG_TARGET_ABSENT;
 }
 
 #endif /* _HDAG_TARGETS_H */

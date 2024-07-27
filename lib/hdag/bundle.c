@@ -146,7 +146,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* For each node, from start to end */
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         assert(hdag_node_is_valid(node));
-        /* If the node's targets are unknown or are both invalid */
+        /* If the node's targets are unknown or are both absent */
         if (hdag_targets_are_unknown(&node->targets) ||
             hdag_targets_are_absent(&node->targets)) {
             continue;
@@ -199,7 +199,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
                 node->targets.last = hdag_target_from_dir_idx(found_idx);
             } else {
                 /* Mark second target absent */
-                node->targets.last = HDAG_TARGET_INVALID;
+                node->targets.last = HDAG_TARGET_ABSENT;
             }
 
             /* Store first target inside the node */
@@ -298,7 +298,7 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
 
         /* Add the node */
         if (first_target_hash_idx == bundle->target_hashes.slots_occupied) {
-            ADD_NODE(node_hash, HDAG_TARGET_INVALID, HDAG_TARGET_INVALID);
+            ADD_NODE(node_hash, HDAG_TARGET_ABSENT, HDAG_TARGET_ABSENT);
         } else {
             ADD_NODE(
                 node_hash,
@@ -339,7 +339,7 @@ cleanup:
 
 /**
  * Create the destination agnode and the agedge for a particular source node
- * and its direct-index target, unless the target is invalid.
+ * and its direct-index target, unless the target is absent.
  *
  * @param bundle        The bundle the nodes and targets belong to.
  * @param src_node      The source node.
@@ -351,7 +351,7 @@ cleanup:
  * @param src_agnode    The output source node.
  *
  * @return True, if the agnode and the agedge were created successfully,
- *         or the target was invalid. False if creation failed.
+ *         or the target was absent. False if creation failed.
  */
 static bool
 hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
@@ -368,13 +368,14 @@ hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_node_is_valid(src_node));
-    assert(hdag_target_is_dir_idx(target) || target == HDAG_TARGET_INVALID);
-    assert(src_node->targets.first == target || src_node->targets.last == target);
+    assert(hdag_target_is_dir_idx(target) || target == HDAG_TARGET_ABSENT);
+    assert(src_node->targets.first == target ||
+           src_node->targets.last == target);
     assert(dst_hash_buf != NULL);
     assert(agraph != NULL);
     assert(src_agnode != NULL);
 
-    if (target == HDAG_TARGET_INVALID) {
+    if (target == HDAG_TARGET_ABSENT) {
         return true;
     }
 
