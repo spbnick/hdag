@@ -360,6 +360,29 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
 
     #undef ADD_NODE
 
+    result = true;
+
+cleanup:
+    free(target_hash);
+    free(node_hash);
+    assert(hdag_bundle_is_valid(bundle));
+    return result;
+}
+
+bool
+hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
+                            struct hdag_node_seq node_seq)
+{
+    bool result = false;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_empty(bundle));
+
+    /* Load the node sequence (adjacency list) */
+    if (!hdag_bundle_load_node_seq(bundle, node_seq)) {
+        goto cleanup;
+    }
+
     /* Sort the nodes by hash lexicographically */
     hdag_bundle_sort(bundle);
 
@@ -379,8 +402,6 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     result = true;
 
 cleanup:
-    free(target_hash);
-    free(node_hash);
     assert(hdag_bundle_is_valid(bundle));
     return result;
 }

@@ -204,7 +204,8 @@ extern void hdag_bundle_empty(struct hdag_bundle *bundle);
 extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 
 /**
- * Load a node sequence (adjacency list) into a bundle.
+ * Load a node sequence (adjacency list) into a bundle, but don't do any
+ * optimization.
  *
  * @param bundle    The bundle to load the node sequence into.
  *                  Must be valid and empty. Can be left unclean on failure.
@@ -212,11 +213,26 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  *                  to load. Node hash length is assumed to be the bundle's
  *                  hash length.
  *
- * @return True if the data was loaded and processed successfully,
+ * @return True if the data was loaded successfully,
  *         false if not. The errno is set in case of failure.
  */
 extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                                       struct hdag_node_seq node_seq);
+
+/**
+ * Load a node sequence (adjacency list) into a bundle, and optimize.
+ *
+ * @param bundle    The bundle to load the node sequence into.
+ *                  Must be valid and empty. Can be left unclean on failure.
+ * @param node_seq  The sequence of nodes (and optionally their targets)
+ *                  to load. Node hash length is assumed to be the bundle's
+ *                  hash length.
+ *
+ * @return True if the data was loaded and optimized successfully,
+ *         false if not. The errno is set in case of failure.
+ */
+extern bool hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
+                                        struct hdag_node_seq node_seq);
 
 /**
  * Sort the bundle's nodes by hash, lexicographically, assuming they don't
