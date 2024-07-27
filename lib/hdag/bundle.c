@@ -34,6 +34,16 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
 }
 
 void
+hdag_bundle_deflate(struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return
+        hdag_darr_deflate(&bundle->nodes) &&
+        hdag_darr_deflate(&bundle->target_hashes) &&
+        hdag_darr_deflate(&bundle->extra_edges);
+}
+
+void
 hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
@@ -314,9 +324,7 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     }
 
     /* Shrink the extra space allocated for the bundle */
-    if (!(hdag_darr_deflate(&bundle->nodes) &&
-          hdag_darr_deflate(&bundle->target_hashes) &&
-          hdag_darr_deflate(&bundle->extra_edges))) {
+    if (!hdag_bundle_deflate(bundle)) {
         goto cleanup;
     }
 

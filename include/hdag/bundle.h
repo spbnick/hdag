@@ -175,6 +175,16 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
 }
 
 /**
+ * Deflate a bundle, releasing any extra allocated memory
+ *
+ * @param bundle    The bundle to deflate.
+ *
+ * @return True if deflating succeeded, false if memory reallocation failed,
+ *         and errno was set.
+ */
+extern bool hdag_bundle_deflate(struct hdag_bundle *bundle);
+
+/**
  * Empty a bundle, removing all data, but not releasing any memory.
  *
  * @param bundle    The bundle to empty.
