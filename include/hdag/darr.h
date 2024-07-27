@@ -308,7 +308,7 @@ hdag_darr_element(struct hdag_darr *darr, size_t idx)
  * @param darr  The dynamic array to deflate.
  *
  * @return True if deflating succeeded, false if memory reallocation failed,
- *         and errno was set. 
+ *         and errno was set.
  */
 extern bool hdag_darr_deflate(struct hdag_darr *darr);
 
