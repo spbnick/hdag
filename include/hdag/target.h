@@ -30,6 +30,35 @@ typedef uint32_t    hdag_target;
 #define HDAG_TARGET_IND_IDX_MAX   (HDAG_TARGET_UNKNOWN - 1)
 
 /**
+ * Check if an index can be represented by a target (either direct or
+ * indirect).
+ *
+ * @param idx   The index to check.
+ *
+ * @return True if the index can be represented by a target, false if not.
+ */
+static inline bool
+hdag_target_idx_is_valid(size_t idx)
+{
+    return idx < INT32_MAX;
+}
+
+/**
+ * Validate an index can be represented by a target (either direct or
+ * indirect).
+ *
+ * @param idx   The index to validate.
+ *
+ * @return The validated index.
+ */
+static inline size_t
+hdag_target_idx_validate(size_t idx)
+{
+    assert(hdag_target_idx_is_valid(idx));
+    return idx;
+}
+
+/**
  * Check if a node's target is a direct or indirect index.
  *
  * @param target    The target value to check.
@@ -82,7 +111,7 @@ static inline size_t
 hdag_target_to_dir_idx(hdag_target target)
 {
     assert(hdag_target_is_dir_idx(target));
-    return target - HDAG_TARGET_DIR_IDX_MIN;
+    return hdag_target_idx_validate(target - HDAG_TARGET_DIR_IDX_MIN);
 }
 
 /**
@@ -95,6 +124,7 @@ hdag_target_to_dir_idx(hdag_target target)
 static inline hdag_target
 hdag_target_from_dir_idx(size_t dir_idx)
 {
+    assert(hdag_target_idx_is_valid(dir_idx));
     hdag_target target = dir_idx + HDAG_TARGET_DIR_IDX_MIN;
     assert(hdag_target_is_dir_idx(target));
     return target;
@@ -111,7 +141,7 @@ static inline size_t
 hdag_target_to_ind_idx(hdag_target target)
 {
     assert(hdag_target_is_ind_idx(target));
-    return target - HDAG_TARGET_IND_IDX_MIN;
+    return hdag_target_idx_validate(target - HDAG_TARGET_IND_IDX_MIN);
 }
 
 /**
@@ -124,6 +154,7 @@ hdag_target_to_ind_idx(hdag_target target)
 static inline hdag_target
 hdag_target_from_ind_idx(size_t ind_idx)
 {
+    assert(hdag_target_idx_is_valid(ind_idx));
     hdag_target target = ind_idx + HDAG_TARGET_IND_IDX_MIN;
     assert(hdag_target_is_ind_idx(target));
     return target;
