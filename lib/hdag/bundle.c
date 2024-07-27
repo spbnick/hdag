@@ -33,7 +33,7 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_empty(bundle));
 }
 
-void
+bool
 hdag_bundle_deflate(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
