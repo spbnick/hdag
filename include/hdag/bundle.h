@@ -246,8 +246,7 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     assert(!hdag_bundle_is_indexed(bundle));
     /* Sort the nodes by hash lexicographically */
-    qsort_r(bundle->nodes.slots, bundle->nodes.slots_occupied,
-            bundle->nodes.slot_size, hdag_node_cmp, &bundle->hash_len);
+    hdag_darr_qsort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
 }
 
 /**

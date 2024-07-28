@@ -448,4 +448,52 @@ hdag_darr_remove_one(struct hdag_darr *darr, size_t idx)
             (void *)((char *)_element_name - (_darr)->slot_size)        \
     )
 
+/**
+ * The prototype for a dynamic array element comparison function.
+ *
+ * @param first     The first element to compare.
+ * @param second    The second element to compare.
+ * @param data      The function's private data.
+ *
+ * @return -1 if first < second, 0 if first == second, 1 if first > second.
+ */
+typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
+                                void *data);
+
+/**
+ * Qsort a slice of a dynamic array.
+ *
+ * @param dagg  The dynamic array containing the slice to sort.
+ * @param start The index of the first element of the slice to be sorted.
+ * @param end   The index of the first element *after* the slice to be sorted.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ */
+static inline void
+hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
+                hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(end <= darr->slots_occupied);
+    assert(start < end);
+    assert(cmp != NULL);
+    qsort_r(hdag_darr_element(darr, start), end - start,
+            darr->slot_size, cmp, data);
+}
+
+/**
+ * Qsort a complete dynamic array.
+ *
+ * @param dagg  The dynamic array containing the slice to sort.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ */
+static inline void
+hdag_darr_qsort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(cmp != NULL);
+    hdag_darr_qsort(darr, 0, darr->slots_occupied, cmp, data);
+}
+
 #endif /* _HDAG_DARR_H */
