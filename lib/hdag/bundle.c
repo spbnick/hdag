@@ -257,7 +257,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
                 continue;
             }
             /* Shift following hashes one slot closer */
-            memmove(hdag_darr_slot(&bundle->target_hashes, hash_idx),
+            memmove(hdag_darr_element(&bundle->target_hashes, hash_idx),
                     hdag_darr_slot(&bundle->target_hashes, hash_idx + 1),
                     (hdag_node_get_last_ind_idx(node) - hash_idx) *
                     bundle->target_hashes.slot_size);
