@@ -5,6 +5,11 @@
 #ifndef _HDAG_HASH_H
 #define _HDAG_HASH_H
 
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <assert.h>
+
 /**
  * Check if a hash length is valid (divisible by four and not zero).
  *
@@ -73,5 +78,18 @@ hdag_hash_is_filled(uint8_t *hash, uint16_t len, uint32_t fill)
     }
     return true;
 }
+
+/**
+ * Compare two hashes lexicographically.
+ *
+ * @param a     The first node to compare.
+ * @param b     The second node to compare.
+ * @param plen  Location containing the node hash length (uint16_t).
+ *
+ * @return -1, if a < b
+ *          0, if a == b
+ *          1, if a > b
+ */
+extern int hdag_hash_cmp(const void *a, const void *b, void *plen);
 
 #endif /* _HDAG_HASH_H */

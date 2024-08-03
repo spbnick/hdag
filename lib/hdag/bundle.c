@@ -44,6 +44,104 @@ hdag_bundle_deflate(struct hdag_bundle *bundle)
 }
 
 void
+hdag_bundle_sort(struct hdag_bundle *bundle)
+{
+    /* Currently traversed node */
+    struct hdag_node *node;
+    /* The index of the currently-traversed node */
+    ssize_t idx;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_indexed(bundle));
+    /* Sort the nodes by hash lexicographically */
+    hdag_darr_qsort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
+    /* Sort the target hashes for each node lexicographically */
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (hdag_targets_are_indirect(&node->targets)) {
+            hdag_darr_qsort(&bundle->target_hashes,
+                            hdag_node_get_first_ind_idx(node),
+                            hdag_node_get_last_ind_idx(node) + 1,
+                            hdag_hash_cmp, &bundle->hash_len);
+        }
+    }
+}
+
+
+/*
+ * Check if both the nodes and targets of a bundle are sorted according to
+ * a specified comparison operator. "return" true if they are, false if not.
+ *
+ * @param _bundle   The bundle to sort.
+ * @param _cmp_op   The operator to use to compare two adjacent nodes/edges.
+ *                  The lower-index one on the left, the higher-index one on
+ *                  the right.
+ */
+#define HDAG_BUNDLE_IS_SORTED_AS(_bundle, _cmp_op) \
+    do {                                                                    \
+        ssize_t node_idx;                                                   \
+        const struct hdag_node *prev_node;                                  \
+        const struct hdag_node *node;                                       \
+        size_t target_idx;                                                  \
+        int64_t relation;                                                   \
+                                                                            \
+        assert(hdag_bundle_is_valid((_bundle)));                            \
+                                                                            \
+        HDAG_DARR_ITER_FORWARD(&(_bundle)->nodes, node_idx, node,           \
+                               prev_node = NULL, prev_node=node) {          \
+            if (prev_node != NULL &&                                        \
+                !(memcmp(prev_node->hash, node->hash,                       \
+                         (_bundle)->hash_len) _cmp_op 0)) {                 \
+                return false;                                               \
+            }                                                               \
+            if (!hdag_targets_are_indirect(&node->targets)) {               \
+                continue;                                                   \
+            }                                                               \
+            for (target_idx = hdag_node_get_first_ind_idx(node) + 1;        \
+                 target_idx <= hdag_node_get_last_ind_idx(node);            \
+                 target_idx++) {                                            \
+                if ((_bundle)->ind_extra_edges) {                           \
+                    relation =                                              \
+                        (int64_t)(HDAG_DARR_ELEMENT(                        \
+                            &(_bundle)->extra_edges,                        \
+                            struct hdag_edge, target_idx - 1                \
+                        )->node_idx) -                                      \
+                        (int64_t)(HDAG_DARR_ELEMENT(                        \
+                            &(_bundle)->extra_edges,                        \
+                            struct hdag_edge, target_idx                    \
+                        )->node_idx);                                       \
+                } else {                                                    \
+                    relation = memcmp(                                      \
+                        hdag_darr_element_const(                            \
+                            &(_bundle)->target_hashes, target_idx - 1       \
+                        ),                                                  \
+                        hdag_darr_element_const(                            \
+                            &(_bundle)->target_hashes, target_idx           \
+                        ),                                                  \
+                        (_bundle)->target_hashes.slot_size                  \
+                    );                                                      \
+                }                                                           \
+                if (!(relation _cmp_op 0)) {                                \
+                    return false;                                           \
+                }                                                           \
+            }                                                               \
+        }                                                                   \
+                                                                            \
+        return true;                                                        \
+    } while (0)
+
+bool
+hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
+{
+    HDAG_BUNDLE_IS_SORTED_AS(bundle, <=);
+}
+
+bool
+hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
+{
+    HDAG_BUNDLE_IS_SORTED_AS(bundle, <);
+}
+
+void
 hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));

@@ -71,52 +71,23 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 }
 
 /**
- * Check if a bundle's nodes are sorted (lexicographically).
+ * Check if a bundle's nodes and targets are sorted.
  *
  * @param bundle    The bundle to check. Must be valid.
  *
- * @return True if the nodes are sorted, false if not.
+ * @return True if the bundle is sorted, false if not.
  */
-static inline bool
-hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *prev_node;
-    const struct hdag_node *node;
-    assert(hdag_bundle_is_valid(bundle));
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node,
-                           prev_node = NULL, prev_node=node) {
-        if (prev_node != NULL &&
-            memcmp(node->hash, prev_node->hash, bundle->hash_len) < 0) {
-            return false;
-        }
-    }
-    return true;
-}
+extern bool hdag_bundle_is_sorted(const struct hdag_bundle *bundle);
 
 /**
- * Check if a bundle's nodes are sorted (lexicographically) and deduplicated.
+ * Check if a bundle's nodes and targets are sorted and deduplicated.
  *
  * @param bundle    The bundle to check. Must be valid.
  *
- * @return True if the nodes are sorted and deduplicated, false if not.
+ * @return True if the bundle is sorted and deduplicated, false if not.
  */
-static inline bool
-hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *prev_node;
-    const struct hdag_node *node;
-    assert(hdag_bundle_is_valid(bundle));
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node,
-                           prev_node = NULL, prev_node = node) {
-        if (prev_node != NULL &&
-            memcmp(node->hash, prev_node->hash, bundle->hash_len) <= 0) {
-            return false;
-        }
-    }
-    return true;
-}
+extern bool hdag_bundle_is_sorted_and_deduped(
+                            const struct hdag_bundle *bundle);
 
 /**
  * Check if a bundle's nodes are referencing their target nodes via their
@@ -235,19 +206,12 @@ extern bool hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
                                         struct hdag_node_seq node_seq);
 
 /**
- * Sort the bundle's nodes by hash, lexicographically, assuming they don't
- * reference their target nodes by their indices.
+ * Sort the bundle's nodes and their target nodes by hash, lexicographically,
+ * assuming target nodes are not referenced by their indices.
  *
- * @param bundle    The bundle to sort the nodes in.
+ * @param bundle    The bundle to sort the nodes and targets in.
  */
-static inline void
-hdag_bundle_sort(struct hdag_bundle *bundle)
-{
-    assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_is_indexed(bundle));
-    /* Sort the nodes by hash lexicographically */
-    hdag_darr_qsort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
-}
+extern void hdag_bundle_sort(struct hdag_bundle *bundle);
 
 /**
  * Remove duplicate node entries from a bundle, preferring known ones, as well

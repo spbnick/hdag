@@ -26,6 +26,7 @@ add_library(
     lib/hdag/nodes.c
     lib/hdag/node.c
     lib/hdag/darr.c
+    lib/hdag/hash.c
     lib/hdag/misc.c
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
