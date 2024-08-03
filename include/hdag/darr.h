@@ -292,7 +292,7 @@ hdag_darr_slot(struct hdag_darr *darr, size_t idx)
  * @param idx   The index of the element to retrieve the pointer to.
  *              Must be within occupied area.
  *
- * @return The element slot pointer.
+ * @return The element pointer.
  */
 static inline void *
 hdag_darr_element(struct hdag_darr *darr, size_t idx)
@@ -301,6 +301,121 @@ hdag_darr_element(struct hdag_darr *darr, size_t idx)
     assert(idx < darr->slots_occupied);
     return (char *)darr->slots + darr->slot_size * idx;
 }
+
+/**
+ * Retrieve the pointer to a dynamic array element at specified index,
+ * asserting that the size of the element matches the specified size.
+ *
+ * @param darr  The array to retrieve the element pointer from.
+ * @param size  The expected size of the element to assert.
+ * @param idx   The index of the element to retrieve the pointer to.
+ *              Must be within occupied area.
+ *
+ * @return The element pointer.
+ */
+static inline void *
+hdag_darr_element_sized(struct hdag_darr *darr, size_t size, size_t idx)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(size == darr->slot_size);
+    assert(idx < darr->slots_occupied);
+    return (char *)darr->slots + darr->slot_size * idx;
+}
+
+/**
+ * Retrieve the const pointer to an element at specified index inside a const
+ * dynamic array.
+ *
+ * @param darr  The array to retrieve the element pointer from.
+ * @param idx   The index of the element to retrieve the pointer to.
+ *              Must be within occupied area.
+ *
+ * @return The element pointer.
+ */
+static inline const void *
+hdag_darr_element_const(const struct hdag_darr *darr, size_t idx)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(idx < darr->slots_occupied);
+    return (const char *)darr->slots + darr->slot_size * idx;
+}
+
+/**
+ * Retrieve the const pointer to an element at specified index inside a const
+ * dynamic array, asserting that the size of the element matches the specified
+ * size.
+ *
+ * @param darr  The array to retrieve the element pointer from.
+ * @param idx   The index of the element to retrieve the pointer to.
+ *              Must be within occupied area.
+ * @param size  The expected size of the element to assert.
+ *
+ * @return The element pointer.
+ */
+static inline const void *
+hdag_darr_element_sized_const(const struct hdag_darr *darr,
+                              size_t size, size_t idx)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(size == darr->slot_size);
+    assert(idx < darr->slots_occupied);
+    return (const char *)darr->slots + darr->slot_size * idx;
+}
+
+/**
+ * Retrieve the (possibly const) pointer to an element of specified type, at
+ * specified index inside a (possibly const) dynamic array. Assert that the
+ * size of the element type matches the dynamic array's slot size. Cast the
+ * returned pointer to a pointer to the specified type.
+ *
+ * @param _darr The array to retrieve the element pointer from.
+ * @param _type The type of the array element (not a pointer to it) to assert
+ *              the size of, and to cast the returned type to (making it a
+ *              pointer). Will have "const" qualifier added, if _darr is
+ *              const.
+ * @param _idx  The index of the element to retrieve the pointer to.
+ *              Must be within occupied area.
+ *
+ * @return The element pointer (const, if the dynamic array was const).
+ */
+#define HDAG_DARR_ELEMENT(_darr, _type, _idx) \
+    _Generic(                                                               \
+        _darr,                                                              \
+        struct hdag_darr *: (_type *)hdag_darr_element_sized(               \
+            (struct hdag_darr *)_darr, sizeof(_type), _idx                  \
+        ),                                                                  \
+        const struct hdag_darr *: (const _type *)hdag_darr_element_sized(   \
+            (struct hdag_darr *)_darr, sizeof(_type), _idx                  \
+        )                                                                   \
+    )
+
+/**
+ * Retrieve the (possibly const) pointer to an element of specified type, at
+ * specified index inside a (possibly const) dynamic array. Do *not* assert
+ * that the size of the element type matches the dynamic array's slot size,
+ * catering to the cases when each element is in itself an array, or when size
+ * verification is not necessary. Cast the returned pointer to a pointer to
+ * the specified type.
+ *
+ * @param _darr The array to retrieve the element pointer from.
+ * @param _type The type of the array element (not a pointer to it) to cast
+ *              the returned type to (making it a pointer). Will have "const"
+ *              qualifier added, if _darr is const.
+ * @param _idx  The index of the element to retrieve the pointer to.
+ *              Must be within occupied area.
+ *
+ * @return The element pointer (const, if the dynamic array was const).
+ */
+#define HDAG_DARR_ELEMENT_UNSIZED(_darr, _type, _idx) \
+    _Generic(                                                       \
+        _darr,                                                      \
+        struct hdag_darr *: (_type *)hdag_darr_element(             \
+            (struct hdag_darr *)_darr, _idx                         \
+        ),                                                          \
+        const struct hdag_darr *: (const _type *)hdag_darr_element( \
+            (struct hdag_darr *)_darr, _idx                         \
+        )                                                           \
+    )
 
 /**
  * Free all empty element slots in a dynamic array ("deflate").
