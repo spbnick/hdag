@@ -111,6 +111,20 @@ hdag_darr_is_valid(const struct hdag_darr *darr)
 }
 
 /**
+ * Get the number of occupied slots.
+ *
+ * @param darr  The dynamic array to get the number of occupied slots for.
+ *
+ * @return The number of occupied slots, bytes.
+ */
+static inline size_t
+hdag_darr_occupied_slots(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return darr->slots_occupied;
+}
+
+/**
  * Get the size of occupied slots, in bytes.
  *
  * @param darr  The dynamic array to get the size of occupied slots.
@@ -122,6 +136,20 @@ hdag_darr_occupied_size(const struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
     return darr->slot_size * darr->slots_occupied;
+}
+
+/**
+ * Get the number of allocated slots.
+ *
+ * @param darr  The dynamic array to get the number of allocated slots for.
+ *
+ * @return The number of allocated slots, bytes.
+ */
+static inline size_t
+hdag_darr_allocated_slots(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return darr->slots_allocated;
 }
 
 /**
