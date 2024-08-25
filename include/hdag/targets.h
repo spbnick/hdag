@@ -77,7 +77,24 @@ hdag_targets_validate(const struct hdag_targets *targets)
 }
 
 /**
- * Create direct targets.
+ * Create targets containing one direct target.
+ *
+ * @param idx   The target's direct index.
+ *
+ * @return The created direct targets.
+ */
+static inline struct hdag_targets
+hdag_targets_direct_one(size_t idx)
+{
+    assert(hdag_target_idx_is_valid(idx));
+    return *hdag_targets_validate(&(struct hdag_targets){
+        .first = hdag_target_from_dir_idx(idx),
+        .last = HDAG_TARGET_ABSENT,
+    });
+}
+
+/**
+ * Create two direct targets.
  *
  * @param first The first target's direct index.
  * @param last  The last target's direct index.
@@ -85,7 +102,7 @@ hdag_targets_validate(const struct hdag_targets *targets)
  * @return The created direct targets.
  */
 static inline struct hdag_targets
-hdag_targets_direct(size_t first, size_t last)
+hdag_targets_direct_two(size_t first, size_t last)
 {
     assert(hdag_target_idx_is_valid(first));
     assert(hdag_target_idx_is_valid(last));
