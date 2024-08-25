@@ -229,4 +229,28 @@ hdag_targets_are_absent(const struct hdag_targets *targets)
         targets->last == HDAG_TARGET_ABSENT;
 }
 
+/**
+ * Return the number of known targets (direct or indirect).
+ *
+ * @param targets   The targets to count.
+ *
+ * @return The number of targets.
+ */
+static inline uint32_t
+hdag_targets_count(const struct hdag_targets *targets)
+{
+    assert(hdag_targets_are_valid(targets));
+
+    if (targets->first == HDAG_TARGET_UNKNOWN) {
+        return 0;
+    }
+
+    if (hdag_target_is_ind_idx(targets->first)) {
+        return targets->last - targets->first + 1;
+    } else {
+        return (uint32_t)hdag_target_is_dir_idx(targets->first) +
+               (uint32_t)hdag_target_is_dir_idx(targets->last);
+    }
+}
+
 #endif /* _HDAG_TARGETS_H */
