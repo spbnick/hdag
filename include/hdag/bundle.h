@@ -31,10 +31,13 @@ struct hdag_bundle {
      */
     struct hdag_darr    nodes;
 
-    /** Target hashes */
+    /** Target hashes. Must be empty if extra_edges is not. */
     struct hdag_darr    target_hashes;
 
-    /** The array of extra edges, which didn't fit into nodes themselves */
+    /*
+     * The array of extra edges, which didn't fit into nodes themselves.
+     * Must be empty if target_hashes is not.
+     */
     struct hdag_darr    extra_edges;
 };
 
@@ -67,7 +70,12 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_is_valid(&bundle->extra_edges) &&
-        bundle->extra_edges.slot_size == sizeof(struct hdag_edge);
+        bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
+        (hdag_darr_occupied_slots(&bundle->target_hashes) == 0 ||
+         hdag_darr_occupied_slots(&bundle->extra_edges) == 0) &&
+        (bundle->ind_extra_edges
+         ? (hdag_darr_occupied_slots(&bundle->target_hashes) == 0)
+         : (hdag_darr_occupied_slots(&bundle->extra_edges) == 0));
 }
 
 /**
