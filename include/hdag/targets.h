@@ -26,6 +26,30 @@ struct hdag_targets {
     HDAG_TARGET_ABSENT, HDAG_TARGET_ABSENT         \
 }
 
+/** An initializer for indirect targets (with defined evaluation order) */
+#define HDAG_TARGETS_INDIRECT(_first, _last) ( \
+    *hdag_targets_validate(&(struct hdag_targets){  \
+        .first = hdag_target_from_ind_idx(_first),  \
+        .last = hdag_target_from_ind_idx(_last),    \
+    })                                              \
+)
+
+/** An initializer for one direct target */
+#define HDAG_TARGETS_DIRECT_ONE(_target) ( \
+    *hdag_targets_validate(&(struct hdag_targets){  \
+        .first = hdag_target_from_dir_idx(_target), \
+        .last = HDAG_TARGET_ABSENT                  \
+    })                                              \
+)
+
+/** An initializer for two direct targets (with defined evaluation order) */
+#define HDAG_TARGETS_DIRECT_TWO(_first, _second) ( \
+    *hdag_targets_validate(&(struct hdag_targets){  \
+        .first = hdag_target_from_dir_idx(_first),  \
+        .last = hdag_target_from_dir_idx(_second),  \
+    })                                              \
+)
+
 /**
  * Check if targets are valid.
  *
