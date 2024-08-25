@@ -182,7 +182,7 @@ static inline bool
 hdag_targets_are_known(const struct hdag_targets *targets)
 {
     assert(hdag_targets_are_valid(targets));
-    return !hdag_targets_are_unknown(targets);
+    return targets->first != HDAG_TARGET_UNKNOWN;
 }
 
 /**
