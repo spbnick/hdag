@@ -238,7 +238,7 @@ better use skip list sort for online sorting and deduplication.
 OK, another try:
 
     For each received node and its adjacency list
-        Insert 
+        Insert
 
 Ah, wait, if we're going to simply put *all* the target hashes into an array,
 without packing most of them into the node, then we would take a similar
@@ -309,3 +309,175 @@ TODO: Deduplicate edges.
         - done!
 TODO: See if we could normalize on the "destination hash", instead of "target
       hash", or vice versa.
+TODO: Consider replacing "ind_extra_edges" with looking at which of
+      target_hashes/extra_edges is non-empty.
+---
+ASSIGNING GENERATION AND COMPONENT NUMBERS
+
+Create an array of node indices able to accommodate all nodes (maybe minus
+one?). Use it as a stack to remember the nodes to go back to during the DFS.
+Actually, just resize it as necessary, in case we have a "wide" graph.
+
+Store the number of already traversed outgoing edges in the node's
+"generation".
+
+Store the node's generation in "generation", once all edges are traversed and
+we are returning to the source node.
+
+Use two distinct ranges of "generation" to store traversal state and the
+generation itself. Both excluding zero.
+
+Thus a value in the second range (the actual generation)
+would also act as the "permanent mark" from the DFS topological sort.
+A value in the other range would act as the "temporary mark".
+
+We might not need to store the output "topologically-sorted" graph, because
+we're using generation numbers instead anyway.
+
+We can assign generations from the lowest to highest number as we unwind the
+traversal stack. If we hit a node with a permanent mark (generation number
+already assigned), we use the max(target_node_generation - 1,
+currently_planned_generation) for the planned generation number.
+
+Now, regarding WCC IDs ("component" numbers).
+
+Aside:
+    BTW, can we somehow embed them into the generation number? Probably not,
+    as they would have uneven space for their generation numbers, and we'll
+    have to move them around constantly.
+
+So, let's say we start with a WCC ID 0. For each new DFS we increment it and
+assign the result to the nodes we're traversing which don't have an ID
+assigned (are zero). Upon encountering a non-zero ID, add it to a list of IDs
+belonging
+---
+
+Create an array of node indices able to accommodate all nodes (maybe minus
+one?). Use it as a stack to remember the nodes to go back to during the DFS.
+
+Store the number of already traversed outgoing edges in the node's
+"generation".
+
+Store the node's generation in "generation", once all edges are traversed and
+we are returning to the source node.
+
+Use two distinct ranges of "generation" to store traversal state and the
+generation itself. Both excluding zero.
+
+Thus a value in the second range (the actual generation)
+would also act as the "permanent mark" from the DFS topological sort.
+A value in the other range would act as the "temporary mark".
+
+We might not need to store the output "topologically-sorted" graph, because
+we're using generation numbers instead anyway.
+
+We can assign generations from the lowest to highest number as we unwind the
+traversal stack. If we hit a node with a permanent mark (generation number
+already assigned), we use the max(target_node_generation - 1,
+currently_planned_generation) for the planned generation number.
+
+Now, regarding WCC IDs ("component" numbers).
+
+Aside:
+    BTW, can we somehow embed them into the generation number? Probably not,
+    as they would have uneven space for their generation numbers, and we'll
+    have to move them around constantly.
+
+So, let's say we start with a WCC ID 0. For each new DFS we increment it and
+assign the result to the nodes we're traversing which don't have an ID
+assigned (are zero). Upon encountering a non-zero ID, add it to a list of IDs
+belonging
+
+OK, no.
+
+How about we have an array of WCC IDs, one for each node, with the same order
+as the nodes? As we do our generation number-assignment DFS, we can assign the
+same WCC ID to nodes traversed in a single DFS.
+
+No, wait.
+
+How about we have a linked list with one element per node, with elements
+stored in the same order. Then, as we do a single DFS, we keep adding new
+nodes to the end of the list. If we hit an already-traversed node,
+
+----
+
+OK, scratch all that. ChatGPT says we can use an (iterative) LPA (Label
+Propagation Algorithm) for this. Kinda what I was thinking about before.
+However, he's not clear about handling edge directions there. From its
+description it won't work.
+
+How about this:
+* We start with a WCC ID 0
+* For each node in the graph
+*   If we haven't traversed this node before
+*       Increment the WCC ID
+*       Start a DFS supplying it with the WCC ID, which:
+*           Assigns this ID to every node without one.
+*
+
+Actually, after talking to Panos, I think we could go through finding the DAG
+roots by calculating the in-degree of all nodes, storing that in the
+"component" members. Then go over every node and do DFS from each that has
+zero in-degree, giving it the next component ID to put into all the
+"component" members, and assigning the generation number, as well as detecting
+cycles. If we find no nodes with zero in-degree, that means there is a cycle
+in the graph.
+
+Now, which would be the best state to do it in? Indexed, I guess.
+---
+TODO: Consider storing node hashes in a separate array, avoiding the hassle of
+      using flexible array members.
+
+---
+
+No, there's really no difference between finding root nodes first and not
+finding them, for identifying WCCs.
+
+We can always invert the graph and walk the pair of them as an undirected
+graph to identify the WCCs.
+
+But let's try something else for a bit longer. We could save on memory for the
+normal case, where there are not many WCCs in each created bundle/file.
+
+So, again, say we start with a WCC ID 0
+We create an empty array of connected WCC IDs, where each ID's
+entry is at the index of its ID-1, and stores the node the WCC was started at,
+as well as the ID of the next connected WCC, or zero, if none.
+    For each node in the graph
+        If the node's component is zero
+            Increment WCC ID
+            Add an entry to WCC ID list with the next ID set to zero,
+            and the current node as the start one.
+            Do a DFS assigning the WCC ID to each node with zero component
+            (as well as assigning generation numbers)
+            If a node with non-zero component is encountered during that:
+                If its next WCC ID is not this WCC ID already:
+                    Take its next WCC ID and put it into this ID's entry as the
+                    next one.
+                    Assign this WCC ID into the found entry as the next one.
+    Set current WCC ID to zero
+    For each WCC ID array element:
+        If its next WCC ID is not zero:
+            Set current WCC ID to its WCC ID
+            For each item in the linked list starting from the next one
+                Do a DFS from the starting node, for all nodes with the same
+                WCC ID set the current WCC ID
+        
+The worst case for the memory use is when e.g. every node we traverse points
+back to at least one of the previous nodes. For that case we'll need the WCC
+ID array length to be the same as the number of nodes. Each item in that array
+being 64 bits.
+
+---
+Can we avoid allocating the WCC ID linked list, if we simply repeatedly walk
+the graph?
+
+Like, take a node, walk down the whole reachable subgraph, find the
+maximum/minimum WCC ID among the nodes, then walk it again to assign that
+maximum/minimum to everything.
+
+---
+
+OK, let's do it simple for now, just invert the graph.
+TODO: Consider renaming `extra_edges` to `target_indexes`.

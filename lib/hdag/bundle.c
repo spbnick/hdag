@@ -52,7 +52,7 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
     ssize_t idx;
 
     assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_is_indexed(bundle));
+    assert(!hdag_bundle_has_index_targets(bundle));
     /* Sort the nodes by hash lexicographically */
     hdag_darr_qsort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
     /* Sort the target hashes for each node lexicographically */
@@ -146,7 +146,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted(bundle));
-    assert(!hdag_bundle_is_indexed(bundle));
+    assert(!hdag_bundle_has_index_targets(bundle));
 
     /* The first node in the same-hash run */
     struct hdag_node *first_node;
@@ -286,7 +286,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
-    assert(!hdag_bundle_is_indexed(bundle));
+    assert(!hdag_bundle_has_index_targets(bundle));
     assert(!bundle->ind_extra_edges);
 
     /* For each node, from start to end */
@@ -375,6 +375,125 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 }
 
 bool
+hdag_bundle_invert(struct hdag_bundle *pinverted,
+                   const struct hdag_bundle *original)
+{
+    assert(hdag_bundle_is_valid(original));
+    assert(hdag_bundle_is_sorted_and_deduped(original));
+    assert(!hdag_bundle_has_hash_targets(original));
+
+    bool result = false;
+    struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(original->hash_len);
+    ssize_t                 node_idx;
+    const struct hdag_node *original_node;
+    struct hdag_node       *inverted_node;
+    uint32_t                target_count;
+    uint32_t                target_idx;
+
+    if (hdag_darr_occupied_slots(&original->nodes) == 0) {
+        goto output;
+    }
+
+    if (!hdag_darr_append(&inverted.nodes, original->nodes.slots,
+                          hdag_darr_occupied_slots(&original->nodes))) {
+        goto cleanup;
+    }
+
+    /* Put the number of node's eventual targets into the "generation" */
+    HDAG_DARR_ITER_FORWARD(&inverted.nodes, node_idx, inverted_node,
+                           (void)0, (void)0) {
+        inverted_node->generation = 0;
+    }
+    HDAG_DARR_ITER_FORWARD(&original->nodes, node_idx, original_node,
+                           (void)0, (void)0) {
+        target_count = hdag_node_targets_count(original_node);
+        for (target_idx = 0; target_idx < target_count; target_idx++) {
+            hdag_bundle_node(
+                &inverted,
+                hdag_bundle_targets_node_idx(original,
+                                             (uint32_t)node_idx, target_idx)
+            )->generation++;
+        }
+    }
+    /*
+     * Set targets to absent for nodes with <= 2 targets
+     * Assign indirect index ranges to nodes with > 2 targets
+     * Allocate space for all indirect target edges
+     */
+    target_idx = 0;
+    HDAG_DARR_ITER_FORWARD(&inverted.nodes, node_idx, inverted_node,
+                           (void)0, (void)0) {
+        inverted_node->targets = (inverted_node->generation <= 2)
+            ? HDAG_TARGETS_ABSENT
+            : HDAG_TARGETS_INDIRECT(
+                target_idx,
+                (target_idx += inverted_node->generation) - 1
+            );
+    }
+    if (target_idx > 0) {
+        /* We're using extra edges */
+        inverted.ind_extra_edges = true;
+        if (!hdag_darr_uappend(&inverted.extra_edges, target_idx)) {
+            goto cleanup;
+        }
+    }
+
+    /* Assign all the targets */
+    HDAG_DARR_ITER_FORWARD(&original->nodes, node_idx, original_node,
+                           (void)0, (void)0) {
+        target_count = hdag_node_targets_count(original_node);
+        for (target_idx = 0; target_idx < target_count; target_idx++) {
+            /* Get the target inverted node */
+            inverted_node = hdag_bundle_node(
+                &inverted,
+                hdag_bundle_targets_node_idx(original,
+                                             (uint32_t)node_idx, target_idx)
+            );
+            /* Make sure the inverted node has space for another target */
+            assert(inverted_node->generation > 0);
+            /* Decrement the remaining target count (and help get index) */
+            inverted_node->generation--;
+            /* If the inverted node is supposed to have <= 2 targets */
+            if (inverted_node->targets.last == HDAG_TARGET_ABSENT) {
+                /* If we're assigning the first target */
+                if (inverted_node->targets.first == HDAG_TARGET_ABSENT) {
+                    inverted_node->targets.first =
+                        hdag_target_from_dir_idx(node_idx);
+                /* Else, we're assigning the second (last) target */
+                } else {
+                    inverted_node->targets.last =
+                        hdag_target_from_dir_idx(node_idx);
+                }
+            /* Else it's supposed to have > 2 targets, via extra edges */
+            } else {
+                /* Assign the next target */
+                HDAG_DARR_ELEMENT(
+                    &inverted.extra_edges,
+                    struct hdag_edge,
+                    hdag_target_to_ind_idx(inverted_node->targets.last) -
+                    inverted_node->generation
+                )->node_idx = node_idx;
+            }
+        }
+    }
+
+output:
+    assert(hdag_bundle_is_valid(&inverted));
+    assert(hdag_bundle_is_sorted_and_deduped(&inverted));
+    assert(!hdag_bundle_has_hash_targets(&inverted));
+
+    if (pinverted != NULL) {
+        *pinverted = inverted;
+        inverted = HDAG_BUNDLE_EMPTY(inverted.hash_len);
+    }
+    result = true;
+
+cleanup:
+    hdag_bundle_cleanup(&inverted);
+    return result;
+}
+
+bool
 hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                           struct hdag_node_seq node_seq)
 {
@@ -401,7 +520,7 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
     #define ADD_NODE(_hash, _first_target, _last_target) \
         do {                                                \
             struct hdag_node *_node = (struct hdag_node *)  \
-                hdag_darr_calloc_one(&bundle->nodes);       \
+                hdag_darr_cappend_one(&bundle->nodes);      \
             if (_node == NULL) {                            \
                 goto cleanup;                               \
             }                                               \
@@ -547,7 +666,8 @@ hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
     }
 
     /* Fetch destination node (we won't change it) */
-    dst_node = hdag_darr_element((struct hdag_darr *)&bundle->nodes,
+    dst_node = HDAG_DARR_ELEMENT(&bundle->nodes,
+                                 struct hdag_node,
                                  hdag_target_to_dir_idx(target));
 
     /* Create/fetch destination agnode */
@@ -610,20 +730,17 @@ hdag_bundle_write_dot_ind_targets(const struct hdag_bundle *bundle,
          idx++) {
         /* If indirect indices are pointing to the "extra edges" */
         if (bundle->ind_extra_edges) {
-            edge = hdag_darr_element(
-                /* We won't change it */
-                (struct hdag_darr *)&bundle->extra_edges, idx
+            edge = HDAG_DARR_ELEMENT(
+                &bundle->extra_edges, struct hdag_edge, idx
             );
-            dst_node = hdag_darr_element(
-                /* We won't change it */
-                (struct hdag_darr *)&bundle->nodes, edge->node_idx
+            dst_node = HDAG_DARR_ELEMENT(
+                &bundle->nodes, struct hdag_node, edge->node_idx
             );
             dst_hash = dst_node->hash;
         /* Else, indirect indices are pointing to the "target hashes" */
         } else {
-            dst_hash = hdag_darr_element(
-                /* We won't change it */
-                (struct hdag_darr *)&bundle->target_hashes, idx
+            dst_hash = HDAG_DARR_ELEMENT_UNSIZED(
+                &bundle->target_hashes, uint8_t, idx
             );
         }
         /* Create/fetch destination agnode */

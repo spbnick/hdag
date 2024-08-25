@@ -79,7 +79,7 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 }
 
 /**
- * Check if a bundle's nodes and targets are sorted.
+ * Check if a bundle's nodes and targets are all sorted.
  *
  * @param bundle    The bundle to check. Must be valid.
  *
@@ -88,7 +88,7 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 extern bool hdag_bundle_is_sorted(const struct hdag_bundle *bundle);
 
 /**
- * Check if a bundle's nodes and targets are sorted and deduplicated.
+ * Check if a bundle's nodes and targets are all sorted and deduplicated.
  *
  * @param bundle    The bundle to check. Must be valid.
  *
@@ -98,17 +98,18 @@ extern bool hdag_bundle_is_sorted_and_deduped(
                             const struct hdag_bundle *bundle);
 
 /**
- * Check if a bundle's nodes are referencing their target nodes via their
- * indices in the nodes array (directly or via "extra_edges", as opposed to
- * referencing them by their hashes (via "target_hashes").
+ * Check if a bundle contains nodes that are referencing their target nodes
+ * via their indices in the nodes array, directly or via "extra_edges", as
+ * opposed to referencing them by their hashes (via "target_hashes").
  *
  * @param bundle    The bundle to check. Must be valid.
  *
- * @return True if nodes are referencing their target nodes by their
- *         indices, false if they are referencing them by hashes.
+ * @return True if the bundle has nodes that are referencing their target
+ *         nodes by their indices, false if all of them are referencing them
+ *         by hashes.
  */
 static inline bool
-hdag_bundle_is_indexed(const struct hdag_bundle *bundle)
+hdag_bundle_has_index_targets(const struct hdag_bundle *bundle)
 {
     ssize_t idx;
     const struct hdag_node *node;
@@ -121,6 +122,48 @@ hdag_bundle_is_indexed(const struct hdag_bundle *bundle)
         }
     }
     return false;
+}
+
+/**
+ * Check if a bundle is using hashes to refer to targets.
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the bundle is using target hashes, false otherwise.
+ */
+static inline bool
+hdag_bundle_has_hash_targets(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return !bundle->ind_extra_edges &&
+           hdag_darr_occupied_slots(&bundle->target_hashes) != 0;
+}
+
+/**
+ * Check if a bundle is completely indexed, and nodes with two or less edges
+ * store their targets directly, and not in "extra_edges" array, that is if
+ * the bundle is "compacted".
+ *
+ * @param bundle    The bundle to check. Must be valid.
+ *
+ * @return True if the bundle is fully-indexed and compacted, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_compacted(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+    assert(hdag_bundle_is_valid(bundle));
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (hdag_targets_are_indirect(&node->targets)) {
+            if (!bundle->ind_extra_edges ||
+                hdag_node_get_last_ind_idx(node) -
+                hdag_node_get_first_ind_idx(node) <= 1) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 /**
@@ -231,9 +274,10 @@ extern void hdag_bundle_sort(struct hdag_bundle *bundle);
 extern void hdag_bundle_dedup(struct hdag_bundle *bundle);
 
 /**
- * Compact a bundle's edge targets into nodes, putting the rest into
- * "extra_edges", assuming the nodes are sorted, de-duplicated, reference
- * target hashes as their indirect targets and don't have direct targets.
+ * Convert a bundle's target references from hashes to indexes, and compact
+ * edge targets into nodes, putting the rest into "extra_edges", assuming the
+ * nodes and edges are sorted and de-duplicated. On success the bundle becomes
+ * "indexed" and "compacted".
  *
  * @param bundle    The bundle to compact edges in.
  *
@@ -241,6 +285,22 @@ extern void hdag_bundle_dedup(struct hdag_bundle *bundle);
  *         Errno is set in case of failure.
  */
 extern bool hdag_bundle_compact(struct hdag_bundle *bundle);
+
+/**
+ * Invert the graph in a bundle: create a new graph with edge directions
+ * changed to the opposite.
+ *
+ * @param pinverted Location for the inverted bundle.
+ *                  Will not be modified on failure.
+ *                  Can be NULL to have the result discarded.
+ * @param original  The bundle containing the graph to be inverted.
+ *                  Must be sorted, deduped, and indexed.
+ *
+ * @return True if inversion succeeded, false if it failed.
+ *         Errno is set in case of failure.
+ */
+extern bool hdag_bundle_invert(struct hdag_bundle *pinverted,
+                               const struct hdag_bundle *original);
 
 /**
  * Write a Graphviz DOT representation of the graph in the bundle to a file.
@@ -253,5 +313,196 @@ extern bool hdag_bundle_compact(struct hdag_bundle *bundle);
  */
 extern bool hdag_bundle_write_dot(const struct hdag_bundle *bundle,
                                   const char *name, FILE *stream);
+
+/**
+ * Given a bundle and a node index return the node's targets structure.
+ *
+ * @param bundle        The bundle to get the node target count from.
+ * @param node_idx      The index of the node to get the targets for.
+ *
+ * @return The specified node's targets
+ */
+static inline struct hdag_targets *
+hdag_bundle_targets(struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return &HDAG_DARR_ELEMENT_UNSIZED(
+        &bundle->nodes, struct hdag_node, node_idx
+    )->targets;
+}
+
+/**
+ * Given a const bundle and a node index return the node's targets structure.
+ *
+ * @param bundle        The bundle to get the node target count from.
+ * @param node_idx      The index of the node to get the targets for.
+ *
+ * @return The specified node's targets
+ */
+static inline const struct hdag_targets *
+hdag_bundle_targets_const(const struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return &HDAG_DARR_ELEMENT_UNSIZED(
+        &bundle->nodes, struct hdag_node, node_idx
+    )->targets;
+}
+
+/**
+ * Return a (possibly const) targets of a bundle's node at specified index.
+ *
+ * @param _bundle   The bundle to get the node from.
+ * @param _node_idx The index of the node to get targets from.
+ *
+ * @return The targets pointer (const, if the bundle was const).
+ */
+#define HDAG_BUNDLE_TARGETS(_bundle, _node_idx) \
+    _Generic(                                                   \
+        _bundle,                                                \
+        struct hdag_bundle *:                                   \
+            (struct hdag_targets *)hdag_bundle_targets(         \
+                (struct hdag_bundle *)_bundle, _node_idx        \
+            ),                                                  \
+        const struct hdag_bundle *:                             \
+            (const struct hdag_targets *)hdag_bundle_targets(   \
+                (struct hdag_bundle *)_bundle, _node_idx        \
+            )                                                   \
+    )
+
+/**
+ * Given a bundle and a node index return the number of node's targets
+ * (outgoing edges), that is the node's outdegree.
+ *
+ * @param bundle        The bundle to get the node target count from.
+ * @param node_idx      The index of the node to get the target for.
+ *
+ * @return The specified node's target count.
+ */
+static inline uint32_t
+hdag_bundle_targets_count(const struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_targets_count(HDAG_BUNDLE_TARGETS(bundle, node_idx));
+}
+
+/**
+ * Given a bundle, a node index, and a node's target index, return target
+ * node's index.
+ *
+ * @param bundle        The bundle to get the node's target from.
+ *                      Must be indexed.
+ * @param node_idx      The index of the node to get the target for.
+ * @param target_idx    The index of the target to get node index for.
+ *
+ * @return The specified target's node index.
+ */
+static inline uint32_t
+hdag_bundle_targets_node_idx(const struct hdag_bundle *bundle,
+                             uint32_t node_idx, uint32_t target_idx)
+{
+    const struct hdag_targets *targets;
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_has_hash_targets(bundle));
+    targets = HDAG_BUNDLE_TARGETS(bundle, node_idx);
+    assert(target_idx < hdag_targets_count(targets));
+
+    if (hdag_target_is_ind_idx(targets->first)) {
+        return HDAG_DARR_ELEMENT(
+            &bundle->extra_edges,
+            struct hdag_edge,
+            hdag_target_to_ind_idx(targets->first) +
+            target_idx
+        )->node_idx;
+    }
+
+    if (target_idx == 0 && hdag_target_is_dir_idx(targets->first)) {
+        return hdag_target_to_dir_idx(targets->first);
+    }
+
+    return hdag_target_to_dir_idx(targets->last);
+}
+
+/**
+ * Return a bundle's node at specified index.
+ *
+ * @param bundle    The bundle to get the node from.
+ * @param node_idx  The index of the node to get.
+ *
+ * @return The specified node.
+ */
+static inline struct hdag_node *
+hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_darr_element(&bundle->nodes, node_idx);
+}
+
+/**
+ * Return a (possibly const) bundle's node at specified index.
+ *
+ * @param _bundle   The bundle to get the node from.
+ * @param _node_idx The index of the node to get.
+ *
+ * @return The node pointer (const, if the bundle was const).
+ */
+#define HDAG_BUNDLE_NODE(_bundle, _node_idx) \
+    _Generic(                                               \
+        _bundle,                                            \
+        struct hdag_bundle *:                               \
+            (struct hdag_node *)hdag_bundle_node(           \
+                (struct hdag_bundle *)_bundle, _node_idx    \
+            ),                                              \
+        const struct hdag_bundle *:                         \
+            (const struct hdag_node *)hdag_bundle_node(     \
+                (struct hdag_bundle *)_bundle, _node_idx    \
+            )                                               \
+    )
+
+/**
+ * Given a bundle, a node index, and a node's target index, return the target
+ * node.
+ *
+ * @param bundle        The bundle to get the node's target from.
+ *                      Must be indexed.
+ * @param node_idx      The index of the node to get the target for.
+ * @param target_idx    The index of the target to get node for.
+ *
+ * @return The specified target node.
+ */
+static inline struct hdag_node *
+hdag_bundle_targets_node(struct hdag_bundle *bundle,
+                        uint32_t node_idx, uint32_t target_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_has_hash_targets(bundle));
+    return hdag_bundle_node(
+        bundle,
+        hdag_bundle_targets_node_idx(bundle, node_idx, target_idx)
+    );
+}
+
+/**
+ * Given a (possibly const) bundle, a node index, and a node's target index,
+ * return the target node.
+ *
+ * @param _bundle       The bundle to get the node's target from.
+ *                      Must be indexed.
+ * @param _node_idx     The index of the node to get the target for.
+ * @param _target_idx   The index of the target to get node for.
+ *
+ * @return The node pointer (const, if the bundle was const).
+ */
+#define HDAG_BUNDLE_TARGET_NODE(_bundle, _node_idx, _target_idx) \
+    _Generic(                                                           \
+        _bundle,                                                        \
+        struct hdag_bundle *:                                           \
+            (struct hdag_node *)hdag_bundle_targets_node(               \
+                (struct hdag_bundle *)_bundle, _node_idx, _target_idx   \
+            ),                                                          \
+        struct const hdag_bundle *:                                     \
+            (struct const hdag_node *)hdag_bundle_targets_node(         \
+                (struct hdag_bundle *)_bundle, _node_idx, _target_idx   \
+            )                                                           \
+    )
 
 #endif /* _HDAG_BUNDLE_H */
