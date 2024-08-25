@@ -33,22 +33,6 @@ hdag_darr_alloc(struct hdag_darr *darr, size_t num)
     return hdag_darr_slot(darr, darr->slots_occupied);
 }
 
-void *
-hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
-{
-    assert(hdag_darr_is_valid(darr));
-
-    void *appended_slots;
-
-    appended_slots = hdag_darr_alloc(darr, num);
-    if (appended_slots != NULL) {
-        memcpy(appended_slots, elements, darr->slot_size * num);
-        darr->slots_occupied += num;
-    }
-
-    return appended_slots;
-}
-
 bool
 hdag_darr_deflate(struct hdag_darr *darr)
 {

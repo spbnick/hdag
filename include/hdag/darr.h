@@ -231,6 +231,27 @@ hdag_darr_calloc_one(struct hdag_darr *darr)
 }
 
 /**
+ * Append the specified number of *uninitialized* elements to a dynamic array.
+ *
+ * @param darr      The dynamic array to append elements to
+ * @param num       The number of elements to append.
+ *
+ * @return The pointer to the appended elements in the array, if
+ *         succeeded. NULL, if allocation failed, and errno was set.
+ */
+static inline void *
+hdag_darr_uappend(struct hdag_darr *darr, size_t num)
+{
+    assert(hdag_darr_is_valid(darr));
+    void *appended_slots;
+    appended_slots = hdag_darr_alloc(darr, num);
+    if (appended_slots != NULL) {
+        darr->slots_occupied += num;
+    }
+    return appended_slots;
+}
+
+/**
  * Append the specified number of elements to a dynamic array.
  *
  * @param darr      The dynamic array to append elements to
@@ -240,8 +261,18 @@ hdag_darr_calloc_one(struct hdag_darr *darr)
  * @return The pointer to the appended elements in the array, if
  *         succeeded. NULL, if allocation failed, and errno was set.
  */
-extern void *hdag_darr_append(struct hdag_darr *darr,
-                              void *elements, size_t num);
+static void *
+hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
+{
+    assert(hdag_darr_is_valid(darr));
+    void *appended_slots;
+    appended_slots = hdag_darr_uappend(darr, num);
+    if (appended_slots != NULL) {
+        memcpy(appended_slots, elements, darr->slot_size * num);
+    }
+    return appended_slots;
+}
+
 
 /**
  * Append one element to a dynamic array.
