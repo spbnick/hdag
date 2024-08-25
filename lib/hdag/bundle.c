@@ -64,6 +64,9 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
                             hdag_hash_cmp, &bundle->hash_len);
         }
     }
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted(bundle));
 }
 
 
@@ -270,6 +273,9 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
             /* And continue with the next hash */
         }
     }
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted_and_deduped(bundle));
 }
 
 bool
@@ -371,6 +377,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     bundle->ind_extra_edges = true;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_compacted(bundle));
     return true;
 }
 
