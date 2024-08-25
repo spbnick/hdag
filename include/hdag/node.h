@@ -149,4 +149,18 @@ hdag_node_get_last_ind_idx(const struct hdag_node *node)
     return hdag_target_to_ind_idx(node->targets.last);
 }
 
+/**
+ * Return the number of known targets (direct or indirect) of a node.
+ *
+ * @param targets   The node to have targets counted for.
+ *
+ * @return The number of the node's known targets.
+ */
+static inline uint32_t
+hdag_node_targets_count(const struct hdag_node *node)
+{
+    assert(hdag_node_is_valid(node));
+    return hdag_targets_count(&node->targets);
+}
+
 #endif /* _HDAG_NODE_H */
