@@ -537,7 +537,6 @@ test_inverting(uint16_t hash_len)
 
     /* Invert one node connected to three others (indirect->direct) */
     ORIGINAL_ADD_NODES(4);
-    original.ind_extra_edges = true;
     edge = hdag_darr_uappend(&original.extra_edges, 3);
     edge++->node_idx = 1;
     edge++->node_idx = 2;
@@ -552,7 +551,6 @@ test_inverting(uint16_t hash_len)
     assert(hdag_bundle_targets_node_idx(&original, 0, 2) == 3);
     assert(hdag_bundle_is_valid(&original));
     TEST(hdag_bundle_invert(&inverted, &original));
-    TEST(!inverted.ind_extra_edges);
     INVERTED_CHECK_NODES(4);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 1);
@@ -578,9 +576,7 @@ test_inverting(uint16_t hash_len)
     assert(hdag_bundle_targets_node_idx(&original, 1, 0) == 3);
     assert(hdag_bundle_targets_node_idx(&original, 2, 0) == 3);
     assert(hdag_bundle_is_valid(&original));
-    assert(!original.ind_extra_edges);
     TEST(hdag_bundle_invert(&inverted, &original));
-    TEST(inverted.ind_extra_edges);
     INVERTED_CHECK_NODES(4);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
@@ -638,7 +634,6 @@ test(uint16_t hash_len)
     size_t failed = 0;
     const struct hdag_bundle empty_bundle = HDAG_BUNDLE_EMPTY(hash_len);
     struct hdag_bundle compacted_empty_bundle = HDAG_BUNDLE_EMPTY(hash_len);
-    compacted_empty_bundle.ind_extra_edges = true;
     struct hdag_bundle bundle;
     ssize_t idx;
     struct hdag_node *node;
@@ -658,7 +653,6 @@ test(uint16_t hash_len)
     hdag_bundle_compact(&bundle);
     TEST(memcmp(&bundle, &compacted_empty_bundle,
                 sizeof(struct hdag_bundle)) == 0);
-    TEST(bundle.ind_extra_edges);
 
     hdag_bundle_cleanup(&bundle);
     TEST(memcmp(&bundle, &empty_bundle, sizeof(struct hdag_bundle)) == 0);

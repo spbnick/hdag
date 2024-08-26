@@ -16,7 +16,6 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
     hdag_darr_cleanup(&bundle->nodes);
     hdag_darr_cleanup(&bundle->target_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
-    bundle->ind_extra_edges = false;
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_clean(bundle));
 }
@@ -28,7 +27,6 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
     hdag_darr_empty(&bundle->nodes);
     hdag_darr_empty(&bundle->target_hashes);
     hdag_darr_empty(&bundle->extra_edges);
-    bundle->ind_extra_edges = false;
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_empty(bundle));
 }
@@ -102,7 +100,7 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
             for (target_idx = hdag_node_get_first_ind_idx(node) + 1;        \
                  target_idx <= hdag_node_get_last_ind_idx(node);            \
                  target_idx++) {                                            \
-                if ((_bundle)->ind_extra_edges) {                           \
+                if (hdag_darr_occupied_slots(&bundle->extra_edges) != 0) {  \
                     relation =                                              \
                         (int64_t)(HDAG_DARR_ELEMENT(                        \
                             &(_bundle)->extra_edges,                        \
@@ -237,7 +235,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     /*
      * Remove duplicate edges
      */
-    assert(!bundle->ind_extra_edges);
+    assert(hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         if (!hdag_targets_are_indirect(&node->targets)) {
             continue;
@@ -293,7 +291,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
-    assert(!bundle->ind_extra_edges);
+    assert(hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
 
     /* For each node, from start to end */
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
@@ -373,8 +371,6 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     /* Remove target hashes */
     hdag_darr_cleanup(&bundle->target_hashes);
-    /* Mark indirect targets as referencing extra_edges */
-    bundle->ind_extra_edges = true;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_compacted(bundle));
@@ -438,8 +434,6 @@ hdag_bundle_invert(struct hdag_bundle *pinverted,
             );
     }
     if (target_idx > 0) {
-        /* We're using extra edges */
-        inverted.ind_extra_edges = true;
         if (!hdag_darr_uappend(&inverted.extra_edges, target_idx)) {
             goto cleanup;
         }
@@ -736,7 +730,7 @@ hdag_bundle_write_dot_ind_targets(const struct hdag_bundle *bundle,
          idx <= hdag_node_get_last_ind_idx(src_node);
          idx++) {
         /* If indirect indices are pointing to the "extra edges" */
-        if (bundle->ind_extra_edges) {
+        if (hdag_darr_occupied_slots(&bundle->extra_edges) != 0) {
             edge = HDAG_DARR_ELEMENT(
                 &bundle->extra_edges, struct hdag_edge, idx
             );

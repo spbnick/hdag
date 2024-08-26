@@ -17,12 +17,6 @@ struct hdag_bundle {
     uint16_t            hash_len;
 
     /**
-     * True, if the indirect target indices in nodes point to the
-     * "extra_edges" array, false if they point to "target_hashes" instead.
-     */
-    bool ind_extra_edges;
-
-    /**
      * Nodes.
      * Before compacting, their targets are either unknown, or are indirect
      * indices pointing into the target_hashes array. After compacting their
@@ -31,12 +25,17 @@ struct hdag_bundle {
      */
     struct hdag_darr    nodes;
 
-    /** Target hashes. Must be empty if extra_edges is not. */
+    /**
+     * Target hashes.
+     * Must be empty if extra_edges is not.
+     * If non-empty, the indirect indices in node's targets are pointing here.
+     */
     struct hdag_darr    target_hashes;
 
     /*
      * The array of extra edges, which didn't fit into nodes themselves.
      * Must be empty if target_hashes is not.
+     * If non-empty, the indirect indices in node's targets are pointing here.
      */
     struct hdag_darr    extra_edges;
 };
@@ -72,10 +71,7 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_is_valid(&bundle->extra_edges) &&
         bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
         (hdag_darr_occupied_slots(&bundle->target_hashes) == 0 ||
-         hdag_darr_occupied_slots(&bundle->extra_edges) == 0) &&
-        (bundle->ind_extra_edges
-         ? (hdag_darr_occupied_slots(&bundle->target_hashes) == 0)
-         : (hdag_darr_occupied_slots(&bundle->extra_edges) == 0));
+         hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
 }
 
 /**
@@ -116,8 +112,8 @@ hdag_bundle_has_index_targets(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         if (hdag_targets_are_direct(&node->targets) ||
-            (bundle->ind_extra_edges &&
-             hdag_targets_are_indirect(&node->targets))) {
+            (hdag_targets_are_indirect(&node->targets) &&
+             hdag_darr_occupied_slots(&bundle->extra_edges) != 0)) {
             return true;
         }
     }
@@ -135,8 +131,7 @@ static inline bool
 hdag_bundle_has_hash_targets(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return !bundle->ind_extra_edges &&
-           hdag_darr_occupied_slots(&bundle->target_hashes) != 0;
+    return hdag_darr_occupied_slots(&bundle->target_hashes) != 0;
 }
 
 /**
@@ -154,10 +149,12 @@ hdag_bundle_is_compacted(const struct hdag_bundle *bundle)
     ssize_t idx;
     const struct hdag_node *node;
     assert(hdag_bundle_is_valid(bundle));
+    if (hdag_darr_occupied_slots(&bundle->target_hashes) != 0) {
+        return false;
+    }
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         if (hdag_targets_are_indirect(&node->targets)) {
-            if (!bundle->ind_extra_edges ||
-                hdag_node_get_last_ind_idx(node) -
+            if (hdag_node_get_last_ind_idx(node) -
                 hdag_node_get_first_ind_idx(node) <= 1) {
                 return false;
             }
