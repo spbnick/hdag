@@ -495,6 +495,126 @@ cleanup:
 }
 
 bool
+hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
+{
+    ssize_t                 idx;
+    struct hdag_node       *node;
+    ssize_t                 dfs_idx;
+    struct hdag_node       *dfs_node;
+    ssize_t                 next_dfs_idx;
+    struct hdag_node       *next_dfs_node;
+    uint32_t                target_idx;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted_and_deduped(bundle));
+    assert(hdag_bundle_is_compacted(bundle));
+    assert(!hdag_bundle_some_nodes_have_generations(bundle));
+
+#define NODE_HAS_PARENT(_node) \
+    ((_node)->component >= (uint32_t)INT32_MAX)
+#define NODE_GET_PARENT(_node) \
+    ((_node)->component - (uint32_t)INT32_MAX)
+#define NODE_SET_PARENT(_node, _idx) \
+    ((_node)->component = (uint32_t)INT32_MAX + _idx)
+#define NODE_REMOVE_PARENT(_node) \
+    ((_node)->component = 0)
+
+#define NODE_HAS_NEXT_TARGET(_node) \
+    ((_node)->generation >= (uint32_t)INT32_MAX)
+
+#define NODE_GET_NEXT_TARGET(_node) \
+    ((_node)->generation - (uint32_t)INT32_MAX)
+#define NODE_SET_NEXT_TARGET(_node, _idx) \
+    ((_node)->generation = (uint32_t)INT32_MAX + _idx)
+#define NODE_INC_NEXT_TARGET(_node) \
+    ((_node)->generation++)
+
+#define NODE_HAS_GENERATION(_node) \
+    ((_node)->generation < (uint32_t)INT32_MAX && (_node)->generation != 0)
+
+#define NODE_IS_BEING_TRAVERSED(_node) NODE_HAS_NEXT_TARGET(_node)
+#define NODE_HAS_BEEN_TRAVERSED(_node) NODE_HAS_GENERATION(_node)
+
+    /* For each node in the graph */
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        /* Do a DFS */
+        dfs_idx = idx;
+        dfs_node = node;
+        while (true) {
+            /* If this node has already been traversed */
+            if (NODE_HAS_BEEN_TRAVERSED(dfs_node)) {
+                /* If the node has a parent */
+                if (NODE_HAS_PARENT(dfs_node)) {
+                    /* Go back up to the parent, removing it from the node */
+                    dfs_idx = NODE_GET_PARENT(dfs_node);
+                    NODE_REMOVE_PARENT(dfs_node);
+                    dfs_node = hdag_bundle_node(bundle, dfs_idx);
+                } else {
+                    /* Go to the next DFS */
+                    break;
+                }
+            }
+            /* If this node hasn't been traversed before */
+            if (!NODE_HAS_NEXT_TARGET(dfs_node)) {
+                /* Start with its first target, if any */
+                NODE_SET_NEXT_TARGET(dfs_node, 0);
+            }
+            /* If the node has more targets to traverse */
+            if (NODE_GET_NEXT_TARGET(dfs_node) <
+                    hdag_node_targets_count(dfs_node)) {
+                /* Get the next target node down */
+                next_dfs_idx = hdag_bundle_targets_node_idx(
+                    bundle, dfs_idx, NODE_GET_NEXT_TARGET(dfs_node)
+                );
+                next_dfs_node = hdag_bundle_node(bundle, next_dfs_idx);
+                /* If the next (target) node is being traversed */
+                if (NODE_IS_BEING_TRAVERSED(next_dfs_node)) {
+                    /* We found a loop */
+                    return false;
+                }
+                NODE_INC_NEXT_TARGET(dfs_node);
+                /* Set its parent to the current node */
+                NODE_SET_PARENT(next_dfs_node, dfs_idx);
+                /* Go to the target node */
+                dfs_node = next_dfs_node;
+                dfs_idx = next_dfs_idx;
+            } else {
+                /* Assign the maximum target generation + 1 */
+                dfs_node->generation = 0;
+                for (target_idx = 0;
+                     target_idx < hdag_node_targets_count(dfs_node);
+                     target_idx++) {
+                    uint32_t target_generation = hdag_bundle_targets_node(
+                        bundle, dfs_idx, target_idx
+                    )->generation;
+                    if (target_generation > dfs_node->generation) {
+                        dfs_node->generation = target_generation;
+                    }
+                }
+                dfs_node->generation++;
+                assert(NODE_HAS_BEEN_TRAVERSED(dfs_node));
+            }
+        }
+    }
+
+#undef NODE_HAS_BEEN_TRAVERSED
+#undef NODE_IS_BEING_TRAVERSED
+#undef NODE_HAS_GENERATION
+#undef NODE_INC_NEXT_TARGET
+#undef NODE_SET_NEXT_TARGET
+#undef NODE_GET_NEXT_TARGET
+#undef NODE_HAS_NEXT_TARGET
+#undef NODE_REMOVE_PARENT
+#undef NODE_SET_PARENT
+#undef NODE_GET_PARENT
+#undef NODE_HAS_PARENT
+
+    assert(hdag_bundle_all_nodes_have_generations(bundle));
+    assert(!hdag_bundle_some_nodes_have_components(bundle));
+    return true;
+}
+
+bool
 hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                           struct hdag_node_seq node_seq)
 {

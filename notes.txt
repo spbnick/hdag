@@ -481,3 +481,8 @@ maximum/minimum to everything.
 
 OK, let's do it simple for now, just invert the graph.
 TODO: Consider renaming `extra_edges` to `target_indexes`.
+---
+generation == 0 -> no mark
+0 < generation <= 0x7fffffff -> generation (permanent mark)
+0x7fffffff < generation <= 0xffffffff -> next edge (temporary mark)
+component -> the node to return to

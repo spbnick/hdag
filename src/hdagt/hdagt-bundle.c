@@ -630,9 +630,173 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 6);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
 #undef ORIGINAL_ADD_NODES
 #undef INVERTED_CHECK_NODES
+
+    hdag_bundle_cleanup(&original);
+
+    return failed;
+}
+
+static size_t
+test_generation_enumerating(uint16_t hash_len)
+{
+    size_t failed = 0;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
+
+#define ADD_NODES(_num) \
+    do {                                                    \
+        ssize_t _idx;                                       \
+        struct hdag_node *_node;                            \
+        hdag_darr_cappend(&bundle.nodes, _num);             \
+        HDAG_DARR_ITER_FORWARD(&bundle.nodes, _idx, _node,  \
+                               (void)0, (void)0) {          \
+            hdag_node_hash_fill(_node, hash_len, _idx + 1); \
+        }                                                   \
+    } while (0)
+
+    /* Enumerate empty bundle */
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate single-node bundle */
+    ADD_NODES(1);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate two disconnected nodes */
+    ADD_NODES(2);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 -> N1 */
+    ADD_NODES(2);
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 <- N1 */
+    ADD_NODES(2);
+    HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 -> N1 <- N2 */
+    ADD_NODES(3);
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 <- N1 -> N2 */
+    ADD_NODES(3);
+    HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_two(0, 2);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 <- N1 <- N2 N3 -> (N1)  */
+    ADD_NODES(4);
+    HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
+    HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&bundle, 3)->targets = hdag_targets_direct_one(1);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->generation == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->generation == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 -> (N2) N1 <- N2 <- N3  */
+    ADD_NODES(4);
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(2);
+    HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&bundle, 3)->targets = hdag_targets_direct_one(2);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->generation == 3);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate cyclic bundle: N0 <-> N1 */
+    ADD_NODES(2);
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
+    TEST(!hdag_bundle_generations_enumerate(&bundle));
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate cyclic bundle: N0 -> N1 -> N2 -> (N0) */
+    ADD_NODES(3);
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(2);
+    HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(0);
+    TEST(!hdag_bundle_generations_enumerate(&bundle));
+    hdag_bundle_cleanup(&bundle);
+
+#undef ADD_NODES
 
     return failed;
 }
@@ -706,6 +870,11 @@ test(uint16_t hash_len)
      * Check inverting works.
      */
     failed += test_inverting(hash_len);
+
+    /*
+     * Check generation enumeration works.
+     */
+    failed += test_generation_enumerating(hash_len);
 
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);

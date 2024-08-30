@@ -300,6 +300,112 @@ extern bool hdag_bundle_invert(struct hdag_bundle *pinverted,
                                const struct hdag_bundle *original);
 
 /**
+ * Enumerate generations in a bundle: assign generation numbers to every node.
+ * Resets component IDs
+ *
+ * @param bundle    The bundle to enumerate.
+ *
+ * @return True if enumeration succeeded, false if cycles were found.
+ */
+extern bool hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
+
+/**
+ * Check if all bundle nodes have generations assigned (non-zero).
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if generations are assigned.
+ */
+static inline bool
+hdag_bundle_all_nodes_have_generations(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+
+    assert(hdag_bundle_is_valid(bundle));
+
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (!node->generation) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Check if at least one bundle's node has generation assigned (non-zero).
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if at least one node has generation assigned.
+ */
+static inline bool
+hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+
+    assert(hdag_bundle_is_valid(bundle));
+
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (node->generation) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Check if all bundle nodes have components assigned (non-zero).
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if components are assigned.
+ */
+static inline bool
+hdag_bundle_all_nodes_have_components(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+
+    assert(hdag_bundle_is_valid(bundle));
+
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (!node->component) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Check if at least one bundle's node has component assigned (non-zero).
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if at least one node has component assigned.
+ */
+static inline bool
+hdag_bundle_some_nodes_have_components(const struct hdag_bundle *bundle)
+{
+    ssize_t idx;
+    const struct hdag_node *node;
+
+    assert(hdag_bundle_is_valid(bundle));
+
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        if (node->component) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Write a Graphviz DOT representation of the graph in the bundle to a file.
  *
  * @param bundle    The bundle to write the representation of.
