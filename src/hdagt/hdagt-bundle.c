@@ -458,6 +458,7 @@ test_inverting(uint16_t hash_len)
     /* Invert empty bundle */
     TEST(hdag_bundle_invert(&inverted, &original));
     TEST(memcmp(&inverted, &original, sizeof(struct hdag_bundle)) == 0);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert single-node bundle */
     ORIGINAL_ADD_NODES(1);
@@ -467,6 +468,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert single unknown-node bundle */
     ORIGINAL_ADD_NODES(1);
@@ -478,6 +480,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert two disconnected-node bundle */
     ORIGINAL_ADD_NODES(2);
@@ -488,6 +491,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert two unknown-node bundle */
     ORIGINAL_ADD_NODES(2);
@@ -500,6 +504,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert two connected-node bundle */
     ORIGINAL_ADD_NODES(2);
@@ -515,6 +520,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert one node connected to two others */
     ORIGINAL_ADD_NODES(3);
@@ -534,6 +540,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert one node connected to three others (indirect->direct) */
     ORIGINAL_ADD_NODES(4);
@@ -562,6 +569,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /* Invert three nodes connected to one other (direct->indirect) */
     ORIGINAL_ADD_NODES(4);
@@ -588,6 +596,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 3);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
     hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
 
     /*
      * Invert three nodes connected to one other, twice
