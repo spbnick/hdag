@@ -482,6 +482,7 @@ output:
     assert(hdag_bundle_is_valid(&inverted));
     assert(hdag_bundle_is_sorted_and_deduped(&inverted));
     assert(!hdag_bundle_has_hash_targets(&inverted));
+    assert(!hdag_bundle_some_nodes_have_generations(&inverted));
 
     if (pinverted != NULL) {
         *pinverted = inverted;
