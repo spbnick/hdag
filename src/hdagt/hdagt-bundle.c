@@ -522,7 +522,7 @@ test_inverting(uint16_t hash_len)
     hdag_bundle_empty(&original);
     hdag_bundle_cleanup(&inverted);
 
-    /* Invert one node connected to two others */
+    /* Invert N0 -> (N1, N2) */
     ORIGINAL_ADD_NODES(3);
     HDAG_BUNDLE_NODE(&original, 0)->targets = hdag_targets_direct_two(1, 2);
     TEST(hdag_bundle_targets_count(&original, 0) == 2);
@@ -542,7 +542,7 @@ test_inverting(uint16_t hash_len)
     hdag_bundle_empty(&original);
     hdag_bundle_cleanup(&inverted);
 
-    /* Invert one node connected to three others (indirect->direct) */
+    /* Invert N0 -> (N1, N2, N3) (indirect->direct) */
     ORIGINAL_ADD_NODES(4);
     edge = hdag_darr_uappend(&original.extra_edges, 3);
     edge++->node_idx = 1;
@@ -571,7 +571,7 @@ test_inverting(uint16_t hash_len)
     hdag_bundle_empty(&original);
     hdag_bundle_cleanup(&inverted);
 
-    /* Invert three nodes connected to one other (direct->indirect) */
+    /* Invert (N0, N1, N2) -> N3 (direct->indirect) */
     ORIGINAL_ADD_NODES(4);
     HDAG_BUNDLE_NODE(&original, 0)->targets = hdag_targets_direct_one(3);
     HDAG_BUNDLE_NODE(&original, 1)->targets = hdag_targets_direct_one(3);
@@ -599,7 +599,7 @@ test_inverting(uint16_t hash_len)
     hdag_bundle_cleanup(&inverted);
 
     /*
-     * Invert three nodes connected to one other, twice
+     * Invert (N0, N1, N2) -> N3 (N4, N5, N6) -> N7
      * (direct->multiple-indirect)
      */
     ORIGINAL_ADD_NODES(8);
