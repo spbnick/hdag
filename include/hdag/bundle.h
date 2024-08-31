@@ -66,10 +66,13 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_hash_len_is_valid(bundle->hash_len) &&
         hdag_darr_is_valid(&bundle->nodes) &&
         bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
+        hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
+        hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
         hdag_darr_is_valid(&bundle->extra_edges) &&
         bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
+        hdag_darr_occupied_slots(&bundle->extra_edges) < INT32_MAX &&
         (hdag_darr_occupied_slots(&bundle->target_hashes) == 0 ||
          hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
 }
