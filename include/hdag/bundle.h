@@ -227,7 +227,7 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 
 /**
  * Load a node sequence (adjacency list) into a bundle, but don't do any
- * optimization.
+ * optimization or validation.
  *
  * @param bundle    The bundle to load the node sequence into.
  *                  Must be valid and empty. Can be left unclean on failure.
@@ -242,7 +242,8 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                                       struct hdag_node_seq node_seq);
 
 /**
- * Load a node sequence (adjacency list) into a bundle, and optimize.
+ * Load a node sequence (adjacency list) into a bundle, optimize, and
+ * validate.
  *
  * @param bundle    The bundle to load the node sequence into.
  *                  Must be valid and empty. Can be left unclean on failure.
