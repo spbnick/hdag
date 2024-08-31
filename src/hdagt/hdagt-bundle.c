@@ -632,6 +632,24 @@ test_inverting(uint16_t hash_len)
     hdag_bundle_empty(&original);
     hdag_bundle_cleanup(&inverted);
 
+    /* Invert N0 -> N1 <- N2 */
+    ORIGINAL_ADD_NODES(3);
+    HDAG_BUNDLE_NODE(&original, 0)->targets = hdag_targets_direct_one(1);
+    HDAG_BUNDLE_NODE(&original, 2)->targets = hdag_targets_direct_one(1);
+    assert(hdag_bundle_is_valid(&original));
+    assert(hdag_darr_occupied_slots(&original.extra_edges) == 0);
+    TEST(hdag_bundle_invert(&inverted, &original));
+    INVERTED_CHECK_NODES(3);
+    TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 1) == 2);
+    TEST(hdag_bundle_targets_count(&inverted, 2) == 0);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 1, 0) == 0);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 1, 1) == 2);
+    TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
+    TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
+    hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
+
 #undef ORIGINAL_ADD_NODES
 #undef INVERTED_CHECK_NODES
 
