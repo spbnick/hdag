@@ -362,6 +362,15 @@ hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
 }
 
 /**
+ * Enumerate components in a bundle: assign component numbers to every node.
+ *
+ * @param bundle    The bundle to enumerate.
+ *
+ * @return True if enumeration succeeded, false if failed with errno set.
+ */
+extern bool hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
+
+/**
  * Check if all bundle nodes have components assigned (non-zero).
  *
  * @param bundle    The bundle to check.

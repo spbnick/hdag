@@ -615,6 +615,150 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 }
 
 bool
+hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
+{
+    bool                    success = false;
+    struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(bundle->hash_len);
+    struct hdag_bundle     *inv;
+    struct hdag_bundle     *orig;
+    ssize_t                 idx;
+    struct hdag_node       *inv_node;
+    ssize_t                 dfs_idx;
+    struct hdag_node       *dfs_inv_node;
+    struct hdag_node       *dfs_orig_node;
+    ssize_t                 next_dfs_idx;
+    struct hdag_node       *next_dfs_inv_node;
+    uint32_t                target_idx;
+    uint32_t                orig_target_num;
+    uint32_t                inv_target_num;
+    uint32_t                component = 0;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted_and_deduped(bundle));
+    assert(hdag_bundle_is_compacted(bundle));
+    assert(!hdag_bundle_some_nodes_have_components(bundle));
+
+    /* Invert the graph */
+    if (!hdag_bundle_invert(&inverted, bundle)) {
+        goto cleanup;
+    }
+
+    /* Use short alias pointers for uniformity */
+    orig = bundle;
+    inv = &inverted;
+
+    /*
+     * NOTE: All the below markets are for inverted nodes
+     */
+#define NODE_HAS_PARENT(_node) \
+    ((_node)->component >= (uint32_t)INT32_MAX)
+#define NODE_GET_PARENT(_node) \
+    ((_node)->component - (uint32_t)INT32_MAX)
+#define NODE_SET_PARENT(_node, _idx) \
+    ((_node)->component = (uint32_t)INT32_MAX + _idx)
+#define NODE_REMOVE_PARENT(_node) \
+    ((_node)->component = 0)
+
+#define NODE_HAS_NEXT_TARGET(_node) \
+    ((_node)->generation >= (uint32_t)INT32_MAX)
+
+#define NODE_GET_NEXT_TARGET(_node) \
+    ((_node)->generation - (uint32_t)INT32_MAX)
+#define NODE_SET_NEXT_TARGET(_node, _idx) \
+    ((_node)->generation = (uint32_t)INT32_MAX + _idx)
+#define NODE_INC_NEXT_TARGET(_node) \
+    ((_node)->generation++)
+
+    /* For each node in the (inverted) graph */
+    HDAG_DARR_ITER_FORWARD(&inv->nodes, idx, inv_node, (void)0, (void)0) {
+        /* If this node has been traversed (and got a component) */
+        if (NODE_HAS_NEXT_TARGET(inv_node)) {
+            /* Move on to the next node */
+            continue;
+        }
+        /* Do a DFS ignoring edge direction */
+        dfs_idx = idx;
+        dfs_inv_node = inv_node;
+        dfs_orig_node = hdag_bundle_node(orig, dfs_idx);
+        NODE_SET_NEXT_TARGET(dfs_inv_node, 0);
+        /* Start a new component */
+        component++;
+        while (true) {
+            orig_target_num = hdag_node_targets_count(dfs_orig_node);
+            inv_target_num = hdag_node_targets_count(dfs_inv_node);
+            target_idx = NODE_GET_NEXT_TARGET(dfs_inv_node);
+            /* If the node has more original targets to traverse */
+            if (target_idx < orig_target_num) {
+                /* Get the index of the next (original) target node down */
+                next_dfs_idx = hdag_bundle_targets_node_idx(
+                    orig, dfs_idx, target_idx
+                );
+            /* Else, if it has more inverted targets to traverse */
+            } else if ((target_idx -= orig_target_num) < inv_target_num) {
+                /* Get the index of the next (inverted) target node down */
+                next_dfs_idx = hdag_bundle_targets_node_idx(
+                    inv, dfs_idx, target_idx
+                );
+            /* Else it ran out of targets and we're done with it */
+            } else {
+                /* Assign the component */
+                dfs_orig_node->component = component;
+                /* If the node has a parent */
+                if (NODE_HAS_PARENT(dfs_inv_node)) {
+                    /* Go back up to the parent, removing it from the node */
+                    dfs_idx = NODE_GET_PARENT(dfs_inv_node);
+                    NODE_REMOVE_PARENT(dfs_inv_node);
+                    dfs_inv_node = hdag_bundle_node(inv, dfs_idx);
+                    dfs_orig_node = hdag_bundle_node(orig, dfs_idx);
+                    assert(NODE_HAS_NEXT_TARGET(dfs_inv_node));
+                    /* Continue with the parent */
+                    continue;
+                /* Else, it has no parent, and DFS is finished */
+                } else {
+                    /* Move onto the next DFS */
+                    break;
+                }
+            }
+            /* Get the next target */
+            NODE_INC_NEXT_TARGET(dfs_inv_node);
+            next_dfs_inv_node = hdag_bundle_node(inv, next_dfs_idx);
+            /* If it's already traversed */
+            if (NODE_HAS_NEXT_TARGET(next_dfs_inv_node)) {
+                /* It must be no-component, or our-component */
+                assert(
+                    hdag_bundle_node(orig, dfs_idx)->component == 0 ||
+                    hdag_bundle_node(orig, dfs_idx)->component == component
+                );
+                /* Try the next one */
+                continue;
+            }
+            NODE_SET_NEXT_TARGET(next_dfs_inv_node, 0);
+            /* Set the next target node parent to the current node */
+            NODE_SET_PARENT(next_dfs_inv_node, dfs_idx);
+            /* Go to the target node */
+            dfs_idx = next_dfs_idx;
+            dfs_inv_node = next_dfs_inv_node;
+            dfs_orig_node = hdag_bundle_node(orig, dfs_idx);
+        }
+    }
+
+#undef NODE_INC_NEXT_TARGET
+#undef NODE_SET_NEXT_TARGET
+#undef NODE_GET_NEXT_TARGET
+#undef NODE_HAS_NEXT_TARGET
+#undef NODE_REMOVE_PARENT
+#undef NODE_SET_PARENT
+#undef NODE_GET_PARENT
+#undef NODE_HAS_PARENT
+
+    assert(hdag_bundle_all_nodes_have_components(bundle));
+    success = true;
+cleanup:
+    hdag_bundle_cleanup(&inverted);
+    return success;
+}
+
+bool
 hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                           struct hdag_node_seq node_seq)
 {
