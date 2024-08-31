@@ -289,7 +289,7 @@ extern bool hdag_bundle_compact(struct hdag_bundle *bundle);
 
 /**
  * Invert the graph in a bundle: create a new graph with edge directions
- * changed to the opposite.
+ * changed to the opposite, and generations reset.
  *
  * @param pinverted Location for the inverted bundle.
  *                  Will not be modified on failure.
