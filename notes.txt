@@ -486,3 +486,5 @@ generation == 0 -> no mark
 0 < generation <= 0x7fffffff -> generation (permanent mark)
 0x7fffffff < generation <= 0xffffffff -> next edge (temporary mark)
 component -> the node to return to
+---
+TODO: Test enumerating with extra edges

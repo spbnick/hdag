@@ -663,6 +663,7 @@ test_generation_enumerating(uint16_t hash_len)
 {
     size_t failed = 0;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
+    struct hdag_edge *edge;
 
 #define ADD_NODES(_num) \
     do {                                                    \
@@ -797,6 +798,27 @@ test_generation_enumerating(uint16_t hash_len)
     TEST(HDAG_BUNDLE_NODE(&bundle, 3)->component == 0);
     TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
     TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Enumerate N0 -> (N1, N2, N3) */
+    ADD_NODES(4);
+    edge = hdag_darr_uappend(&bundle.extra_edges, 3);
+    edge++->node_idx = 1;
+    edge++->node_idx = 2;
+    edge++->node_idx = 3;
+    HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_indirect(0, 2);
+    TEST(hdag_bundle_generations_enumerate(&bundle));
+    TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 1)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 2)->component == 0);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->generation == 1);
+    TEST(HDAG_BUNDLE_NODE(&bundle, 3)->component == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
+    TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 3);
     hdag_bundle_cleanup(&bundle);
 
     /* Enumerate cyclic bundle: N0 <-> N1 */
