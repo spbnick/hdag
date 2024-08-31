@@ -854,9 +854,11 @@ cleanup:
 
 bool
 hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
-                            struct hdag_node_seq node_seq)
+                            struct hdag_node_seq node_seq,
+                            bool *ploop)
 {
-    bool result = false;
+    bool success = false;
+    bool loop = false;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_empty(bundle));
@@ -877,16 +879,30 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
         goto cleanup;
     }
 
+    /* Try to enumerate the generations */
+    if (!hdag_bundle_generations_enumerate(bundle)) {
+        loop = true;
+        goto cleanup;
+    }
+
+    /* Try to enumerate the components */
+    if (!hdag_bundle_components_enumerate(bundle)) {
+        goto cleanup;
+    }
+
     /* Shrink the extra space allocated for the bundle */
     if (!hdag_bundle_deflate(bundle)) {
         goto cleanup;
     }
 
-    result = true;
+    success = true;
 
 cleanup:
     assert(hdag_bundle_is_valid(bundle));
-    return result;
+    if (ploop != NULL) {
+        *ploop = loop;
+    }
+    return success;
 }
 
 /**

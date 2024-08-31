@@ -250,12 +250,17 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
  * @param node_seq  The sequence of nodes (and optionally their targets)
  *                  to load. Node hash length is assumed to be the bundle's
  *                  hash length.
+ * @param ploop     The location to set to true if loops were found (and
+ *                  ingestion failed), and to false, if no loops were found.
+ *                  Not assigned, if NULL.
  *
- * @return True if the data was loaded and optimized successfully,
- *         false if not. The errno is set in case of failure.
+ * @return True if the data was loaded, optimized, and validated successfully,
+ *         false if not, and then if *ploop is true, loops were found,
+ *         otherwise errno is set.
  */
 extern bool hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
-                                        struct hdag_node_seq node_seq);
+                                        struct hdag_node_seq node_seq,
+                                        bool *ploop);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
