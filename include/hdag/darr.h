@@ -649,9 +649,9 @@ hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
 {
     assert(hdag_darr_is_valid(darr));
     assert(end <= darr->slots_occupied);
-    assert(start < end);
+    assert(start <= end);
     assert(cmp != NULL);
-    qsort_r(hdag_darr_element(darr, start), end - start,
+    qsort_r(hdag_darr_slot(darr, start), end - start,
             darr->slot_size, cmp, data);
 }
 

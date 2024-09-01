@@ -1116,6 +1116,9 @@ test(uint16_t hash_len)
     hdag_bundle_cleanup(&bundle);
     TEST(memcmp(&bundle, &empty_bundle, sizeof(struct hdag_bundle)) == 0);
 
+    /* Check sorting empty bundle works */
+    hdag_bundle_sort(&bundle);
+
     /* Create sixteen zeroed nodes */
     hdag_darr_cappend(&bundle.nodes, 16);
 
