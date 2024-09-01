@@ -52,8 +52,7 @@ hdag_file_create(struct hdag_file *pfile,
     assert(hdag_hash_len_is_valid(hash_len));
 
     /* Load the nodes and their targets into a bundle */
-    /* TODO: Use ingestion instead */
-    HDAG_RC_TRY(hdag_bundle_load_node_seq(&bundle, node_seq));
+    HDAG_RC_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
 
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
