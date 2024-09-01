@@ -9,6 +9,7 @@
 #include <hdag/node.h>
 #include <hdag/node_seq.h>
 #include <hdag/darr.h>
+#include <hdag/rc.h>
 #include <stdio.h>
 
 /** A bundle */
@@ -205,10 +206,9 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
  *
  * @param bundle    The bundle to deflate.
  *
- * @return True if deflating succeeded, false if memory reallocation failed,
- *         and errno was set.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_deflate(struct hdag_bundle *bundle);
+extern hdag_rc hdag_bundle_deflate(struct hdag_bundle *bundle);
 
 /**
  * Empty a bundle, removing all data, but not releasing any memory.
@@ -235,11 +235,10 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  *                  to load. Node hash length is assumed to be the bundle's
  *                  hash length.
  *
- * @return True if the data was loaded successfully,
- *         false if not. The errno is set in case of failure.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
-                                      struct hdag_node_seq node_seq);
+extern hdag_rc hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
+                                         struct hdag_node_seq node_seq);
 
 /**
  * Load a node sequence (adjacency list) into a bundle, optimize, and
@@ -250,17 +249,11 @@ extern bool hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
  * @param node_seq  The sequence of nodes (and optionally their targets)
  *                  to load. Node hash length is assumed to be the bundle's
  *                  hash length.
- * @param ploop     The location to set to true if loops were found (and
- *                  ingestion failed), and to false, if no loops were found.
- *                  Not assigned, if NULL.
  *
- * @return True if the data was loaded, optimized, and validated successfully,
- *         false if not, and then if *ploop is true, loops were found,
- *         otherwise errno is set.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
-                                        struct hdag_node_seq node_seq,
-                                        bool *ploop);
+extern hdag_rc hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
+                                           struct hdag_node_seq node_seq);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
@@ -299,11 +292,10 @@ extern void hdag_bundle_compact(struct hdag_bundle *bundle);
  * @param original  The bundle containing the graph to be inverted.
  *                  Must be sorted, deduped, and indexed.
  *
- * @return True if inversion succeeded, false if it failed.
- *         Errno is set in case of failure.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_invert(struct hdag_bundle *pinverted,
-                               const struct hdag_bundle *original);
+extern hdag_rc hdag_bundle_invert(struct hdag_bundle *pinverted,
+                                  const struct hdag_bundle *original);
 
 /**
  * Enumerate generations in a bundle: assign generation numbers to every node.
@@ -311,9 +303,9 @@ extern bool hdag_bundle_invert(struct hdag_bundle *pinverted,
  *
  * @param bundle    The bundle to enumerate.
  *
- * @return True if enumeration succeeded, false if cycles were found.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
+extern hdag_rc hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
 
 /**
  * Check if all bundle nodes have generations assigned (non-zero).
@@ -368,9 +360,9 @@ hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
  *
  * @param bundle    The bundle to enumerate.
  *
- * @return True if enumeration succeeded, false if failed with errno set.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
+extern hdag_rc hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
 
 /**
  * Check if all bundle nodes have components assigned (non-zero).
@@ -427,10 +419,10 @@ hdag_bundle_some_nodes_have_components(const struct hdag_bundle *bundle)
  * @param name      The name to give the output digraph.
  * @param stream    The FILE stream to write the representation to.
  *
- * @return True if writing succeeded, false if not, and errno was set.
+ * @return An HDAG return code.
  */
-extern bool hdag_bundle_write_dot(const struct hdag_bundle *bundle,
-                                  const char *name, FILE *stream);
+extern hdag_rc hdag_bundle_write_dot(const struct hdag_bundle *bundle,
+                                     const char *name, FILE *stream);
 
 /**
  * Given a bundle and a node index return the node's targets structure.

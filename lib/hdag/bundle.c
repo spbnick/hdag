@@ -6,6 +6,7 @@
 #include <hdag/nodes.h>
 #include <hdag/hash.h>
 #include <hdag/misc.h>
+#include <hdag/rc.h>
 #include <cgraph.h>
 #include <string.h>
 
@@ -31,14 +32,16 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_empty(bundle));
 }
 
-bool
+hdag_rc
 hdag_bundle_deflate(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return
-        hdag_darr_deflate(&bundle->nodes) &&
+    if (hdag_darr_deflate(&bundle->nodes) &&
         hdag_darr_deflate(&bundle->target_hashes) &&
-        hdag_darr_deflate(&bundle->extra_edges);
+        hdag_darr_deflate(&bundle->extra_edges)) {
+        return HDAG_RC_OK;
+    }
+    return HDAG_RC_ERRNO;
 }
 
 void
@@ -376,7 +379,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_compacted(bundle));
 }
 
-bool
+hdag_rc
 hdag_bundle_invert(struct hdag_bundle *pinverted,
                    const struct hdag_bundle *original)
 {
@@ -384,7 +387,7 @@ hdag_bundle_invert(struct hdag_bundle *pinverted,
     assert(hdag_bundle_is_sorted_and_deduped(original));
     assert(!hdag_bundle_has_hash_targets(original));
 
-    bool result = false;
+    hdag_rc                 rc = HDAG_RC_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(original->hash_len);
     ssize_t                 node_idx;
     const struct hdag_node *original_node;
@@ -487,14 +490,14 @@ output:
         *pinverted = inverted;
         inverted = HDAG_BUNDLE_EMPTY(inverted.hash_len);
     }
-    result = true;
+    rc = HDAG_RC_OK;
 
 cleanup:
     hdag_bundle_cleanup(&inverted);
-    return result;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
-bool
+hdag_rc
 hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 {
     ssize_t                 idx;
@@ -569,8 +572,8 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
                 next_dfs_node = hdag_bundle_node(bundle, next_dfs_idx);
                 /* If the next (target) node is being traversed */
                 if (NODE_IS_BEING_TRAVERSED(next_dfs_node)) {
-                    /* We found a loop */
-                    return false;
+                    /* We found a cycle */
+                    return HDAG_RC_GRAPH_CYCLE;
                 }
                 NODE_INC_NEXT_TARGET(dfs_node);
                 /* Set its parent to the current node */
@@ -611,13 +614,13 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_all_nodes_have_generations(bundle));
     assert(!hdag_bundle_some_nodes_have_components(bundle));
-    return true;
+    return HDAG_RC_OK;
 }
 
-bool
+hdag_rc
 hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
 {
-    bool                    success = false;
+    hdag_rc                 rc = HDAG_RC_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(bundle->hash_len);
     struct hdag_bundle     *inv;
     struct hdag_bundle     *orig;
@@ -639,9 +642,7 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
     assert(!hdag_bundle_some_nodes_have_components(bundle));
 
     /* Invert the graph */
-    if (!hdag_bundle_invert(&inverted, bundle)) {
-        goto cleanup;
-    }
+    HDAG_RC_TRY(hdag_bundle_invert(&inverted, bundle));
 
     /* Use short alias pointers for uniformity */
     orig = bundle;
@@ -752,17 +753,17 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
 #undef NODE_HAS_PARENT
 
     assert(hdag_bundle_all_nodes_have_components(bundle));
-    success = true;
+    rc = HDAG_RC_OK;
 cleanup:
     hdag_bundle_cleanup(&inverted);
-    return success;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
-bool
+hdag_rc
 hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
                           struct hdag_node_seq node_seq)
 {
-    bool                    result = false;
+    hdag_rc                 rc = HDAG_RC_INVALID;
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
     struct hdag_hash_seq    target_hash_seq;
@@ -842,30 +843,26 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
 
     #undef ADD_NODE
 
-    result = true;
+    rc = HDAG_RC_OK;
 
 cleanup:
     free(target_hash);
     free(node_hash);
     assert(hdag_bundle_is_valid(bundle));
-    return result;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
-bool
+hdag_rc
 hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
-                            struct hdag_node_seq node_seq,
-                            bool *ploop)
+                            struct hdag_node_seq node_seq)
 {
-    bool success = false;
-    bool loop = false;
+    hdag_rc rc = HDAG_RC_INVALID;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_empty(bundle));
 
     /* Load the node sequence (adjacency list) */
-    if (!hdag_bundle_load_node_seq(bundle, node_seq)) {
-        goto cleanup;
-    }
+    HDAG_RC_TRY(hdag_bundle_load_node_seq(bundle, node_seq));
 
     /* Sort the nodes by hash lexicographically */
     hdag_bundle_sort(bundle);
@@ -877,29 +874,18 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
     hdag_bundle_compact(bundle);
 
     /* Try to enumerate the generations */
-    if (!hdag_bundle_generations_enumerate(bundle)) {
-        loop = true;
-        goto cleanup;
-    }
+    HDAG_RC_TRY(hdag_bundle_generations_enumerate(bundle));
 
     /* Try to enumerate the components */
-    if (!hdag_bundle_components_enumerate(bundle)) {
-        goto cleanup;
-    }
+    HDAG_RC_TRY(hdag_bundle_components_enumerate(bundle));
 
     /* Shrink the extra space allocated for the bundle */
-    if (!hdag_bundle_deflate(bundle)) {
-        goto cleanup;
-    }
+    HDAG_RC_TRY(hdag_bundle_deflate(bundle));
 
-    success = true;
-
+    rc = HDAG_RC_OK;
 cleanup:
     assert(hdag_bundle_is_valid(bundle));
-    if (ploop != NULL) {
-        *ploop = loop;
-    }
-    return success;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
 /**
@@ -915,10 +901,9 @@ cleanup:
  * @param agraph        The output agraph.
  * @param src_agnode    The output source node.
  *
- * @return True, if the agnode and the agedge were created successfully,
- *         or the target was absent. False if creation failed.
+ * @return An HDAG return code.
  */
-static bool
+static hdag_rc
 hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
                                  const struct hdag_node *src_node,
                                  hdag_target target,
@@ -941,7 +926,7 @@ hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
     assert(src_agnode != NULL);
 
     if (target == HDAG_TARGET_ABSENT) {
-        return true;
+        return HDAG_RC_OK;
     }
 
     /* Fetch destination node (we won't change it) */
@@ -953,14 +938,14 @@ hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
     hdag_bytes_to_hex(dst_hash_buf, dst_node->hash, bundle->hash_len);
     dst_agnode = agnode(agraph, dst_hash_buf, true);
     if (dst_agnode == NULL) {
-        return false;
+        return HDAG_RC_ERRNO;
     }
     /* Create/fetch the edge */
     if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
-        return false;
+        return HDAG_RC_ERRNO;
     }
 
-    return true;
+    return HDAG_RC_OK;
 }
 
 /**
@@ -975,10 +960,9 @@ hdag_bundle_write_dot_dir_target(const struct hdag_bundle *bundle,
  * @param agraph        The output agraph.
  * @param src_agnode    The output source node.
  *
- * @return True, if the agnode's and the agtarget's were created successfully.
- *         False, if the creation failed.
+ * @return An HDAG return code.
  */
-static bool
+static hdag_rc
 hdag_bundle_write_dot_ind_targets(const struct hdag_bundle *bundle,
                                   const struct hdag_node *src_node,
                                   char *dst_hash_buf,
@@ -1026,23 +1010,22 @@ hdag_bundle_write_dot_ind_targets(const struct hdag_bundle *bundle,
         hdag_bytes_to_hex(dst_hash_buf, dst_hash, bundle->hash_len);
         dst_agnode = agnode(agraph, dst_hash_buf, true);
         if (dst_agnode == NULL) {
-            return false;
+            return HDAG_RC_ERRNO;
         }
         /* Create/fetch the edge */
         if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
-            return false;
+            return HDAG_RC_ERRNO;
         }
     }
 
-    return true;
+    return HDAG_RC_OK;
 }
 
-bool
+hdag_rc
 hdag_bundle_write_dot(const struct hdag_bundle *bundle,
                       const char *name, FILE *stream)
 {
-    /* Assume failure */
-    bool                result = false;
+    hdag_rc             rc = HDAG_RC_INVALID;
     /* The output graph */
     Agraph_t           *agraph = NULL;
     /* Output graph source node */
@@ -1105,27 +1088,19 @@ hdag_bundle_write_dot(const struct hdag_bundle *bundle,
         /* Else, if the node targets are node indices */
         } else if (hdag_targets_are_direct(&src_node->targets)) {
             /* Output first target and edge, if any */
-            if (!hdag_bundle_write_dot_dir_target(bundle, src_node,
-                                                  src_node->targets.first,
-                                                  dst_hash_buf,
-                                                  agraph, src_agnode)) {
-                goto cleanup;
-            }
+            HDAG_RC_TRY(hdag_bundle_write_dot_dir_target(
+                            bundle, src_node, src_node->targets.first,
+                            dst_hash_buf, agraph, src_agnode));
             /* Output last (second) target and edge, if any */
-            if (!hdag_bundle_write_dot_dir_target(bundle, src_node,
-                                                  src_node->targets.last,
-                                                  dst_hash_buf,
-                                                  agraph, src_agnode)) {
-                goto cleanup;
-            }
+            HDAG_RC_TRY(hdag_bundle_write_dot_dir_target(
+                            bundle, src_node, src_node->targets.last,
+                            dst_hash_buf, agraph, src_agnode));
         /* Else, node targets are indirect target hash/extra edge indices */
         } else {
             /* Output indirect target nodes and edges */
-            if (!hdag_bundle_write_dot_ind_targets(bundle, src_node,
-                                                   dst_hash_buf,
-                                                   agraph, src_agnode)) {
-                goto cleanup;
-            }
+            HDAG_RC_TRY(hdag_bundle_write_dot_ind_targets(
+                            bundle, src_node, dst_hash_buf,
+                            agraph, src_agnode));
         }
     }
 
@@ -1135,7 +1110,7 @@ hdag_bundle_write_dot(const struct hdag_bundle *bundle,
     }
 
     /* Report success */
-    result = true;
+    rc = HDAG_RC_OK;
 
 cleanup:
     if (agraph != NULL) {
@@ -1143,5 +1118,5 @@ cleanup:
     }
     free(dst_hash_buf);
     free(src_hash_buf);
-    return result;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }

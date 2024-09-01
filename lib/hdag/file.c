@@ -28,7 +28,7 @@ hdag_file_mmap(int fd, size_t size)
                 fd, 0);
 }
 
-bool
+hdag_rc
 hdag_file_create(struct hdag_file *pfile,
                  const char *pathname,
                  int template_sfxlen,
@@ -36,7 +36,7 @@ hdag_file_create(struct hdag_file *pfile,
                  uint16_t hash_len,
                  struct hdag_node_seq node_seq)
 {
-    bool result = false;
+    hdag_rc rc = HDAG_RC_INVALID;
     int orig_errno;
     int fd = -1;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
@@ -52,9 +52,8 @@ hdag_file_create(struct hdag_file *pfile,
     assert(hdag_hash_len_is_valid(hash_len));
 
     /* Load the nodes and their targets into a bundle */
-    if (!hdag_bundle_load_node_seq(&bundle, node_seq)) {
-        goto cleanup;
-    }
+    /* TODO: Use ingestion instead */
+    HDAG_RC_TRY(hdag_bundle_load_node_seq(&bundle, node_seq));
 
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
@@ -137,7 +136,7 @@ hdag_file_create(struct hdag_file *pfile,
         file = HDAG_FILE_CLOSED;
     }
 
-    result = true;
+    rc = HDAG_RC_OK;
 
 cleanup:
     orig_errno = errno;
@@ -150,13 +149,14 @@ cleanup:
     }
     hdag_bundle_cleanup(&bundle);
     errno = orig_errno;
-    return result;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
-bool
+hdag_rc
 hdag_file_open(struct hdag_file *pfile,
                const char *pathname)
 {
+    hdag_rc rc = HDAG_RC_INVALID;
     int orig_errno;
     int fd = -1;
     struct hdag_file file = {0, };
@@ -171,27 +171,27 @@ hdag_file_open(struct hdag_file *pfile,
     /* Open the file */
     fd = open(file.pathname, O_RDWR);
     if (fd < 0) {
-        goto fail;
+        goto cleanup;
     }
 
     /* Get file size */
     if (fstat(fd, &stat) != 0) {
-        goto fail;
+        goto cleanup;
     }
     if (stat.st_size < 0 || (uintmax_t)stat.st_size > SIZE_MAX) {
         errno = EFBIG;
-        goto fail;
+        goto cleanup;
     }
     if (stat.st_size < (off_t)sizeof(struct hdag_file_header)) {
         errno = EINVAL;
-        goto fail;
+        goto cleanup;
     }
     file.size = (size_t)stat.st_size;
 
     /* Memory-map the file */
     file.contents = hdag_file_mmap(fd, file.size);
     if (file.contents == MAP_FAILED) {
-        goto fail;
+        goto cleanup;
     }
 
     /* Close the file as we're mapped now */
@@ -209,7 +209,7 @@ hdag_file_open(struct hdag_file *pfile,
         )
     ) {
         errno = EINVAL;
-        goto fail;
+        goto cleanup;
     }
     file.nodes = (struct hdag_node *)(file.header + 1);
     file.extra_edges = (struct hdag_edge *)(
@@ -228,9 +228,9 @@ hdag_file_open(struct hdag_file *pfile,
         *pfile = file;
         file = HDAG_FILE_CLOSED;
     }
-    return true;
+    rc = HDAG_RC_OK;
 
-fail:
+cleanup:
     orig_errno = errno;
     if (fd >= 0) {
         close(fd);
@@ -239,21 +239,24 @@ fail:
         munmap(file.contents, file.size);
     }
     errno = orig_errno;
-    return false;
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
-bool
+hdag_rc
 hdag_file_close(struct hdag_file *pfile)
 {
+    hdag_rc rc = HDAG_RC_INVALID;
     assert(hdag_file_is_valid(pfile));
     if (hdag_file_is_open(pfile)) {
-        hdag_file_sync(pfile);
+        HDAG_RC_TRY(hdag_file_sync(pfile));
         if (munmap(pfile->contents, pfile->size) < 0) {
-            return false;
+            goto cleanup;
         }
         *pfile = HDAG_FILE_CLOSED;
         assert(hdag_file_is_valid(pfile));
         assert(!hdag_file_is_open(pfile));
     }
-    return true;
+    rc = HDAG_RC_OK;
+cleanup:
+    return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
