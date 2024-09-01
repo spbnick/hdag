@@ -66,13 +66,13 @@ hdag_hash_fill(uint8_t *hash, uint16_t len, uint32_t fill)
  *         false otherwise.
  */
 static inline bool
-hdag_hash_is_filled(uint8_t *hash, uint16_t len, uint32_t fill)
+hdag_hash_is_filled(const uint8_t *hash, uint16_t len, uint32_t fill)
 {
     size_t i;
     assert(hash != NULL);
     assert(hdag_hash_len_is_valid(len));
     for (i = 0; i < len >> 2; i++) {
-        if (((uint32_t *)hash)[i] != fill) {
+        if (((const uint32_t *)hash)[i] != fill) {
             return false;
         }
     }
