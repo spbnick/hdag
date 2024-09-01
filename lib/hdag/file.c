@@ -226,6 +226,7 @@ hdag_file_open(struct hdag_file *pfile,
         hdag_file_close(&file);
     } else {
         *pfile = file;
+        file = HDAG_FILE_CLOSED;
     }
     return true;
 
