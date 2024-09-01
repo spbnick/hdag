@@ -276,7 +276,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
 }
 
-bool
+void
 hdag_bundle_compact(struct hdag_bundle *bundle)
 {
     /* The index of the currently-traversed node */
@@ -374,7 +374,6 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_compacted(bundle));
-    return true;
 }
 
 bool
@@ -874,10 +873,8 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
     /* Deduplicate the nodes and edges */
     hdag_bundle_dedup(bundle);
 
-    /* Attempt to compact the edges */
-    if (!hdag_bundle_compact(bundle)) {
-        goto cleanup;
-    }
+    /* Compact the edges */
+    hdag_bundle_compact(bundle);
 
     /* Try to enumerate the generations */
     if (!hdag_bundle_generations_enumerate(bundle)) {

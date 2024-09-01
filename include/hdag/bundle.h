@@ -286,11 +286,8 @@ extern void hdag_bundle_dedup(struct hdag_bundle *bundle);
  * "indexed" and "compacted".
  *
  * @param bundle    The bundle to compact edges in.
- *
- * @return True if compaction succeeded, false if it failed.
- *         Errno is set in case of failure.
  */
-extern bool hdag_bundle_compact(struct hdag_bundle *bundle);
+extern void hdag_bundle_compact(struct hdag_bundle *bundle);
 
 /**
  * Invert the graph in a bundle: create a new graph with edge directions
