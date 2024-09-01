@@ -1179,7 +1179,7 @@ test(uint16_t hash_len)
 int
 main(void)
 {
-    size_t failed = test(32);
+    size_t failed = test(4) + test(32) + test(256) + test(1024);
     if (failed) {
         fprintf(stderr, "%zu tests failed.\n", failed);
     }
