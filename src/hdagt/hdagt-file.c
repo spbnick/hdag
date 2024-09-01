@@ -9,10 +9,19 @@
 #include <string.h>
 #include <errno.h>
 
-int
-main(void)
+#define TEST(_expr) \
+    do {                                                \
+        if (!(_expr)) {                                 \
+            fprintf(stderr, "%s:%u: Test failed: %s\n", \
+                    __FILE__, __LINE__, #_expr);        \
+            failed++;                                   \
+        }                                               \
+    } while(0)
+
+static size_t
+test(void)
 {
-    hdag_rc rc;
+    size_t failed = 0;
     struct hdag_file file = HDAG_FILE_CLOSED;
     char pathname[sizeof(file.pathname)];
     uint8_t expected_contents[] = {
@@ -23,109 +32,46 @@ main(void)
     /*
      * In-memory file.
      */
-    if ((rc = hdag_file_create(&file, "", -1, 0, 256 / 8,
-                               HDAG_NODE_SEQ_EMPTY))) {
-        printf("Failed creating in-memory file: %s\n", hdag_rc_strerror(rc));
-        return 1;
-    }
-
-    if (file.size != sizeof(expected_contents)) {
-        printf("Unexpected file size: %zu != %zu\n", file.size,
-                sizeof(expected_contents));
-        return 1;
-    }
-
-    if (memcmp(file.contents, expected_contents, file.size) != 0) {
-        printf("Unexpected file contents\n");
-        return 1;
-    }
-
-    if ((rc = hdag_file_close(&file))) {
-        printf("Failed closing in-memory file: %s\n", hdag_rc_strerror(rc));
-        return 1;
-    }
+    TEST(!hdag_file_create(&file, "", -1, 0, 256 / 8, HDAG_NODE_SEQ_EMPTY));
+    TEST(file.size = sizeof(expected_contents));
+    TEST(memcmp(file.contents, expected_contents, file.size) == 0);
+    TEST(!hdag_file_close(&file));
 
     /*
      * Create on-disk file.
      */
-    if ((rc = hdag_file_create(&file, "test.XXXXXX.hdag", 5,
-                               S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                               256 / 8, HDAG_NODE_SEQ_EMPTY))) {
-        printf("Failed creating on-disk file: %s\n", hdag_rc_strerror(rc));
-        return 1;
-    }
-
-    if (!hdag_file_is_open(&file)) {
-        printf("File is considered closed after creating\n");
-        return 1;
-    }
-
+    TEST(!hdag_file_create(&file, "test.XXXXXX.hdag", 5,
+                           S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
+                           256 / 8, HDAG_NODE_SEQ_EMPTY));
+    TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
     memcpy(pathname, file.pathname, sizeof(pathname));
-
-    if ((rc = hdag_file_sync(&file))) {
-        printf("Failed syncing to on-disk file: %s\n", hdag_rc_strerror(rc));
-        return 1;
-    }
-
-    if (file.size != sizeof(expected_contents)) {
-        printf("Unexpected file size: %zu != %zu\n", file.size,
-                sizeof(expected_contents));
-        return 1;
-    }
-
-    if (memcmp(file.contents, expected_contents, file.size) != 0) {
-        printf("Unexpected file contents\n");
-        return 1;
-    }
-
-    if ((rc = hdag_file_close(&file))) {
-        printf("Failed closing created on-disc file: %s\n",
-               hdag_rc_strerror(rc));
-        return 1;
-    }
-
-    if (hdag_file_is_open(&file)) {
-        printf("File is considered open after closing\n");
-        return 1;
-    }
+    TEST(!hdag_file_sync(&file));
+    TEST(file.size == sizeof(expected_contents));
+    TEST(memcmp(file.contents, expected_contents, file.size) == 0);
+    TEST(!hdag_file_close(&file));
+    TEST(!hdag_file_is_open(&file));
 
     /*
      * Open (the created) on-disk file.
      */
-    if ((rc = hdag_file_open(&file, pathname))) {
-        printf("Failed opening on-disk file \"%s\": %s\n",
-               pathname, hdag_rc_strerror(rc));
-        return 1;
-    }
+    TEST(!hdag_file_open(&file, pathname));
+    TEST(hdag_file_is_open(&file));
+    TEST(file.size == sizeof(expected_contents));
+    TEST(memcmp(file.contents, expected_contents, file.size) == 0);
+    TEST(!hdag_file_close(&file));
+    TEST(unlink(pathname) == 0);
+    TEST(sizeof(struct hdag_file_header) == 4 + 2 + 2 + 4 + 4);
 
-    if (!hdag_file_is_open(&file)) {
-        printf("File is considered closed after opening\n");
-        return 1;
-    }
+    return failed;
+}
 
-    if (file.size != sizeof(expected_contents)) {
-        printf("Unexpected file size: %zu != %zu\n", file.size,
-                sizeof(expected_contents));
-        return 1;
+int
+main(void)
+{
+    size_t failed = test();
+    if (failed) {
+        fprintf(stderr, "%zu tests failed.\n", failed);
     }
-
-    if (memcmp(file.contents, expected_contents, file.size) != 0) {
-        printf("Unexpected file contents\n");
-        return 1;
-    }
-
-    if ((rc = hdag_file_close(&file))) {
-        printf("Failed closing opened on-disc file: %s\n",
-               hdag_rc_strerror(rc));
-        return 1;
-    }
-
-    if (unlink(pathname) != 0) {
-        printf("Failed to unlink the \"%s\" file: %s\n",
-               pathname, strerror(errno));
-        return 1;
-    }
-
-    return !(sizeof(struct hdag_file_header) == 4 + 2 + 2 + 4 + 4);
+    return failed != 0;
 }
