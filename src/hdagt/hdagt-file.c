@@ -189,15 +189,88 @@ test_basic(void)
     TEST(file.header->node_num == 1);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
-    node = &file.nodes[0];
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
     TEST(node->component == 1);
     TEST(node->generation == 1);
-    TEST(memcmp(&node->targets,
-                &HDAG_TARGETS_ABSENT,
-                sizeof(node->targets)) == 0);
+    TEST(node->targets.first == HDAG_TARGET_ABSENT);
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(node->hash[0] == 1);
     TEST(file.extra_edges != NULL);
+    hdag_file_close(&file);
 
+    /*
+     * Two-node in-memory file.
+     */
+    TEST(!hdag_file_create(
+            &file, "", -1, 0, TEST_HASH_SIZE,
+            TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))
+    ));
+    TEST(file.header->node_num == 2);
+    TEST(file.header->extra_edge_num == 0);
+    TEST(file.nodes != NULL);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    TEST(node->hash[0] == 1);
+    TEST(node->component == 1);
+    TEST(node->generation == 1);
+    TEST(node->targets.first == HDAG_TARGET_ABSENT);
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    TEST(node->hash[0] == 2);
+    TEST(node->component == 2);
+    TEST(node->generation == 1);
+    TEST(node->targets.first == HDAG_TARGET_ABSENT);
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    TEST(file.extra_edges != NULL);
+    hdag_file_close(&file);
+
+    /*
+     * N1->N2 in-memory file.
+     */
+    TEST(!hdag_file_create(
+            &file, "", -1, 0, TEST_HASH_SIZE,
+            TEST_NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2))
+    ));
+    TEST(file.header->node_num == 2);
+    TEST(file.header->extra_edge_num == 0);
+    TEST(file.nodes != NULL);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    TEST(node->hash[0] == 1);
+    TEST(node->component == 1);
+    TEST(node->generation == 2);
+    TEST(node->targets.first == hdag_target_from_dir_idx(1));
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    TEST(node->hash[0] == 2);
+    TEST(node->component == 1);
+    TEST(node->generation == 1);
+    TEST(node->targets.first == HDAG_TARGET_ABSENT);
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    TEST(file.extra_edges != NULL);
+    hdag_file_close(&file);
+
+    /*
+     * N1<-N2 in-memory file.
+     */
+    TEST(!hdag_file_create(
+            &file, "", -1, 0, TEST_HASH_SIZE,
+            TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2, 1))
+    ));
+    TEST(file.header->node_num == 2);
+    TEST(file.header->extra_edge_num == 0);
+    TEST(file.nodes != NULL);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    TEST(node->hash[0] == 1);
+    TEST(node->component == 1);
+    TEST(node->generation == 1);
+    TEST(node->targets.first == HDAG_TARGET_ABSENT);
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    TEST(node->hash[0] == 2);
+    TEST(node->component == 1);
+    TEST(node->generation == 2);
+    TEST(node->targets.first == hdag_target_from_dir_idx(0));
+    TEST(node->targets.last == HDAG_TARGET_ABSENT);
+    TEST(file.extra_edges != NULL);
     hdag_file_close(&file);
 
     return failed;
