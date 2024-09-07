@@ -81,6 +81,7 @@ test_hash_seq_next(void *hash_seq_data, uint8_t *phash)
     /* If the target hash is invalid */
     if (hdag_hash_is_filled(target_hash, TEST_HASH_SIZE, 0)) {
         /* No more hashes */
+        seq->node_idx++;
         return 1;
     }
     memcpy(phash, target_hash, TEST_HASH_SIZE);
@@ -111,7 +112,6 @@ test_node_seq_next(void *node_seq_data,
     memcpy(phash, node->hash, TEST_HASH_SIZE);
     seq->target_idx = 0;
     *ptarget_hash_seq = (struct hdag_hash_seq){test_hash_seq_next, seq};
-    seq->node_idx++;
     /* Node retrieved */
     return 0;
 }
