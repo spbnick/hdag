@@ -105,9 +105,11 @@ hdag_file_create(struct hdag_file *pfile,
         goto cleanup;
     }
 
-    /* Close the file as we're mapped now */
-    close(fd);
-    fd = -1;
+    /* Close the file (if open) as we're mapped now */
+    if (fd >= 0) {
+        close(fd);
+        fd = -1;
+    }
 
     /* Initialize the file */
     *(file.header = file.contents) = header;
