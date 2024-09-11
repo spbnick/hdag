@@ -20,6 +20,7 @@ add_definitions(-D_GNU_SOURCE)
 
 add_library(
     hdag
+    lib/hdag/dot.c
     lib/hdag/bundle.c
     lib/hdag/file.c
     lib/hdag/node_seq.c

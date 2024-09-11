@@ -413,18 +413,6 @@ hdag_bundle_some_nodes_have_components(const struct hdag_bundle *bundle)
 }
 
 /**
- * Write a Graphviz DOT representation of the graph in the bundle to a file.
- *
- * @param bundle    The bundle to write the representation of.
- * @param name      The name to give the output digraph.
- * @param stream    The FILE stream to write the representation to.
- *
- * @return An HDAG return code.
- */
-extern hdag_rc hdag_bundle_write_dot(const struct hdag_bundle *bundle,
-                                     const char *name, FILE *stream);
-
-/**
  * Given a bundle and a node index return the node's targets structure.
  *
  * @param bundle        The bundle to get the node target count from.
