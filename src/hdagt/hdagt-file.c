@@ -18,16 +18,16 @@
         }                                               \
     } while(0)
 
-/** The size of test hashes, bytes */
-#define TEST_HASH_SIZE  32
+/** The length of test hashes, bytes */
+#define TEST_HASH_LEN   32
 /** Number of each kind of test objects in a test graph */
 #define TEST_OBJ_NUM    32
 
 struct test_node {
     /** The node's hash */
-    uint8_t hash[TEST_HASH_SIZE];
+    uint8_t hash[TEST_HASH_LEN];
     /** The node's target hashes, terminated by all-zero hash */
-    uint8_t target_hashes[TEST_OBJ_NUM][TEST_HASH_SIZE];
+    uint8_t target_hashes[TEST_OBJ_NUM][TEST_HASH_LEN];
 };
 
 #define TEST_HASH(_byte) {_byte,},
@@ -79,12 +79,12 @@ test_hash_seq_next(void *hash_seq_data, uint8_t *phash)
     assert(seq->node_idx < TEST_OBJ_NUM);
     assert(seq->target_idx < TEST_OBJ_NUM);
     /* If the target hash is invalid */
-    if (hdag_hash_is_filled(target_hash, TEST_HASH_SIZE, 0)) {
+    if (hdag_hash_is_filled(target_hash, TEST_HASH_LEN, 0)) {
         /* No more hashes */
         seq->node_idx++;
         return 1;
     }
-    memcpy(phash, target_hash, TEST_HASH_SIZE);
+    memcpy(phash, target_hash, TEST_HASH_LEN);
     seq->target_idx++;
     /* Hash retrieved */
     return 0;
@@ -105,11 +105,11 @@ test_node_seq_next(void *node_seq_data,
     assert(seq->target_idx < TEST_OBJ_NUM);
 
     /* If the next node is invalid */
-    if (hdag_hash_is_filled(node->hash, TEST_HASH_SIZE, 0)) {
+    if (hdag_hash_is_filled(node->hash, TEST_HASH_LEN, 0)) {
         /* No more nodes */
         return 1;
     }
-    memcpy(phash, node->hash, TEST_HASH_SIZE);
+    memcpy(phash, node->hash, TEST_HASH_LEN);
     seq->target_idx = 0;
     *ptarget_hash_seq = (struct hdag_hash_seq){test_hash_seq_next, seq};
     /* Node retrieved */
@@ -131,7 +131,7 @@ test_empty(void)
      * Empty in-memory file.
      */
     TEST(!hdag_file_create(&file, "", -1, 0,
-                           TEST_HASH_SIZE, HDAG_NODE_SEQ_EMPTY));
+                           TEST_HASH_LEN, HDAG_NODE_SEQ_EMPTY));
     TEST(file.size = sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
@@ -141,7 +141,7 @@ test_empty(void)
      */
     TEST(!hdag_file_create(&file, "test.XXXXXX.hdag", 5,
                            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                           TEST_HASH_SIZE, HDAG_NODE_SEQ_EMPTY));
+                           TEST_HASH_LEN, HDAG_NODE_SEQ_EMPTY));
     TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
     memcpy(pathname, file.pathname, sizeof(pathname));
@@ -176,7 +176,7 @@ test_basic(void)
      * Single-node in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_SIZE,
+            &file, "", -1, 0, TEST_HASH_LEN,
             TEST_NODE_SEQ(TEST_NODE(1))
     ));
     TEST(file.pathname[0] == 0);
@@ -185,11 +185,11 @@ test_basic(void)
     TEST(file.header->signature == HDAG_FILE_SIGNATURE);
     TEST(file.header->version.major == 0);
     TEST(file.header->version.minor == 0);
-    TEST(file.header->hash_len == TEST_HASH_SIZE);
+    TEST(file.header->hash_len == TEST_HASH_LEN);
     TEST(file.header->node_num == 1);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 0);
     TEST(node->component == 1);
     TEST(node->generation == 1);
     TEST(node->targets.first == HDAG_TARGET_ABSENT);
@@ -202,19 +202,19 @@ test_basic(void)
      * Two-node in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_SIZE,
+            &file, "", -1, 0, TEST_HASH_LEN,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 0);
     TEST(node->hash[0] == 1);
     TEST(node->component == 1);
     TEST(node->generation == 1);
     TEST(node->targets.first == HDAG_TARGET_ABSENT);
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 1);
     TEST(node->hash[0] == 2);
     TEST(node->component == 2);
     TEST(node->generation == 1);
@@ -227,19 +227,19 @@ test_basic(void)
      * N1->N2 in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_SIZE,
+            &file, "", -1, 0, TEST_HASH_LEN,
             TEST_NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 0);
     TEST(node->hash[0] == 1);
     TEST(node->component == 1);
     TEST(node->generation == 2);
     TEST(node->targets.first == hdag_target_from_dir_idx(1));
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 1);
     TEST(node->hash[0] == 2);
     TEST(node->component == 1);
     TEST(node->generation == 1);
@@ -252,19 +252,19 @@ test_basic(void)
      * N1<-N2 in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_SIZE,
+            &file, "", -1, 0, TEST_HASH_LEN,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2, 1))
     ));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 0);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 0);
     TEST(node->hash[0] == 1);
     TEST(node->component == 1);
     TEST(node->generation == 1);
     TEST(node->targets.first == HDAG_TARGET_ABSENT);
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
-    node = hdag_node_off(file.nodes, TEST_HASH_SIZE, 1);
+    node = hdag_node_off(file.nodes, TEST_HASH_LEN, 1);
     TEST(node->hash[0] == 2);
     TEST(node->component == 1);
     TEST(node->generation == 2);
