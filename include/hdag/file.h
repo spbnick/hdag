@@ -143,9 +143,9 @@ hdag_file_size(uint16_t hash_len,
  *                          empty.
  * @param open_mode         The mode bitmap to supply to open(2).
  *                          Ignored, if pathname is empty.
- * @param hash_len          The length of the node hashes, bytes.
  * @param node_seq          The sequence of nodes (and optionally their
- *                          targets) to store in the created file.
+ *                          targets) to store in the created file. Specifies
+ *                          the node hash length.
  *
  * @return An HDAG return code.
  */
@@ -153,7 +153,6 @@ extern hdag_rc hdag_file_create(struct hdag_file *pfile,
                                 const char *pathname,
                                 int template_sfxlen,
                                 mode_t open_mode,
-                                uint16_t hash_len,
                                 struct hdag_node_seq node_seq);
 
 /**

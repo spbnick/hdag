@@ -760,45 +760,44 @@ cleanup:
 }
 
 hdag_rc
-hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
+hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
                           struct hdag_node_seq node_seq)
 {
     hdag_rc                 rc = HDAG_RC_INVALID;
+    struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
     struct hdag_hash_seq    target_hash_seq;
     int                     seq_rc;
     size_t                  first_target_hash_idx;
 
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_empty(bundle));
+    assert(hdag_node_seq_is_valid(&node_seq));
 
-    node_hash = malloc(bundle->hash_len);
+    node_hash = malloc(bundle.hash_len);
     if (node_hash == NULL) {
         goto cleanup;
     }
-    target_hash = malloc(bundle->hash_len);
+    target_hash = malloc(bundle.hash_len);
     if (target_hash == NULL) {
         goto cleanup;
     }
 
     /* Add a new node */
-    #define ADD_NODE(_hash, _first_target, _last_target) \
+    #define ADD_NODE(_hash, _targets) \
         do {                                                \
             struct hdag_node *_node = (struct hdag_node *)  \
-                hdag_darr_cappend_one(&bundle->nodes);      \
+                hdag_darr_cappend_one(&bundle.nodes);       \
             if (_node == NULL) {                            \
                 goto cleanup;                               \
             }                                               \
-            memcpy(_node->hash, _hash, bundle->hash_len);   \
-            _node->targets.first = _first_target;           \
-            _node->targets.last = _last_target;             \
+            memcpy(_node->hash, _hash, bundle.hash_len);    \
+            _node->targets = _targets;                      \
         } while (0)
 
     /* Collect each node (and its targets) in the sequence */
     while (true) {
         /* Get next node */
-        seq_rc = node_seq.next(node_seq.data, node_hash, &target_hash_seq);
+        seq_rc = node_seq.next_fn(&node_seq, node_hash, &target_hash_seq);
         if (seq_rc != 0) {
             if (seq_rc < 0) {
                 goto cleanup;
@@ -807,11 +806,11 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
             }
         }
 
-        first_target_hash_idx = bundle->target_hashes.slots_occupied;
+        first_target_hash_idx = bundle.target_hashes.slots_occupied;
 
         /* Collect each target hash */
         while (true) {
-            seq_rc = target_hash_seq.next(target_hash_seq.data, target_hash);
+            seq_rc = target_hash_seq.next_fn(&target_hash_seq, target_hash);
             if (seq_rc != 0) {
                 if (seq_rc < 0) {
                     goto cleanup;
@@ -821,21 +820,21 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
             }
             /* Add a new target hash (and the corresponding node) */
             if (hdag_darr_append_one(
-                    &bundle->target_hashes, target_hash) == NULL) {
+                    &bundle.target_hashes, target_hash) == NULL) {
                 goto cleanup;
             }
-            ADD_NODE(target_hash, HDAG_TARGET_UNKNOWN, HDAG_TARGET_UNKNOWN);
+            ADD_NODE(target_hash, HDAG_TARGETS_UNKNOWN);
         }
 
         /* Add the node */
-        if (first_target_hash_idx == bundle->target_hashes.slots_occupied) {
-            ADD_NODE(node_hash, HDAG_TARGET_ABSENT, HDAG_TARGET_ABSENT);
+        if (first_target_hash_idx == bundle.target_hashes.slots_occupied) {
+            ADD_NODE(node_hash, HDAG_TARGETS_ABSENT);
         } else {
             ADD_NODE(
                 node_hash,
-                hdag_target_from_ind_idx(first_target_hash_idx),
-                hdag_target_from_ind_idx(
-                    bundle->target_hashes.slots_occupied - 1
+                HDAG_TARGETS_INDIRECT(
+                    first_target_hash_idx,
+                    bundle.target_hashes.slots_occupied - 1
                 )
             );
         }
@@ -843,47 +842,59 @@ hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
 
     #undef ADD_NODE
 
+    assert(hdag_bundle_is_valid(&bundle));
+
+    if (pbundle != NULL) {
+        *pbundle = bundle;
+        bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+    }
+
     rc = HDAG_RC_OK;
 
 cleanup:
     free(target_hash);
     free(node_hash);
-    assert(hdag_bundle_is_valid(bundle));
+    hdag_bundle_cleanup(&bundle);
     return HDAG_RC_ERRNO_IF_INVALID(rc);
 }
 
 hdag_rc
-hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
+hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
                             struct hdag_node_seq node_seq)
 {
-    hdag_rc rc = HDAG_RC_INVALID;
+    hdag_rc             rc      = HDAG_RC_INVALID;
+    struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
 
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_empty(bundle));
+    assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Load the node sequence (adjacency list) */
-    HDAG_RC_TRY(hdag_bundle_load_node_seq(bundle, node_seq));
+    HDAG_RC_TRY(hdag_bundle_load_node_seq(&bundle, node_seq));
 
     /* Sort the nodes by hash lexicographically */
-    hdag_bundle_sort(bundle);
+    hdag_bundle_sort(&bundle);
 
     /* Deduplicate the nodes and edges */
-    hdag_bundle_dedup(bundle);
+    hdag_bundle_dedup(&bundle);
 
     /* Compact the edges */
-    hdag_bundle_compact(bundle);
+    hdag_bundle_compact(&bundle);
 
     /* Try to enumerate the generations */
-    HDAG_RC_TRY(hdag_bundle_generations_enumerate(bundle));
+    HDAG_RC_TRY(hdag_bundle_generations_enumerate(&bundle));
 
     /* Try to enumerate the components */
-    HDAG_RC_TRY(hdag_bundle_components_enumerate(bundle));
+    HDAG_RC_TRY(hdag_bundle_components_enumerate(&bundle));
 
     /* Shrink the extra space allocated for the bundle */
-    HDAG_RC_TRY(hdag_bundle_deflate(bundle));
+    HDAG_RC_TRY(hdag_bundle_deflate(&bundle));
 
+    assert(hdag_bundle_is_valid(&bundle));
+    if (pbundle != NULL) {
+        *pbundle = bundle;
+        bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+    }
     rc = HDAG_RC_OK;
 cleanup:
-    assert(hdag_bundle_is_valid(bundle));
+    hdag_bundle_cleanup(&bundle);
     return HDAG_RC_ERRNO_IF_INVALID(rc);
 }

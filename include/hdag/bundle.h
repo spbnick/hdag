@@ -229,30 +229,30 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  * Load a node sequence (adjacency list) into a bundle, but don't do any
  * optimization or validation.
  *
- * @param bundle    The bundle to load the node sequence into.
- *                  Must be valid and empty. Can be left unclean on failure.
+ * @param pbundle   The location for the bundle with loaded node sequence.
+ *                  Can be NULL to have the bundle discarded after loading.
+ *                  Will not be modified on failure.
  * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to load. Node hash length is assumed to be the bundle's
- *                  hash length.
+ *                  to load.
  *
  * @return An HDAG return code.
  */
-extern hdag_rc hdag_bundle_load_node_seq(struct hdag_bundle *bundle,
+extern hdag_rc hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
                                          struct hdag_node_seq node_seq);
 
 /**
  * Load a node sequence (adjacency list) into a bundle, optimize, and
  * validate.
  *
- * @param bundle    The bundle to load the node sequence into.
- *                  Must be valid and empty. Can be left unclean on failure.
+ * @param pbundle   The location for the bundle with ingested node sequence.
+ *                  Can be NULL to have the bundle discarded after ingesting.
+ *                  Will not be modified on failure.
  * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to load. Node hash length is assumed to be the bundle's
- *                  hash length.
+ *                  to load.
  *
  * @return An HDAG return code.
  */
-extern hdag_rc hdag_bundle_ingest_node_seq(struct hdag_bundle *bundle,
+extern hdag_rc hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
                                            struct hdag_node_seq node_seq);
 
 /**

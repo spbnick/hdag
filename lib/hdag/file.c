@@ -33,23 +33,22 @@ hdag_file_create(struct hdag_file *pfile,
                  const char *pathname,
                  int template_sfxlen,
                  mode_t open_mode,
-                 uint16_t hash_len,
                  struct hdag_node_seq node_seq)
 {
     hdag_rc rc = HDAG_RC_INVALID;
     int orig_errno;
     int fd = -1;
-    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     struct hdag_file file = HDAG_FILE_CLOSED;
     struct hdag_file_header header = {
         .signature = HDAG_FILE_SIGNATURE,
         .version = {0, 0},
-        .hash_len = hash_len,
+        .hash_len = node_seq.hash_len,
     };
 
     assert(pathname != NULL);
     assert(strlen(pathname) < sizeof(file.pathname));
-    assert(hdag_hash_len_is_valid(hash_len));
+    assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Load the nodes and their targets into a bundle */
     HDAG_RC_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
@@ -57,7 +56,8 @@ hdag_file_create(struct hdag_file *pfile,
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
     /* Calculate the file size */
-    file.size = hdag_file_size(hash_len, bundle.nodes.slots_occupied,
+    file.size = hdag_file_size(node_seq.hash_len,
+                               bundle.nodes.slots_occupied,
                                bundle.extra_edges.slots_occupied);
 
     /* If creating an anonymous mapping */

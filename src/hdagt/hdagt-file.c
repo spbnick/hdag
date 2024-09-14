@@ -3,6 +3,7 @@
  */
 
 #include <hdag/file.h>
+#include <hdag/node_seq.h>
 #include <hdag/rc.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -61,18 +62,19 @@ struct test_node_seq {
 };
 
 #define TEST_NODE_SEQ(...) ((struct hdag_node_seq){ \
-    .next = test_node_seq_next,                     \
+    .hash_len = TEST_HASH_LEN,                      \
+    .next_fn = test_node_seq_next,                  \
     .data = &(struct test_node_seq){                \
         .graph = &TEST_GRAPH(__VA_ARGS__)           \
     }                                               \
 })
 
 static int
-test_hash_seq_next(void *hash_seq_data, uint8_t *phash)
+test_hash_seq_next(const struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
-    assert(hash_seq_data != NULL);
+    assert(hdag_hash_seq_is_valid(hash_seq));
     assert(phash != NULL);
-    struct test_node_seq *seq = hash_seq_data;
+    struct test_node_seq *seq = hash_seq->data;
     const struct test_node *node = &seq->graph->nodes[seq->node_idx];
     const uint8_t *target_hash = node->target_hashes[seq->target_idx];
     assert(seq->graph != NULL);
@@ -91,14 +93,14 @@ test_hash_seq_next(void *hash_seq_data, uint8_t *phash)
 }
 
 static int
-test_node_seq_next(void *node_seq_data,
+test_node_seq_next(const struct hdag_node_seq *node_seq,
                    uint8_t *phash,
                    struct hdag_hash_seq *ptarget_hash_seq)
 {
-    assert(node_seq_data != NULL);
+    assert(hdag_node_seq_is_valid(node_seq));
     assert(phash != NULL);
     assert(ptarget_hash_seq != NULL);
-    struct test_node_seq *seq = node_seq_data;
+    struct test_node_seq *seq = node_seq->data;
     const struct test_node *node = &seq->graph->nodes[seq->node_idx];
     assert(seq->graph != NULL);
     assert(seq->node_idx < TEST_OBJ_NUM);
@@ -111,7 +113,11 @@ test_node_seq_next(void *node_seq_data,
     }
     memcpy(phash, node->hash, TEST_HASH_LEN);
     seq->target_idx = 0;
-    *ptarget_hash_seq = (struct hdag_hash_seq){test_hash_seq_next, seq};
+    *ptarget_hash_seq = (struct hdag_hash_seq){
+        .hash_len = node_seq->hash_len,
+        .next_fn = test_hash_seq_next,
+        .data = seq
+    };
     /* Node retrieved */
     return 0;
 }
@@ -131,7 +137,7 @@ test_empty(void)
      * Empty in-memory file.
      */
     TEST(!hdag_file_create(&file, "", -1, 0,
-                           TEST_HASH_LEN, HDAG_NODE_SEQ_EMPTY));
+                           HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
     TEST(file.size = sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
@@ -141,7 +147,7 @@ test_empty(void)
      */
     TEST(!hdag_file_create(&file, "test.XXXXXX.hdag", 5,
                            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                           TEST_HASH_LEN, HDAG_NODE_SEQ_EMPTY));
+                           HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
     TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
     memcpy(pathname, file.pathname, sizeof(pathname));
@@ -176,7 +182,7 @@ test_basic(void)
      * Single-node in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_LEN,
+            &file, "", -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1))
     ));
     TEST(file.pathname[0] == 0);
@@ -202,7 +208,7 @@ test_basic(void)
      * Two-node in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_LEN,
+            &file, "", -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
@@ -227,7 +233,7 @@ test_basic(void)
      * N1->N2 in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_LEN,
+            &file, "", -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
@@ -252,7 +258,7 @@ test_basic(void)
      * N1<-N2 in-memory file.
      */
     TEST(!hdag_file_create(
-            &file, "", -1, 0, TEST_HASH_LEN,
+            &file, "", -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2, 1))
     ));
     TEST(file.header->node_num == 2);
