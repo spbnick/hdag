@@ -24,22 +24,54 @@ test(void)
 
     TEST(hdag_rc_type_is_valid(HDAG_RC_TYPE_OK));
     TEST(hdag_rc_type_is_valid(HDAG_RC_TYPE_GRAPH_CYCLE));
+    TEST(hdag_rc_type_is_valid(HDAG_RC_TYPE_NUM - 1));
     TEST(!hdag_rc_type_is_valid(HDAG_RC_TYPE_NUM));
     TEST(!hdag_rc_type_is_valid((enum hdag_rc_type)-1));
     TEST(!hdag_rc_type_is_valid((enum hdag_rc_type)UINT32_MAX));
-    TEST(hdag_rc_get_type_raw((enum hdag_rc_type)UINT32_MAX) == UINT32_MAX);
-    TEST(HDAG_RC(HDAG_RC_TYPE_ERRNO, 0) == 0x0000000000000001UL);
-    TEST(HDAG_RC(HDAG_RC_TYPE_ERRNO, 1) == 0x0000000100000001UL);
-    TEST(HDAG_RC(HDAG_RC_TYPE_ERRNO, -1) == 0xffffffff00000001UL);
-    TEST(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MAX) == 0x7fffffff00000001UL);
-    TEST(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MIN) == 0x8000000000000001UL);
+    TEST(HDAG_RC(0, 0) == 0);
+    TEST(hdag_rc_get_type_raw(HDAG_RC(0, 0)) == 0);
+    TEST(hdag_rc_get_type_raw(0) == 0);
+    TEST(hdag_rc_get_type_raw(HDAG_RC(INT32_MAX, 0)) == INT32_MAX);
+    TEST(hdag_rc_is_valid(HDAG_RC_OK));
+    TEST(hdag_rc_is_valid(HDAG_RC(HDAG_RC_TYPE_OK, 0)));
+    TEST(hdag_rc_is_valid(HDAG_RC(HDAG_RC_TYPE_OK, 1)));
+    TEST(hdag_rc_is_valid(HDAG_RC(HDAG_RC_TYPE_OK, -1)));
+
+    TEST(hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, 0)) ==
+         HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC(HDAG_RC_TYPE_ERRNO, 0)) == 0);
+
+    fprintf(stderr, "%ld\n", HDAG_RC(HDAG_RC_TYPE_ERRNO, 1));
+    fprintf(stderr, "%d\n", hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, 1)));
+    TEST(hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, 1)) ==
+         HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC(HDAG_RC_TYPE_ERRNO, 1)) == 1);
+
+    TEST(hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, -1)) ==
+         HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC(HDAG_RC_TYPE_ERRNO, -1)) == -1);
+
+    TEST(hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MAX)) ==
+         HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MAX)) ==
+         INT32_MAX);
+
+    TEST(hdag_rc_get_type(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MIN)) ==
+         HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC(HDAG_RC_TYPE_ERRNO, INT32_MIN)) ==
+         INT32_MIN);
+
     errno = INT32_MAX;
-    TEST(HDAG_RC_ERRNO == 0x7fffffff00000001UL);
+    TEST(hdag_rc_get_type(HDAG_RC_ERRNO) == HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC_ERRNO) == INT32_MAX);
     errno = INT32_MIN;
-    TEST(HDAG_RC_ERRNO == 0x8000000000000001UL);
+    TEST(hdag_rc_get_type(HDAG_RC_ERRNO) == HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC_ERRNO) == INT32_MIN);
     errno = 0;
-    TEST(HDAG_RC_ERRNO == 0x0000000000000001UL);
-    TEST(HDAG_RC_GRAPH_CYCLE == 2);
+    TEST(hdag_rc_get_type(HDAG_RC_ERRNO) == HDAG_RC_TYPE_ERRNO);
+    TEST(hdag_rc_get_value(HDAG_RC_ERRNO) == 0);
+
+    TEST(hdag_rc_get_type(HDAG_RC_GRAPH_CYCLE) == HDAG_RC_TYPE_GRAPH_CYCLE);
 
 #define TEST_STRERROR(_rc, _str) \
     do {                                                                \

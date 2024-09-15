@@ -14,19 +14,21 @@
 /**
  * A universal return code.
  *
- * Contains the type of return code in the lower 32 bits, and the optional
- * signed value in the upper 32 bits. The value presence and meaning is
- * defined by the type.
+ * Contains the negated (non-positive) type of return code in the higher 32
+ * bits, and the optional signed value in the lower 32 bits. The value
+ * presence and meaning is defined by the type.
+ *
+ * Always non-positive.
  */
-typedef uint64_t hdag_rc;
+typedef int64_t hdag_rc;
 
 /** A return code type */
 enum hdag_rc_type {
-    /** The operation completed successfully */
+    /** The operation completed successfully (no value) */
     HDAG_RC_TYPE_OK = 0,
     /** The operation failed due to a libc/system error, the value is errno */
     HDAG_RC_TYPE_ERRNO,
-    /** The operation failed because a graph contained a cycle */
+    /** The operation failed because a graph contained a cycle (no value) */
     HDAG_RC_TYPE_GRAPH_CYCLE,
     /** The number of known return code types (not a type itself) */
     HDAG_RC_TYPE_NUM
@@ -42,7 +44,7 @@ enum hdag_rc_type {
 static inline enum hdag_rc_type
 hdag_rc_get_type_raw(hdag_rc rc)
 {
-    return rc & UINT32_MAX;
+    return (-rc) / ((hdag_rc)UINT32_MAX + 1);
 }
 
 /**
@@ -82,7 +84,7 @@ hdag_rc_type_validate(enum hdag_rc_type rc_type)
 static inline bool
 hdag_rc_is_valid(hdag_rc rc)
 {
-    return hdag_rc_type_is_valid(hdag_rc_get_type_raw(rc));
+    return rc <= 0 && hdag_rc_type_is_valid(hdag_rc_get_type_raw(rc));
 }
 
 /**
@@ -123,14 +125,14 @@ hdag_rc_get_type(hdag_rc rc)
 static inline int32_t
 hdag_rc_get_value(hdag_rc rc)
 {
-    return (int32_t)(rc >> 32);
+    return (uint32_t)((-rc) % ((hdag_rc)UINT32_MAX + 1));
 }
 
 /** Create a return code from a type and a value */
-#define HDAG_RC(_type, _value) ( \
-    ((hdag_rc)(_type) & UINT32_MAX) |       \
-    (((hdag_rc)(uint32_t)(_value)) << 32)   \
-)
+#define HDAG_RC(_type, _value) (-( \
+    (hdag_rc)(int32_t)_type * ((hdag_rc)UINT32_MAX + 1) +   \
+    (hdag_rc)(uint32_t)(int32_t)(_value)                    \
+))
 
 /** The success return code (zero) */
 #define HDAG_RC_OK HDAG_RC(HDAG_RC_TYPE_OK, 0)
@@ -145,7 +147,7 @@ hdag_rc_get_value(hdag_rc rc)
 #define HDAG_RC_GRAPH_CYCLE HDAG_RC(HDAG_RC_TYPE_GRAPH_CYCLE, 0)
 
 /** The invalid return code */
-#define HDAG_RC_INVALID UINT64_MAX
+#define HDAG_RC_INVALID INT64_MIN
 
 /**
  * Replace the invalid return code with the current errno return code.
