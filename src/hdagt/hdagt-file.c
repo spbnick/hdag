@@ -69,7 +69,7 @@ struct test_node_seq {
     }                                               \
 })
 
-static int
+static hdag_res
 test_hash_seq_next(const struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
@@ -89,10 +89,10 @@ test_hash_seq_next(const struct hdag_hash_seq *hash_seq, uint8_t *phash)
     memcpy(phash, target_hash, TEST_HASH_LEN);
     seq->target_idx++;
     /* Hash retrieved */
-    return 0;
+    return HDAG_RES_OK;
 }
 
-static int
+static hdag_res
 test_node_seq_next(const struct hdag_node_seq *node_seq,
                    uint8_t *phash,
                    struct hdag_hash_seq *ptarget_hash_seq)
@@ -119,7 +119,7 @@ test_node_seq_next(const struct hdag_node_seq *node_seq,
         .data = seq
     };
     /* Node retrieved */
-    return 0;
+    return HDAG_RES_OK;
 }
 
 static size_t

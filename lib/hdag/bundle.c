@@ -768,7 +768,6 @@ hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
     struct hdag_hash_seq    target_hash_seq;
-    int                     seq_rc;
     size_t                  first_target_hash_idx;
 
     assert(hdag_node_seq_is_valid(&node_seq));
@@ -795,29 +794,15 @@ hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
         } while (0)
 
     /* Collect each node (and its targets) in the sequence */
-    while (true) {
-        /* Get next node */
-        seq_rc = node_seq.next_fn(&node_seq, node_hash, &target_hash_seq);
-        if (seq_rc != 0) {
-            if (seq_rc < 0) {
-                goto cleanup;
-            } else {
-                break;
-            }
-        }
-
+    while (!HDAG_RES_TRY(
+        node_seq.next_fn(&node_seq, node_hash, &target_hash_seq)
+    )) {
         first_target_hash_idx = bundle.target_hashes.slots_occupied;
 
         /* Collect each target hash */
-        while (true) {
-            seq_rc = target_hash_seq.next_fn(&target_hash_seq, target_hash);
-            if (seq_rc != 0) {
-                if (seq_rc < 0) {
-                    goto cleanup;
-                } else {
-                    break;
-                }
-            }
+        while (!HDAG_RES_TRY(
+            target_hash_seq.next_fn(&target_hash_seq, target_hash)
+        )) {
             /* Add a new target hash (and the corresponding node) */
             if (hdag_darr_append_one(
                     &bundle.target_hashes, target_hash) == NULL) {

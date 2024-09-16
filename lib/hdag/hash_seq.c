@@ -4,7 +4,7 @@
 
 #include <hdag/hash_seq.h>
 
-int
+hdag_res
 hdag_hash_seq_empty_next_fn(const struct hdag_hash_seq *hash_seq,
                             uint8_t *phash)
 {

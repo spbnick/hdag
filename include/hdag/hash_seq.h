@@ -5,6 +5,7 @@
 #define _HDAG_HASH_SEQ_H
 
 #include <hdag/hash.h>
+#include <hdag/res.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -18,13 +19,12 @@ struct hdag_hash_seq;
  * @param phash     Location for the retrieved hash.
  *                  The length of the hash is defined in hash_seq.
  *
- * @return  Zero if the hash was retrieved successfully.
+ * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.
- *          A negative number if hash retrieval has failed
- *          (and errno was set appropriately).
+ *          A negative number (a failure result) if hash retrieval has failed.
  */
-typedef int (*hdag_hash_seq_next_fn)(const struct hdag_hash_seq *hash_seq,
-                                     uint8_t *phash);
+typedef hdag_res (*hdag_hash_seq_next_fn)(const struct hdag_hash_seq *hash_seq,
+                                          uint8_t *phash);
 
 /** A hash sequence */
 struct hdag_hash_seq {
@@ -51,9 +51,10 @@ hdag_hash_seq_is_valid(const struct hdag_hash_seq *hash_seq)
         hash_seq->next_fn != NULL;
 }
 
-/** A next-hash retrieval function which never returns hashs */
-extern int hdag_hash_seq_empty_next_fn(const struct hdag_hash_seq *hash_seq,
-                                       uint8_t *phash);
+/** A next-hash retrieval function which never returns hashes */
+extern hdag_res hdag_hash_seq_empty_next_fn(
+                    const struct hdag_hash_seq *hash_seq,
+                    uint8_t *phash);
 
 /**
  * An initializer for an empty hash sequence

@@ -6,6 +6,7 @@
 #define _HDAG_NODE_SEQ_H
 
 #include <hdag/hash_seq.h>
+#include <hdag/res.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -22,12 +23,11 @@ struct hdag_node_seq;
  * @param ptarget_hash_seq  Location for the node's sequence of target node
  *                          hashes.
  *
- * @return  Zero if the node was retrieved successfully.
+ * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.
- *          A negative number if node retrieval has failed
- *          (and errno was set appropriately).
+ *          A negative number (a failure result) if node retrieval has failed.
  */
-typedef int (*hdag_node_seq_next_fn)(
+typedef hdag_res (*hdag_node_seq_next_fn)(
     const struct hdag_node_seq *node_seq,
     uint8_t                    *phash,
     struct hdag_hash_seq       *ptarget_hash_seq
@@ -44,7 +44,7 @@ struct hdag_node_seq {
 };
 
 /** A next-node retrieval function which never returns nodes */
-extern int hdag_node_seq_empty_next_fn(
+extern hdag_res hdag_node_seq_empty_next_fn(
                 const struct hdag_node_seq *node_seq,
                 uint8_t *phash,
                 struct hdag_hash_seq *ptarget_hash_seq);
