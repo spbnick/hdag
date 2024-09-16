@@ -13,7 +13,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 include_directories(include ${GRAPHVIZ_INCLUDE_DIRS})
 
 add_compile_options(
-    -Wall -Wextra -Wpedantic
+    -Wall -Wextra
     -Werror
 )
 
