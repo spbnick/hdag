@@ -6,7 +6,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GRAPHVIZ REQUIRED libcgraph)
 
 set(CMAKE_C_STANDARD 17)
-set(CMAKE_C_STANDARD_REQUIRED True)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 include_directories(include ${GRAPHVIZ_INCLUDE_DIRS})
