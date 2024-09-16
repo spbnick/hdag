@@ -19,9 +19,9 @@
  * @param agraph        The output agraph.
  * @param src_agnode    The output source node.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-static hdag_rc
+static hdag_res
 hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
                                  const struct hdag_node *src_node,
                                  hdag_target target,
@@ -44,7 +44,7 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
     assert(src_agnode != NULL);
 
     if (target == HDAG_TARGET_ABSENT) {
-        return HDAG_RC_OK;
+        return HDAG_RES_OK;
     }
 
     /* Fetch destination node (we won't change it) */
@@ -56,14 +56,14 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
     hdag_bytes_to_hex(dst_hash_buf, dst_node->hash, bundle->hash_len);
     dst_agnode = agnode(agraph, dst_hash_buf, true);
     if (dst_agnode == NULL) {
-        return HDAG_RC_ERRNO;
+        return HDAG_RES_ERRNO;
     }
     /* Create/fetch the edge */
     if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
-        return HDAG_RC_ERRNO;
+        return HDAG_RES_ERRNO;
     }
 
-    return HDAG_RC_OK;
+    return HDAG_RES_OK;
 }
 
 /**
@@ -78,9 +78,9 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
  * @param agraph        The output agraph.
  * @param src_agnode    The output source node.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-static hdag_rc
+static hdag_res
 hdag_dot_write_bundle_ind_targets(const struct hdag_bundle *bundle,
                                   const struct hdag_node *src_node,
                                   char *dst_hash_buf,
@@ -128,22 +128,22 @@ hdag_dot_write_bundle_ind_targets(const struct hdag_bundle *bundle,
         hdag_bytes_to_hex(dst_hash_buf, dst_hash, bundle->hash_len);
         dst_agnode = agnode(agraph, dst_hash_buf, true);
         if (dst_agnode == NULL) {
-            return HDAG_RC_ERRNO;
+            return HDAG_RES_ERRNO;
         }
         /* Create/fetch the edge */
         if (agedge(agraph, src_agnode, dst_agnode, "", true) == NULL) {
-            return HDAG_RC_ERRNO;
+            return HDAG_RES_ERRNO;
         }
     }
 
-    return HDAG_RC_OK;
+    return HDAG_RES_OK;
 }
 
-hdag_rc
+hdag_res
 hdag_dot_write_bundle(const struct hdag_bundle *bundle,
                       const char *name, FILE *stream)
 {
-    hdag_rc             rc = HDAG_RC_INVALID;
+    hdag_res            res = HDAG_RES_INVALID;
     /* The output graph */
     Agraph_t           *agraph = NULL;
     /* Output graph source node */
@@ -206,17 +206,17 @@ hdag_dot_write_bundle(const struct hdag_bundle *bundle,
         /* Else, if the node targets are node indices */
         } else if (hdag_targets_are_direct(&src_node->targets)) {
             /* Output first target and edge, if any */
-            HDAG_RC_TRY(hdag_dot_write_bundle_dir_target(
+            HDAG_RES_TRY(hdag_dot_write_bundle_dir_target(
                             bundle, src_node, src_node->targets.first,
                             dst_hash_buf, agraph, src_agnode));
             /* Output last (second) target and edge, if any */
-            HDAG_RC_TRY(hdag_dot_write_bundle_dir_target(
+            HDAG_RES_TRY(hdag_dot_write_bundle_dir_target(
                             bundle, src_node, src_node->targets.last,
                             dst_hash_buf, agraph, src_agnode));
         /* Else, node targets are indirect target hash/extra edge indices */
         } else {
             /* Output indirect target nodes and edges */
-            HDAG_RC_TRY(hdag_dot_write_bundle_ind_targets(
+            HDAG_RES_TRY(hdag_dot_write_bundle_ind_targets(
                             bundle, src_node, dst_hash_buf,
                             agraph, src_agnode));
         }
@@ -228,7 +228,7 @@ hdag_dot_write_bundle(const struct hdag_bundle *bundle,
     }
 
     /* Report success */
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 
 cleanup:
     if (agraph != NULL) {
@@ -236,5 +236,5 @@ cleanup:
     }
     free(dst_hash_buf);
     free(src_hash_buf);
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }

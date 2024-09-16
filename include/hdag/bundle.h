@@ -9,7 +9,7 @@
 #include <hdag/node.h>
 #include <hdag/node_seq.h>
 #include <hdag/darr.h>
-#include <hdag/rc.h>
+#include <hdag/res.h>
 #include <stdio.h>
 
 /** A bundle */
@@ -206,9 +206,9 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
  *
  * @param bundle    The bundle to deflate.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_deflate(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_deflate(struct hdag_bundle *bundle);
 
 /**
  * Empty a bundle, removing all data, but not releasing any memory.
@@ -235,10 +235,10 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  * @param node_seq  The sequence of nodes (and optionally their targets)
  *                  to load.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
-                                         struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
+                                          struct hdag_node_seq node_seq);
 
 /**
  * Load a node sequence (adjacency list) into a bundle, optimize, and
@@ -250,10 +250,10 @@ extern hdag_rc hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
  * @param node_seq  The sequence of nodes (and optionally their targets)
  *                  to load.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
-                                           struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
+                                            struct hdag_node_seq node_seq);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
@@ -292,10 +292,10 @@ extern void hdag_bundle_compact(struct hdag_bundle *bundle);
  * @param original  The bundle containing the graph to be inverted.
  *                  Must be sorted, deduped, and indexed.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_invert(struct hdag_bundle *pinverted,
-                                  const struct hdag_bundle *original);
+extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
+                                   const struct hdag_bundle *original);
 
 /**
  * Enumerate generations in a bundle: assign generation numbers to every node.
@@ -303,9 +303,9 @@ extern hdag_rc hdag_bundle_invert(struct hdag_bundle *pinverted,
  *
  * @param bundle    The bundle to enumerate.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
 
 /**
  * Check if all bundle nodes have generations assigned (non-zero).
@@ -360,9 +360,9 @@ hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
  *
  * @param bundle    The bundle to enumerate.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
 
 /**
  * Check if all bundle nodes have components assigned (non-zero).

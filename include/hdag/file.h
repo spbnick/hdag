@@ -13,7 +13,7 @@
 #include <hdag/targets.h>
 #include <hdag/hash.h>
 #include <hdag/misc.h>
-#include <hdag/rc.h>
+#include <hdag/res.h>
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <sys/mman.h>
@@ -147,13 +147,13 @@ hdag_file_size(uint16_t hash_len,
  *                          targets) to store in the created file. Specifies
  *                          the node hash length.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_file_create(struct hdag_file *pfile,
-                                const char *pathname,
-                                int template_sfxlen,
-                                mode_t open_mode,
-                                struct hdag_node_seq node_seq);
+extern hdag_res hdag_file_create(struct hdag_file *pfile,
+                                 const char *pathname,
+                                 int template_sfxlen,
+                                 mode_t open_mode,
+                                 struct hdag_node_seq node_seq);
 
 /**
  * Open a previously-created hash DAG file.
@@ -164,10 +164,10 @@ extern hdag_rc hdag_file_create(struct hdag_file *pfile,
  * @param pathname      The file's pathname. Cannot be empty. Cannot be longer
  *                      than PATH_MAX, including the terminating '\0'.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_file_open(struct hdag_file *pfile,
-                              const char *pathname);
+extern hdag_res hdag_file_open(struct hdag_file *pfile,
+                               const char *pathname);
 
 /**
  * Check if an opened or closed file is valid.
@@ -233,18 +233,18 @@ hdag_file_is_backed(const struct hdag_file *file)
  *
  * @param file  The file to sync. Must be open.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-static inline hdag_rc
+static inline hdag_res
 hdag_file_sync(struct hdag_file *file)
 {
     assert(hdag_file_is_valid(file));
     assert(hdag_file_is_open(file));
     if (hdag_file_is_backed(file) &&
         msync(file->contents, file->size, MS_SYNC) != 0) {
-        return HDAG_RC_ERRNO;
+        return HDAG_RES_ERRNO;
     }
-    return HDAG_RC_OK;
+    return HDAG_RES_OK;
 }
 
 /**
@@ -254,8 +254,8 @@ hdag_file_sync(struct hdag_file *file)
  *              Not modified on failure.
  *              Must be valid.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_file_close(struct hdag_file *pfile);
+extern hdag_res hdag_file_close(struct hdag_file *pfile);
 
 #endif /* _HDAG_FILE_H */

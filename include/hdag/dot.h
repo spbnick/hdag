@@ -14,9 +14,9 @@
  * @param name      The name to give the output digraph.
  * @param stream    The FILE stream to write the representation to.
  *
- * @return An HDAG return code.
+ * @return A void universal result.
  */
-extern hdag_rc hdag_dot_write_bundle(const struct hdag_bundle *bundle,
-                                     const char *name, FILE *stream);
+extern hdag_res hdag_dot_write_bundle(const struct hdag_bundle *bundle,
+                                      const char *name, FILE *stream);
 
 #endif /* _HDAG_DOT_H */

@@ -6,7 +6,7 @@
 #include <hdag/nodes.h>
 #include <hdag/hash.h>
 #include <hdag/misc.h>
-#include <hdag/rc.h>
+#include <hdag/res.h>
 #include <cgraph.h>
 #include <string.h>
 
@@ -32,16 +32,16 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_empty(bundle));
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_deflate(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     if (hdag_darr_deflate(&bundle->nodes) &&
         hdag_darr_deflate(&bundle->target_hashes) &&
         hdag_darr_deflate(&bundle->extra_edges)) {
-        return HDAG_RC_OK;
+        return HDAG_RES_OK;
     }
-    return HDAG_RC_ERRNO;
+    return HDAG_RES_ERRNO;
 }
 
 void
@@ -379,7 +379,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_compacted(bundle));
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_invert(struct hdag_bundle *pinverted,
                    const struct hdag_bundle *original)
 {
@@ -387,7 +387,7 @@ hdag_bundle_invert(struct hdag_bundle *pinverted,
     assert(hdag_bundle_is_sorted_and_deduped(original));
     assert(!hdag_bundle_has_hash_targets(original));
 
-    hdag_rc                 rc = HDAG_RC_INVALID;
+    hdag_res                res = HDAG_RES_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(original->hash_len);
     ssize_t                 node_idx;
     const struct hdag_node *original_node;
@@ -490,14 +490,14 @@ output:
         *pinverted = inverted;
         inverted = HDAG_BUNDLE_EMPTY(inverted.hash_len);
     }
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 
 cleanup:
     hdag_bundle_cleanup(&inverted);
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 {
     ssize_t                 idx;
@@ -573,7 +573,7 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
                 /* If the next (target) node is being traversed */
                 if (NODE_IS_BEING_TRAVERSED(next_dfs_node)) {
                     /* We found a cycle */
-                    return HDAG_RC_GRAPH_CYCLE;
+                    return HDAG_RES_GRAPH_CYCLE;
                 }
                 NODE_INC_NEXT_TARGET(dfs_node);
                 /* Set its parent to the current node */
@@ -614,13 +614,13 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_all_nodes_have_generations(bundle));
     assert(!hdag_bundle_some_nodes_have_components(bundle));
-    return HDAG_RC_OK;
+    return HDAG_RES_OK;
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
 {
-    hdag_rc                 rc = HDAG_RC_INVALID;
+    hdag_res                res = HDAG_RES_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(bundle->hash_len);
     struct hdag_bundle     *inv;
     struct hdag_bundle     *orig;
@@ -642,7 +642,7 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
     assert(!hdag_bundle_some_nodes_have_components(bundle));
 
     /* Invert the graph */
-    HDAG_RC_TRY(hdag_bundle_invert(&inverted, bundle));
+    HDAG_RES_TRY(hdag_bundle_invert(&inverted, bundle));
 
     /* Use short alias pointers for uniformity */
     orig = bundle;
@@ -753,17 +753,17 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
 #undef NODE_HAS_PARENT
 
     assert(hdag_bundle_all_nodes_have_components(bundle));
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 cleanup:
     hdag_bundle_cleanup(&inverted);
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
                           struct hdag_node_seq node_seq)
 {
-    hdag_rc                 rc = HDAG_RC_INVALID;
+    hdag_res                res = HDAG_RES_INVALID;
     struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
@@ -849,26 +849,26 @@ hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
         bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     }
 
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 
 cleanup:
     free(target_hash);
     free(node_hash);
     hdag_bundle_cleanup(&bundle);
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_rc
+hdag_res
 hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
                             struct hdag_node_seq node_seq)
 {
-    hdag_rc             rc      = HDAG_RC_INVALID;
+    hdag_res            res      = HDAG_RES_INVALID;
     struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
 
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Load the node sequence (adjacency list) */
-    HDAG_RC_TRY(hdag_bundle_load_node_seq(&bundle, node_seq));
+    HDAG_RES_TRY(hdag_bundle_load_node_seq(&bundle, node_seq));
 
     /* Sort the nodes by hash lexicographically */
     hdag_bundle_sort(&bundle);
@@ -880,21 +880,21 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
     hdag_bundle_compact(&bundle);
 
     /* Try to enumerate the generations */
-    HDAG_RC_TRY(hdag_bundle_generations_enumerate(&bundle));
+    HDAG_RES_TRY(hdag_bundle_generations_enumerate(&bundle));
 
     /* Try to enumerate the components */
-    HDAG_RC_TRY(hdag_bundle_components_enumerate(&bundle));
+    HDAG_RES_TRY(hdag_bundle_components_enumerate(&bundle));
 
     /* Shrink the extra space allocated for the bundle */
-    HDAG_RC_TRY(hdag_bundle_deflate(&bundle));
+    HDAG_RES_TRY(hdag_bundle_deflate(&bundle));
 
     assert(hdag_bundle_is_valid(&bundle));
     if (pbundle != NULL) {
         *pbundle = bundle;
         bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     }
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 cleanup:
     hdag_bundle_cleanup(&bundle);
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }

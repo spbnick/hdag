@@ -825,7 +825,7 @@ test_generation_enumerating(uint16_t hash_len)
     ADD_NODES(2);
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
-    TEST(hdag_bundle_generations_enumerate(&bundle) == HDAG_RC_GRAPH_CYCLE);
+    TEST(hdag_bundle_generations_enumerate(&bundle) == HDAG_RES_GRAPH_CYCLE);
     hdag_bundle_cleanup(&bundle);
 
     /* Enumerate cyclic bundle: N0 -> N1 -> N2 -> (N0) */
@@ -833,7 +833,7 @@ test_generation_enumerating(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(2);
     HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(0);
-    TEST(hdag_bundle_generations_enumerate(&bundle) == HDAG_RC_GRAPH_CYCLE);
+    TEST(hdag_bundle_generations_enumerate(&bundle) == HDAG_RES_GRAPH_CYCLE);
     hdag_bundle_cleanup(&bundle);
 
 #undef ADD_NODES

@@ -28,14 +28,14 @@ hdag_file_mmap(int fd, size_t size)
                 fd, 0);
 }
 
-hdag_rc
+hdag_res
 hdag_file_create(struct hdag_file *pfile,
                  const char *pathname,
                  int template_sfxlen,
                  mode_t open_mode,
                  struct hdag_node_seq node_seq)
 {
-    hdag_rc rc = HDAG_RC_INVALID;
+    hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
     int fd = -1;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
@@ -51,7 +51,7 @@ hdag_file_create(struct hdag_file *pfile,
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Load the nodes and their targets into a bundle */
-    HDAG_RC_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
+    HDAG_RES_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
 
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
@@ -137,7 +137,7 @@ hdag_file_create(struct hdag_file *pfile,
         file = HDAG_FILE_CLOSED;
     }
 
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 
 cleanup:
     orig_errno = errno;
@@ -150,14 +150,14 @@ cleanup:
     }
     hdag_bundle_cleanup(&bundle);
     errno = orig_errno;
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_rc
+hdag_res
 hdag_file_open(struct hdag_file *pfile,
                const char *pathname)
 {
-    hdag_rc rc = HDAG_RC_INVALID;
+    hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
     int fd = -1;
     struct hdag_file file = {0, };
@@ -229,7 +229,7 @@ hdag_file_open(struct hdag_file *pfile,
         *pfile = file;
         file = HDAG_FILE_CLOSED;
     }
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 
 cleanup:
     orig_errno = errno;
@@ -240,16 +240,16 @@ cleanup:
         munmap(file.contents, file.size);
     }
     errno = orig_errno;
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_rc
+hdag_res
 hdag_file_close(struct hdag_file *pfile)
 {
-    hdag_rc rc = HDAG_RC_INVALID;
+    hdag_res res = HDAG_RES_INVALID;
     assert(hdag_file_is_valid(pfile));
     if (hdag_file_is_open(pfile)) {
-        HDAG_RC_TRY(hdag_file_sync(pfile));
+        HDAG_RES_TRY(hdag_file_sync(pfile));
         if (munmap(pfile->contents, pfile->size) < 0) {
             goto cleanup;
         }
@@ -257,7 +257,7 @@ hdag_file_close(struct hdag_file *pfile)
         assert(hdag_file_is_valid(pfile));
         assert(!hdag_file_is_open(pfile));
     }
-    rc = HDAG_RC_OK;
+    res = HDAG_RES_OK;
 cleanup:
-    return HDAG_RC_ERRNO_IF_INVALID(rc);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }

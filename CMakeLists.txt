@@ -31,13 +31,13 @@ add_library(
     lib/hdag/darr.c
     lib/hdag/hash.c
     lib/hdag/misc.c
-    lib/hdag/rc.c
+    lib/hdag/res.c
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
 
-add_executable(hdagt-rc src/hdagt/hdagt-rc.c)
-target_link_libraries(hdagt-rc hdag)
-add_test(NAME rc COMMAND hdagt-rc)
+add_executable(hdagt-res src/hdagt/hdagt-res.c)
+target_link_libraries(hdagt-res hdag)
+add_test(NAME res COMMAND hdagt-res)
 
 add_executable(hdagt-file src/hdagt/hdagt-file.c)
 target_link_libraries(hdagt-file hdag)
