@@ -63,8 +63,8 @@ extern hdag_res hdag_hash_seq_empty_next_fn(
  *                  (if they were returned).
  */
 #define HDAG_HASH_SEQ_EMPTY(_hash_len) (struct hdag_hash_seq){ \
-    .hash_len = (_hash_len),                                        \
-    .next_fn = hdag_hash_seq_empty_next_fn                          \
+    .hash_len = (_hash_len),                                    \
+    .next_fn = hdag_hash_seq_empty_next_fn                      \
 }
 
 #endif /* _HDAG_HASH_SEQ_H */
