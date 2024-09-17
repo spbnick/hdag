@@ -126,7 +126,8 @@ hdag_file_size(uint16_t hash_len,
 }
 
 /**
- * Create and open a hash DAG file with specified parameters.
+ * Create and open a hash DAG file with specified parameters and a node
+ * sequence (adjacency list).
  *
  * @param pfile             Location for the state of the opened file.
  *                          Not modified in case of failure.
@@ -144,8 +145,9 @@ hdag_file_size(uint16_t hash_len,
  * @param open_mode         The mode bitmap to supply to open(2).
  *                          Ignored, if pathname is empty.
  * @param node_seq          The sequence of nodes (and optionally their
- *                          targets) to store in the created file. Specifies
- *                          the node hash length.
+ *                          targets, constituting an adjacency list) to store
+ *                          in the created file. Specifies the node hash
+ *                          length.
  *
  * @return A void universal result.
  */
