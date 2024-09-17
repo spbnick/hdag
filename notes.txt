@@ -488,3 +488,4 @@ generation == 0 -> no mark
 component -> the node to return to
 ---
 TODO: Test enumerating with extra edges
+TODO: Support "hashless" bundles - ones with hash_len == 0

@@ -176,6 +176,36 @@ cleanup:
 }
 
 hdag_res
+hdag_file_create_from_txt(struct hdag_file *pfile,
+                          const char *pathname,
+                          int template_sfxlen,
+                          mode_t open_mode,
+                          FILE *stream,
+                          uint16_t hash_len)
+{
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
+
+    assert(pathname != NULL);
+    assert(strlen(pathname) < sizeof(pfile->pathname));
+    assert(stream != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+
+    /* Ingest the stream into the bundle */
+    HDAG_RES_TRY(hdag_bundle_txt_ingest(&bundle, stream, hash_len));
+    /* Create the file from the bundle */
+    HDAG_RES_TRY(hdag_file_create_from_bundle(pfile, pathname,
+                                              template_sfxlen,
+                                              open_mode,
+                                              &bundle));
+    res = HDAG_RES_OK;
+
+cleanup:
+    hdag_bundle_cleanup(&bundle);
+    return res;
+}
+
+hdag_res
 hdag_file_open(struct hdag_file *pfile,
                const char *pathname)
 {

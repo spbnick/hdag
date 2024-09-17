@@ -185,6 +185,45 @@ extern hdag_res hdag_file_create_from_node_seq(
                                 struct hdag_node_seq node_seq);
 
 /**
+ * Create and open a hash DAG file with specified parameters and a text
+ * adjacency list file stream.
+ *
+ * @param pfile             Location for the state of the opened file.
+ *                          Not modified in case of failure.
+ *                          Can be NULL to have the file closed after
+ *                          creation.
+ * @param pathname          The file's pathname (template), or empty string to
+ *                          open an in-memory file. Cannot be longer than
+ *                          PATH_MAX, including the terminating '\0'.
+ * @param template_sfxlen   The (non-negative) number of suffix characters
+ *                          following the "XXXXXX" at the end of "pathname",
+ *                          if it contains the template for a temporary file
+ *                          to be created. Or a negative number to treat
+ *                          "pathname" literally. Ignored, if "pathname" is
+ *                          empty.
+ * @param open_mode         The mode bitmap to supply to open(2).
+ *                          Ignored, if pathname is empty.
+ * @param stream            The FILE stream containing the text to parse and
+ *                          load. Each line of the stream is expected to
+ *                          contain a node's hash followed by hashes of its
+ *                          targets, if any. Each hash is represented by a
+ *                          hexadecimal number, separated by (non-linebreak)
+ *                          whitespace. Hashes are assumed to be
+ *                          right-aligned.
+ * @param hash_len          The length of hashes expected to be contained in
+ *                          the stream. Must be a valid hash length.
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_file_create_from_txt(
+                                struct hdag_file *pfile,
+                                const char *pathname,
+                                int template_sfxlen,
+                                mode_t open_mode,
+                                FILE *stream,
+                                uint16_t hash_len);
+
+/**
  * Open a previously-created hash DAG file.
  *
  * @param pfile         Location for the state of the opened file.
