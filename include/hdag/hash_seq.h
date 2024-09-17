@@ -18,6 +18,7 @@ struct hdag_hash_seq;
  * @param hash_seq  Hash sequence being traversed.
  * @param phash     Location for the retrieved hash.
  *                  The length of the hash is defined in hash_seq.
+ *                  Can be modified even in case of failure.
  *
  * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.

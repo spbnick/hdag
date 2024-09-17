@@ -20,8 +20,9 @@ struct hdag_node_seq;
  * @param node_seq          The node sequence being traversed.
  * @param phash             Location for the node's hash. The length of the
  *                          hash is specified in the sequence.
+ *                          Can be modified even in case of failure.
  * @param ptarget_hash_seq  Location for the node's sequence of target node
- *                          hashes.
+ *                          hashes. Can be modified even in case of failure.
  *
  * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.
