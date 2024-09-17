@@ -8,8 +8,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <stdio.h>
-
 /**
  * Memory-map the contents of a hash DAG file.
  *
