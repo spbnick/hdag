@@ -19,6 +19,8 @@ enum hdag_fault {
     HDAG_FAULT_ERRNO,
     /** The operation failed because a graph contained a cycle (no value) */
     HDAG_FAULT_GRAPH_CYCLE,
+    /** The input (file) had invalid format (no value) */
+    HDAG_FAULT_INVALID_FORMAT,
     /** The number of known faults (not a fault itself) */
     HDAG_FAULT_NUM
 };

@@ -9,6 +9,7 @@
 #include <hdag/res.h>
 #include <cgraph.h>
 #include <string.h>
+#include <ctype.h>
 
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
@@ -841,6 +842,195 @@ cleanup:
     free(node_hash);
     hdag_bundle_cleanup(&bundle);
     return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+/** The state of loading node/target sequence from a text file */
+struct hdag_bundle_txt_seq {
+    /** The FILE stream containing the text to parse and load */
+    FILE       *stream;
+};
+
+/**
+ * Skip initial whitespace and read a hash of specified length from a stream.
+ *
+ * @param stream            The stream to read the hash from.
+ * @param hash_buf          The buffer for the read hash (right-aligned).
+ *                          Can be modified even on failure.
+ * @param hash_len          The length of the hash to read,
+ *                          as well as of its buffer, bytes.
+ * @param skip_linebreaks   Include linebreaks into skipped initial
+ *                          whitespace, if true. Assume there's no hash, if
+ *                          false and an initial linebreak is encountered.
+ *
+ * @return  A non-negative number specifying how many hash bytes have been
+ *          unfilled in the buffer, on success, or hash_len, if there was no
+ *          hash.
+ *          A negative number (a failure result) if hash retrieval has failed,
+ *          including HDAG_RES_INVALID_FORMAT, if the file format is invalid,
+ *          and HDAG_RES_ERRNO's in case of libc errors.
+ */
+static hdag_res
+hdag_bundle_txt_read_hash(FILE *stream, uint8_t *hash_buf, uint16_t hash_len,
+                          bool skip_linebreaks)
+{
+    uint16_t                    rem_hash_len = hash_len;
+    uint8_t                    *hash_ptr = hash_buf;
+    int                         c;
+    bool                        high_nibble = true;
+    uint8_t                     nibble;
+
+    assert(stream != NULL);
+    assert(hash_buf != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+
+    /* Skip whitespace */
+    do {
+        c = getc(stream);
+        if (c == EOF) {
+            if (ferror(stream)) {
+                return HDAG_RES_ERRNO;
+            }
+            goto output;
+        }
+        if (!skip_linebreaks && (c == '\r' || c == '\n')) {
+            goto output;
+        }
+    } while (isspace(c));
+
+    /* Read the node hash until whitespace */
+    do {
+        /* If this is an invalid character, or the hash is too long */
+        if (!isxdigit(c) || rem_hash_len == 0) {
+            return HDAG_RES_INVALID_FORMAT;
+        }
+        nibble = c >= 'A' ? ((c & ~0x20) - ('A' - 0xA)) : (c - '0');
+        if (high_nibble) {
+            *hash_ptr = nibble << 4;
+            high_nibble = false;
+        } else {
+            *hash_ptr |= nibble;
+            high_nibble = true;
+            rem_hash_len--;
+            hash_ptr++;
+        }
+        c = getc(stream);
+        if (c == EOF) {
+            if (ferror(stream)) {
+                return HDAG_RES_ERRNO;
+            }
+            break;
+        }
+    } while (!isspace(c));
+
+    /* If we didn't get a low nibble (got odd number of digits) */
+    if (!high_nibble) {
+        return HDAG_RES_INVALID_FORMAT;
+    }
+
+output:
+    /* Move the hash to the right */
+    memmove(hash_buf + rem_hash_len, hash_buf, hash_len - rem_hash_len);
+    /* Fill initial missing hash bytes with zeroes */
+    memset(hash_buf, 0, rem_hash_len);
+
+    /* Put back the terminating whitespace */
+    assert(c == EOF || isspace(c));
+    if (c != EOF && ungetc(c, stream) == EOF) {
+        return HDAG_RES_ERRNO;
+    }
+
+    return rem_hash_len;
+}
+
+/**
+ * Return the next target hash from an adjacency list text file.
+ */
+static hdag_res
+hdag_bundle_txt_hash_seq_next(const struct hdag_hash_seq *hash_seq,
+                              uint8_t *phash)
+{
+    hdag_res                    res;
+    uint16_t                    hash_len = hash_seq->hash_len;
+    struct hdag_bundle_txt_seq *txt_seq = hash_seq->data;
+    FILE                       *stream = txt_seq->stream;
+
+    assert(hdag_hash_len_is_valid(hash_seq->hash_len));
+    assert(txt_seq != NULL);
+    assert(txt_seq->stream != NULL);
+
+    /* Skip whitespace (excluding newlines) and read a hash */
+    res = hdag_bundle_txt_read_hash(stream, phash, hash_len, false);
+    /* If we failed reading */
+    if (hdag_res_is_failure(res)) {
+        return res;
+    }
+    /* Return OK if we got a hash */
+    return res >= hash_len ? 1 : HDAG_RES_OK;
+}
+
+/**
+ * Return the next node from an adjacency list text file.
+ */
+static hdag_res
+hdag_bundle_txt_node_seq_next(const struct hdag_node_seq *node_seq,
+                              uint8_t                    *phash,
+                              struct hdag_hash_seq       *ptarget_hash_seq)
+{
+    hdag_res                    res;
+    uint16_t                    hash_len = node_seq->hash_len;
+    struct hdag_bundle_txt_seq *txt_seq = node_seq->data;
+    FILE                       *stream = txt_seq->stream;
+
+    assert(hdag_hash_len_is_valid(node_seq->hash_len));
+    assert(txt_seq != NULL);
+    assert(txt_seq->stream != NULL);
+
+    /* Skip whitespace (including newlines) and read a hash */
+    res = hdag_bundle_txt_read_hash(stream, phash, hash_len, true);
+    /* If we failed reading */
+    if (hdag_res_is_failure(res)) {
+        return res;
+    }
+    /* Return the stream's target hash sequence */
+    *ptarget_hash_seq = (struct hdag_hash_seq){
+        .hash_len = hash_len,
+        .next_fn = hdag_bundle_txt_hash_seq_next,
+        .data = txt_seq,
+    };
+    /* Return OK if we got a hash */
+    return res >= hash_len ? 1 : HDAG_RES_OK;
+}
+
+hdag_res
+hdag_bundle_txt_load(struct hdag_bundle *pbundle,
+                     FILE *stream, uint16_t hash_len)
+{
+    struct hdag_bundle_txt_seq txt_seq = {.stream = stream};
+
+    assert(stream != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+
+    return hdag_bundle_load_node_seq(pbundle, (struct hdag_node_seq){
+        .hash_len = hash_len,
+        .next_fn = hdag_bundle_txt_node_seq_next,
+        .data = &txt_seq,
+    });
+}
+
+hdag_res
+hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
+                       FILE *stream, uint16_t hash_len)
+{
+    struct hdag_bundle_txt_seq txt_seq = {.stream = stream};
+
+    assert(stream != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+
+    return hdag_bundle_ingest_node_seq(pbundle, (struct hdag_node_seq){
+        .hash_len = hash_len,
+        .next_fn = hdag_bundle_txt_node_seq_next,
+        .data = &txt_seq,
+    });
 }
 
 hdag_res

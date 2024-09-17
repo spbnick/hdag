@@ -241,6 +241,29 @@ extern hdag_res hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
                                           struct hdag_node_seq node_seq);
 
 /**
+ * Load an adjacency list text file into a bundle, but don't do any
+ * optimization or validation.
+ *
+ * @param pbundle   The location for the bundle with loaded node sequence.
+ *                  Can be NULL to have the bundle discarded after loading.
+ *                  Will not be modified on failure.
+ * @param stream    The FILE stream containing the text to parse and load.
+ *                  Each line of the stream is expected to contain a node's
+ *                  hash followed by hashes of its targets, if any. Each hash is
+ *                  represented by a hexadecimal number, separated by
+ *                  (non-linebreak) whitespace. Hashes are assumed to be
+ *                  right-aligned.
+ * @param hash_len  The length of hashes expected to be contained in the
+ *                  stream. Must be a valid hash length.
+ *
+ * @return A void universal result, including HDAG_RES_INVALID_FORMAT,
+ *         if the file format is invalid, and HDAG_RES_ERRNO's in case of
+ *         libc errors.
+ */
+extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
+                                     FILE *stream, uint16_t hash_len);
+
+/**
  * Load a node sequence (adjacency list) into a bundle, optimize, and
  * validate.
  *
@@ -254,6 +277,28 @@ extern hdag_res hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
  */
 extern hdag_res hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
                                             struct hdag_node_seq node_seq);
+
+/**
+ * Load an adjacency list text file into a bundle, optimize and validate.
+ *
+ * @param pbundle   The location for the bundle with loaded node sequence.
+ *                  Can be NULL to have the bundle discarded after loading.
+ *                  Will not be modified on failure.
+ * @param stream    The FILE stream containing the text to parse and load.
+ *                  Each line of the stream is expected to contain a node's
+ *                  hash followed by hashes of its targets, if any. Each hash is
+ *                  represented by a hexadecimal number, separated by
+ *                  (non-linebreak) whitespace. Hashes are assumed to be
+ *                  right-aligned.
+ * @param hash_len  The length of hashes expected to be contained in the
+ *                  stream. Must be a valid hash length.
+ *
+ * @return A void universal result, including HDAG_RES_INVALID_FORMAT,
+ *         if the file format is invalid, HDAG_RES_ERRNO's in case of
+ *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
+ */
+extern hdag_res hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
+                                       FILE *stream, uint16_t hash_len);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,

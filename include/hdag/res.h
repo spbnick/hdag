@@ -142,6 +142,9 @@ hdag_res_get_code(hdag_res res)
 /** The graph cycle failure result */
 #define HDAG_RES_GRAPH_CYCLE HDAG_RES_FAILURE(HDAG_FAULT_GRAPH_CYCLE, 0)
 
+/** The invalid (file) format failure result */
+#define HDAG_RES_INVALID_FORMAT HDAG_RES_FAILURE(HDAG_FAULT_INVALID_FORMAT, 0)
+
 /** The invalid result */
 #define HDAG_RES_INVALID INT64_MIN
 
