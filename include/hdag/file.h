@@ -7,13 +7,8 @@
 #ifndef _HDAG_FILE_H
 #define _HDAG_FILE_H
 
-#include <hdag/edge.h>
-#include <hdag/node_seq.h>
-#include <hdag/node.h>
-#include <hdag/targets.h>
-#include <hdag/hash.h>
+#include <hdag/bundle.h>
 #include <hdag/misc.h>
-#include <hdag/res.h>
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <sys/mman.h>
@@ -126,6 +121,37 @@ hdag_file_size(uint16_t hash_len,
 }
 
 /**
+ * Create and open a hash DAG file, filling it with the contents of a bundle.
+ *
+ * @param pfile             Location for the state of the opened file.
+ *                          Not modified in case of failure.
+ *                          Can be NULL to have the file closed after
+ *                          creation.
+ * @param pathname          The file's pathname (template), or empty string to
+ *                          open an in-memory file. Cannot be longer than
+ *                          PATH_MAX, including the terminating '\0'.
+ * @param template_sfxlen   The (non-negative) number of suffix characters
+ *                          following the "XXXXXX" at the end of "pathname",
+ *                          if it contains the template for a temporary file
+ *                          to be created. Or a negative number to treat
+ *                          "pathname" literally. Ignored, if "pathname" is
+ *                          empty.
+ * @param open_mode         The mode bitmap to supply to open(2).
+ *                          Ignored, if pathname is empty.
+ * @param bundle            The bundle to get the file contents from.
+ *                          Must be fully optimized (have generations and
+ *                          components enumerated).
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_file_create_from_bundle(
+                    struct hdag_file *pfile,
+                    const char *pathname,
+                    int template_sfxlen,
+                    mode_t open_mode,
+                    const struct hdag_bundle *bundle);
+
+/**
  * Create and open a hash DAG file with specified parameters and a node
  * sequence (adjacency list).
  *
@@ -151,11 +177,12 @@ hdag_file_size(uint16_t hash_len,
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_file_create(struct hdag_file *pfile,
-                                 const char *pathname,
-                                 int template_sfxlen,
-                                 mode_t open_mode,
-                                 struct hdag_node_seq node_seq);
+extern hdag_res hdag_file_create_from_node_seq(
+                                struct hdag_file *pfile,
+                                const char *pathname,
+                                int template_sfxlen,
+                                mode_t open_mode,
+                                struct hdag_node_seq node_seq);
 
 /**
  * Open a previously-created hash DAG file.

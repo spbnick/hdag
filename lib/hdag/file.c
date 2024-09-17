@@ -2,7 +2,6 @@
  * Hash DAG file operations
  */
 
-#include <hdag/bundle.h>
 #include <hdag/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -27,36 +26,34 @@ hdag_file_mmap(int fd, size_t size)
 }
 
 hdag_res
-hdag_file_create(struct hdag_file *pfile,
-                 const char *pathname,
-                 int template_sfxlen,
-                 mode_t open_mode,
-                 struct hdag_node_seq node_seq)
+hdag_file_create_from_bundle(struct hdag_file *pfile,
+                             const char *pathname,
+                             int template_sfxlen,
+                             mode_t open_mode,
+                             const struct hdag_bundle *bundle)
 {
     hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
     int fd = -1;
-    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
     struct hdag_file file = HDAG_FILE_CLOSED;
     struct hdag_file_header header = {
         .signature = HDAG_FILE_SIGNATURE,
         .version = {0, 0},
-        .hash_len = node_seq.hash_len,
+        .hash_len = bundle->hash_len,
     };
 
     assert(pathname != NULL);
     assert(strlen(pathname) < sizeof(file.pathname));
-    assert(hdag_node_seq_is_valid(&node_seq));
-
-    /* Load the nodes and their targets into a bundle */
-    HDAG_RES_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_all_nodes_have_generations(bundle));
+    assert(hdag_bundle_all_nodes_have_components(bundle));
 
     strncpy(file.pathname, pathname, sizeof(file.pathname));
 
     /* Calculate the file size */
-    file.size = hdag_file_size(node_seq.hash_len,
-                               bundle.nodes.slots_occupied,
-                               bundle.extra_edges.slots_occupied);
+    file.size = hdag_file_size(bundle->hash_len,
+                               bundle->nodes.slots_occupied,
+                               bundle->extra_edges.slots_occupied);
 
     /* If creating an anonymous mapping */
     if (*file.pathname == 0) {
@@ -119,12 +116,12 @@ hdag_file_create(struct hdag_file *pfile,
     );
 
     /* Copy the bundle data */
-    file.header->node_num = bundle.nodes.slots_occupied;
-    memcpy(file.nodes, bundle.nodes.slots,
-           hdag_darr_occupied_size(&bundle.nodes));
-    file.header->extra_edge_num = bundle.extra_edges.slots_occupied;
-    memcpy(file.extra_edges, bundle.extra_edges.slots,
-           hdag_darr_occupied_size(&bundle.extra_edges));
+    file.header->node_num = bundle->nodes.slots_occupied;
+    memcpy(file.nodes, bundle->nodes.slots,
+           hdag_darr_occupied_size(&bundle->nodes));
+    file.header->extra_edge_num = bundle->extra_edges.slots_occupied;
+    memcpy(file.extra_edges, bundle->extra_edges.slots,
+           hdag_darr_occupied_size(&bundle->extra_edges));
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
@@ -146,9 +143,36 @@ cleanup:
     if (file.contents != NULL) {
         munmap(file.contents, file.size);
     }
-    hdag_bundle_cleanup(&bundle);
     errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_file_create_from_node_seq(struct hdag_file *pfile,
+                               const char *pathname,
+                               int template_sfxlen,
+                               mode_t open_mode,
+                               struct hdag_node_seq node_seq)
+{
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+
+    assert(pathname != NULL);
+    assert(strlen(pathname) < sizeof(pfile->pathname));
+    assert(hdag_node_seq_is_valid(&node_seq));
+
+    /* Ingest the nodes and their targets into the bundle */
+    HDAG_RES_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
+    /* Create the file from the bundle */
+    HDAG_RES_TRY(hdag_file_create_from_bundle(pfile, pathname,
+                                              template_sfxlen,
+                                              open_mode,
+                                              &bundle));
+    res = HDAG_RES_OK;
+
+cleanup:
+    hdag_bundle_cleanup(&bundle);
+    return res;
 }
 
 hdag_res
