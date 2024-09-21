@@ -35,6 +35,14 @@ add_library(
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
 
+set_target_properties(hdag PROPERTIES VERSION ${PROJECT_VERSION})
+
+install(
+    TARGETS hdag
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
 add_executable(hdagt-res src/hdagt/hdagt-res.c)
 target_link_libraries(hdagt-res hdag)
 add_test(NAME res COMMAND hdagt-res)
@@ -47,10 +55,5 @@ add_executable(hdagt-bundle src/hdagt/hdagt-bundle.c)
 target_link_libraries(hdagt-bundle hdag)
 add_test(NAME bundle COMMAND hdagt-bundle)
 
-set_target_properties(hdag PROPERTIES VERSION ${PROJECT_VERSION})
-
-install(
-    TARGETS hdag
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+add_executable(hdag-file-from-txt src/hdag/hdag-file-from-txt.c)
+target_link_libraries(hdag-file-from-txt hdag)
