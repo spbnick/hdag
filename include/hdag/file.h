@@ -71,8 +71,8 @@ hdag_file_header_is_valid(const struct hdag_file_header *header)
  * Considered closed if initialized to zeroes.
  */
 struct hdag_file {
-    /** The file pathname. An empty string, if there's no backing file */
-    char    pathname[PATH_MAX];
+    /** The file pathname. NULL, if there's no backing file */
+    char   *pathname;
     /** The mapped file contents, NULL if there's no contents */
     void   *contents;
     /** The size of file contents, only valid when `contents` != NULL */
@@ -127,17 +127,16 @@ hdag_file_size(uint16_t hash_len,
  *                          Not modified in case of failure.
  *                          Can be NULL to have the file closed after
  *                          creation.
- * @param pathname          The file's pathname (template), or empty string to
- *                          open an in-memory file. Cannot be longer than
- *                          PATH_MAX, including the terminating '\0'.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
  * @param template_sfxlen   The (non-negative) number of suffix characters
  *                          following the "XXXXXX" at the end of "pathname",
  *                          if it contains the template for a temporary file
  *                          to be created. Or a negative number to treat
  *                          "pathname" literally. Ignored, if "pathname" is
- *                          empty.
+ *                          NULL.
  * @param open_mode         The mode bitmap to supply to open(2).
- *                          Ignored, if pathname is empty.
+ *                          Ignored, if pathname is NULL.
  * @param bundle            The bundle to get the file contents from.
  *                          Must be fully optimized (have generations and
  *                          components enumerated).
@@ -159,17 +158,16 @@ extern hdag_res hdag_file_create_from_bundle(
  *                          Not modified in case of failure.
  *                          Can be NULL to have the file closed after
  *                          creation.
- * @param pathname          The file's pathname (template), or empty string to
- *                          open an in-memory file. Cannot be longer than
- *                          PATH_MAX, including the terminating '\0'.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
  * @param template_sfxlen   The (non-negative) number of suffix characters
  *                          following the "XXXXXX" at the end of "pathname",
  *                          if it contains the template for a temporary file
  *                          to be created. Or a negative number to treat
  *                          "pathname" literally. Ignored, if "pathname" is
- *                          empty.
+ *                          NULL.
  * @param open_mode         The mode bitmap to supply to open(2).
- *                          Ignored, if pathname is empty.
+ *                          Ignored, if pathname is NULL.
  * @param node_seq          The sequence of nodes (and optionally their
  *                          targets, constituting an adjacency list) to store
  *                          in the created file. Specifies the node hash
@@ -192,17 +190,16 @@ extern hdag_res hdag_file_create_from_node_seq(
  *                          Not modified in case of failure.
  *                          Can be NULL to have the file closed after
  *                          creation.
- * @param pathname          The file's pathname (template), or empty string to
- *                          open an in-memory file. Cannot be longer than
- *                          PATH_MAX, including the terminating '\0'.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
  * @param template_sfxlen   The (non-negative) number of suffix characters
  *                          following the "XXXXXX" at the end of "pathname",
  *                          if it contains the template for a temporary file
  *                          to be created. Or a negative number to treat
  *                          "pathname" literally. Ignored, if "pathname" is
- *                          empty.
+ *                          NULL.
  * @param open_mode         The mode bitmap to supply to open(2).
- *                          Ignored, if pathname is empty.
+ *                          Ignored, if pathname is NULL.
  * @param stream            The FILE stream containing the text to parse and
  *                          load. Each line of the stream is expected to
  *                          contain a node's hash followed by hashes of its
@@ -229,8 +226,7 @@ extern hdag_res hdag_file_create_from_txt(
  * @param pfile         Location for the state of the opened file.
  *                      Not modified in case of failure.
  *                      Can be NULL to have the file closed after opening.
- * @param pathname      The file's pathname. Cannot be empty. Cannot be longer
- *                      than PATH_MAX, including the terminating '\0'.
+ * @param pathname      The file's pathname. Cannot be NULL.
  *
  * @return A void universal result.
  */
@@ -249,7 +245,6 @@ hdag_file_is_valid(const struct hdag_file *file)
 {
     return
         file != NULL &&
-        memchr(file->pathname, 0, sizeof(file->pathname)) != NULL &&
         file->contents == file->header &&
         (file->contents == NULL) == (file->nodes == NULL) &&
         (file->contents == NULL) == (file->extra_edges == NULL) &&
@@ -292,7 +287,7 @@ hdag_file_is_backed(const struct hdag_file *file)
 {
     assert(hdag_file_is_valid(file));
     assert(hdag_file_is_open(file));
-    return *file->pathname != 0;
+    return file->pathname != NULL;
 }
 
 /**

@@ -42,13 +42,16 @@ hdag_file_create_from_bundle(struct hdag_file *pfile,
         .hash_len = bundle->hash_len,
     };
 
-    assert(pathname != NULL);
-    assert(strlen(pathname) < sizeof(file.pathname));
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_all_nodes_have_generations(bundle));
     assert(hdag_bundle_all_nodes_have_components(bundle));
 
-    strncpy(file.pathname, pathname, sizeof(file.pathname));
+    if (pathname != NULL) {
+        file.pathname = strdup(pathname);
+        if (file.pathname == NULL) {
+            goto cleanup;
+        }
+    }
 
     /* Calculate the file size */
     file.size = hdag_file_size(bundle->hash_len,
@@ -56,7 +59,7 @@ hdag_file_create_from_bundle(struct hdag_file *pfile,
                                bundle->extra_edges.slots_occupied);
 
     /* If creating an anonymous mapping */
-    if (*file.pathname == 0) {
+    if (file.pathname == NULL) {
         fd = -1;
     /* Else, mapping a file */
     } else {
@@ -143,6 +146,7 @@ cleanup:
     if (file.contents != NULL) {
         munmap(file.contents, file.size);
     }
+    free(file.pathname);
     errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
@@ -157,8 +161,6 @@ hdag_file_create_from_node_seq(struct hdag_file *pfile,
     hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
 
-    assert(pathname != NULL);
-    assert(strlen(pathname) < sizeof(pfile->pathname));
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Ingest the nodes and their targets into the bundle */
@@ -186,8 +188,6 @@ hdag_file_create_from_txt(struct hdag_file *pfile,
     hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
 
-    assert(pathname != NULL);
-    assert(strlen(pathname) < sizeof(pfile->pathname));
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
@@ -216,10 +216,11 @@ hdag_file_open(struct hdag_file *pfile,
     struct stat stat = {0,};
 
     assert(pathname != NULL);
-    assert(*pathname != '\0');
-    assert(strlen(pathname) < sizeof(file.pathname));
 
-    strncpy(file.pathname, pathname, sizeof(file.pathname));
+    file.pathname = strdup(pathname);
+    if (file.pathname == NULL) {
+        goto cleanup;
+    }
 
     /* Open the file */
     fd = open(file.pathname, O_RDWR);
@@ -291,6 +292,7 @@ cleanup:
     if (file.contents != NULL) {
         munmap(file.contents, file.size);
     }
+    free(file.pathname);
     errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
@@ -305,6 +307,7 @@ hdag_file_close(struct hdag_file *pfile)
         if (munmap(pfile->contents, pfile->size) < 0) {
             goto cleanup;
         }
+        free(pfile->pathname);
         *pfile = HDAG_FILE_CLOSED;
         assert(hdag_file_is_valid(pfile));
         assert(!hdag_file_is_open(pfile));

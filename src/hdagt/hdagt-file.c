@@ -127,7 +127,7 @@ test_empty(void)
 {
     size_t failed = 0;
     struct hdag_file file = HDAG_FILE_CLOSED;
-    char pathname[sizeof(file.pathname)];
+    char pathname[256];
     uint8_t expected_contents[] = {
         0x48, 0x44, 0x41, 0x47, 0x00, 0x00, 0x20, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -137,7 +137,7 @@ test_empty(void)
      * Empty in-memory file.
      */
     TEST(!hdag_file_create_from_node_seq(
-                            &file, "", -1, 0,
+                            &file, NULL, -1, 0,
                             HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)
     ));
     TEST(file.size = sizeof(expected_contents));
@@ -186,10 +186,10 @@ test_basic(void)
      * Single-node in-memory file.
      */
     TEST(!hdag_file_create_from_node_seq(
-            &file, "", -1, 0,
+            &file, NULL, -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1))
     ));
-    TEST(file.pathname[0] == 0);
+    TEST(file.pathname == NULL);
     TEST(file.contents != NULL);
     TEST(file.header != NULL);
     TEST(file.header->signature == HDAG_FILE_SIGNATURE);
@@ -212,7 +212,7 @@ test_basic(void)
      * Two-node in-memory file.
      */
     TEST(!hdag_file_create_from_node_seq(
-            &file, "", -1, 0,
+            &file, NULL, -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
@@ -237,7 +237,7 @@ test_basic(void)
      * N1->N2 in-memory file.
      */
     TEST(!hdag_file_create_from_node_seq(
-            &file, "", -1, 0,
+            &file, NULL, -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2))
     ));
     TEST(file.header->node_num == 2);
@@ -262,7 +262,7 @@ test_basic(void)
      * N1<-N2 in-memory file.
      */
     TEST(!hdag_file_create_from_node_seq(
-            &file, "", -1, 0,
+            &file, NULL, -1, 0,
             TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2, 1))
     ));
     TEST(file.header->node_num == 2);
