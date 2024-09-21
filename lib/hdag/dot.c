@@ -43,6 +43,8 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
     assert(agraph != NULL);
     assert(src_agnode != NULL);
 
+    (void)src_node;
+
     if (target == HDAG_TARGET_ABSENT) {
         return HDAG_RES_OK;
     }

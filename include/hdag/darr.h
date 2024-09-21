@@ -378,6 +378,7 @@ hdag_darr_element_sized(struct hdag_darr *darr, size_t size, size_t idx)
     assert(hdag_darr_is_valid(darr));
     assert(size == darr->slot_size);
     assert(idx < darr->slots_occupied);
+    (void)size;
     return (char *)darr->slots + darr->slot_size * idx;
 }
 
@@ -418,6 +419,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
     assert(hdag_darr_is_valid(darr));
     assert(size == darr->slot_size);
     assert(idx < darr->slots_occupied);
+    (void)size;
     return (const char *)darr->slots + darr->slot_size * idx;
 }
 

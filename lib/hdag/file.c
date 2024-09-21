@@ -75,6 +75,7 @@ hdag_file_create_from_bundle(struct hdag_file *pfile,
                    (strlen(file.pathname) -
                     strlen(template) -
                     template_sfxlen));
+            (void)ptemplate;
 
             fd = mkstemps(file.pathname, template_sfxlen);
             if (fd < 0) {
