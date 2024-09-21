@@ -3,8 +3,6 @@
  */
 
 #include <hdag/file.h>
-#include <hdag/node_seq.h>
-#include <hdag/res.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
