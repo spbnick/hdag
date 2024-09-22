@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 /** Get the 11th argument passed */
 #define HDAG_MACRO_11TH_ARG( \
@@ -171,5 +172,45 @@
 extern char *hdag_bytes_to_hex(char *hex_ptr,
                                const void *bytes_ptr,
                                size_t bytes_num);
+
+/**
+ * Subtract one timespec from another.
+ *
+ * @param _a    The timespec value to subtract from.
+ * @param _b    The timespec value to subtract.
+ *
+ * @return The result of the subtraction.
+ */
+#define TIMESPEC_SUB(_a, _b) ({ \
+    struct timespec _result;                                            \
+    _result.tv_sec = (_a).tv_sec - (_b).tv_sec;                         \
+    if ((_a).tv_nsec < (_b).tv_nsec) {                                  \
+        _result.tv_nsec = 1000000000L + (_a).tv_nsec - (_b).tv_nsec;    \
+        _result.tv_sec--;                                               \
+    } else {                                                            \
+        _result.tv_nsec = (_a).tv_nsec - (_b).tv_nsec;                  \
+    }                                                                   \
+    _result;                                                            \
+})
+
+/**
+ * Time the execution of a statement, and print the result to stderr.
+ *
+ * @param _action       The string with the action gerund.
+ * @param _statement    The statement to execute and time.
+ */
+#define PROFILE_TIME(_action, _statement) \
+    do {                                                \
+        struct timespec     _before;                    \
+        struct timespec     _after;                     \
+        struct timespec     _elapsed;                   \
+        fprintf(stderr, _action "...");                 \
+        clock_gettime(CLOCK_MONOTONIC, &_before);       \
+        _statement;                                     \
+        clock_gettime(CLOCK_MONOTONIC, &_after);        \
+        _elapsed = TIMESPEC_SUB(_after, _before);       \
+        fprintf(stderr, "done in %ld.%09lds\n",         \
+                _elapsed.tv_sec, _elapsed.tv_nsec);     \
+    } while (0)
 
 #endif /* _HDAG_MISC_H */
