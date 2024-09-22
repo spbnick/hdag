@@ -45,8 +45,8 @@ main(int argc, const char **argv)
         return 1;
     }
 
-    HDAG_RES_TRY(hdag_file_create_from_txt(&file, NULL, -1, 0,
-                                           stdin, (uint16_t)hash_len));
+    HDAG_RES_TRY(hdag_file_from_txt(&file, NULL, -1, 0,
+                                    stdin, (uint16_t)hash_len));
     if (fwrite(file.contents, file.size, 1, stdout) != 1) {
         res = HDAG_RES_ERRNO;
         goto cleanup;

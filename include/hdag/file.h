@@ -143,12 +143,11 @@ hdag_file_size(uint16_t hash_len,
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_file_create_from_bundle(
-                    struct hdag_file *pfile,
-                    const char *pathname,
-                    int template_sfxlen,
-                    mode_t open_mode,
-                    const struct hdag_bundle *bundle);
+extern hdag_res hdag_file_from_bundle(struct hdag_file *pfile,
+                                      const char *pathname,
+                                      int template_sfxlen,
+                                      mode_t open_mode,
+                                      const struct hdag_bundle *bundle);
 
 /**
  * Create and open a hash DAG file with specified parameters and a node
@@ -175,12 +174,11 @@ extern hdag_res hdag_file_create_from_bundle(
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_file_create_from_node_seq(
-                                struct hdag_file *pfile,
-                                const char *pathname,
-                                int template_sfxlen,
-                                mode_t open_mode,
-                                struct hdag_node_seq node_seq);
+extern hdag_res hdag_file_from_node_seq(struct hdag_file *pfile,
+                                        const char *pathname,
+                                        int template_sfxlen,
+                                        mode_t open_mode,
+                                        struct hdag_node_seq node_seq);
 
 /**
  * Create and open a hash DAG file with specified parameters and a text
@@ -212,13 +210,12 @@ extern hdag_res hdag_file_create_from_node_seq(
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_file_create_from_txt(
-                                struct hdag_file *pfile,
-                                const char *pathname,
-                                int template_sfxlen,
-                                mode_t open_mode,
-                                FILE *stream,
-                                uint16_t hash_len);
+extern hdag_res hdag_file_from_txt(struct hdag_file *pfile,
+                                   const char *pathname,
+                                   int template_sfxlen,
+                                   mode_t open_mode,
+                                   FILE *stream,
+                                   uint16_t hash_len);
 
 /**
  * Open a previously-created hash DAG file.

@@ -26,11 +26,11 @@ hdag_file_mmap(int fd, size_t size)
 }
 
 hdag_res
-hdag_file_create_from_bundle(struct hdag_file *pfile,
-                             const char *pathname,
-                             int template_sfxlen,
-                             mode_t open_mode,
-                             const struct hdag_bundle *bundle)
+hdag_file_from_bundle(struct hdag_file *pfile,
+                      const char *pathname,
+                      int template_sfxlen,
+                      mode_t open_mode,
+                      const struct hdag_bundle *bundle)
 {
     hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
@@ -153,11 +153,11 @@ cleanup:
 }
 
 hdag_res
-hdag_file_create_from_node_seq(struct hdag_file *pfile,
-                               const char *pathname,
-                               int template_sfxlen,
-                               mode_t open_mode,
-                               struct hdag_node_seq node_seq)
+hdag_file_from_node_seq(struct hdag_file *pfile,
+                        const char *pathname,
+                        int template_sfxlen,
+                        mode_t open_mode,
+                        struct hdag_node_seq node_seq)
 {
     hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
@@ -167,10 +167,9 @@ hdag_file_create_from_node_seq(struct hdag_file *pfile,
     /* Ingest the nodes and their targets into the bundle */
     HDAG_RES_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
     /* Create the file from the bundle */
-    HDAG_RES_TRY(hdag_file_create_from_bundle(pfile, pathname,
-                                              template_sfxlen,
-                                              open_mode,
-                                              &bundle));
+    HDAG_RES_TRY(hdag_file_from_bundle(pfile, pathname,
+                                       template_sfxlen, open_mode,
+                                       &bundle));
     res = HDAG_RES_OK;
 
 cleanup:
@@ -179,12 +178,12 @@ cleanup:
 }
 
 hdag_res
-hdag_file_create_from_txt(struct hdag_file *pfile,
-                          const char *pathname,
-                          int template_sfxlen,
-                          mode_t open_mode,
-                          FILE *stream,
-                          uint16_t hash_len)
+hdag_file_from_txt(struct hdag_file *pfile,
+                   const char *pathname,
+                   int template_sfxlen,
+                   mode_t open_mode,
+                   FILE *stream,
+                   uint16_t hash_len)
 {
     hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
@@ -195,10 +194,9 @@ hdag_file_create_from_txt(struct hdag_file *pfile,
     /* Ingest the stream into the bundle */
     HDAG_RES_TRY(hdag_bundle_txt_ingest(&bundle, stream, hash_len));
     /* Create the file from the bundle */
-    HDAG_RES_TRY(hdag_file_create_from_bundle(pfile, pathname,
-                                              template_sfxlen,
-                                              open_mode,
-                                              &bundle));
+    HDAG_RES_TRY(hdag_file_from_bundle(pfile, pathname,
+                                       template_sfxlen, open_mode,
+                                       &bundle));
     res = HDAG_RES_OK;
 
 cleanup:
