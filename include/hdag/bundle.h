@@ -314,8 +314,10 @@ extern void hdag_bundle_sort(struct hdag_bundle *bundle);
  * direct-index targets.
  *
  * @param bundle    The bundle to deduplicate nodes in.
+ *
+ * @return A void universal result.
  */
-extern void hdag_bundle_dedup(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
 
 /**
  * Convert a bundle's target references from hashes to indexes, and compact
