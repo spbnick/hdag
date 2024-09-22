@@ -639,7 +639,7 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
 /**
  * Qsort a slice of a dynamic array.
  *
- * @param dagg  The dynamic array containing the slice to sort.
+ * @param darr  The dynamic array containing the slice to sort.
  * @param start The index of the first element of the slice to be sorted.
  * @param end   The index of the first element *after* the slice to be sorted.
  * @param cmp   The element comparison function.
@@ -660,7 +660,7 @@ hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
 /**
  * Qsort a complete dynamic array.
  *
- * @param dagg  The dynamic array containing the slice to sort.
+ * @param darr  The dynamic array containing the slice to sort.
  * @param cmp   The element comparison function.
  * @param data  The private data to pass to the comparison function.
  */
