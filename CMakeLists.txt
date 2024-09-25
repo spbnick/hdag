@@ -55,5 +55,9 @@ add_executable(hdagt-bundle src/hdagt/hdagt-bundle.c)
 target_link_libraries(hdagt-bundle hdag)
 add_test(NAME bundle COMMAND hdagt-bundle)
 
+add_executable(hdagt-misc src/hdagt/hdagt-misc.c)
+target_link_libraries(hdagt-misc hdag)
+add_test(NAME misc COMMAND hdagt-misc)
+
 add_executable(hdag-file-from-txt src/hdag/hdag-file-from-txt.c)
 target_link_libraries(hdag-file-from-txt hdag)
