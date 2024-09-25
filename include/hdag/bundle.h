@@ -637,7 +637,7 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
  *
  * @return The node pointer (const, if the bundle was const).
  */
-#define HDAG_BUNDLE_TARGET_NODE(_bundle, _node_idx, _target_idx) \
+#define HDAG_BUNDLE_TARGETS_NODE(_bundle, _node_idx, _target_idx) \
     _Generic(                                                           \
         _bundle,                                                        \
         struct hdag_bundle *:                                           \
