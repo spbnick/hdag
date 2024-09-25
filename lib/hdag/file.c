@@ -40,6 +40,8 @@ hdag_file_from_bundle(struct hdag_file *pfile,
         .signature = HDAG_FILE_SIGNATURE,
         .version = {0, 0},
         .hash_len = bundle->hash_len,
+        .node_num = bundle->nodes.slots_occupied,
+        .extra_edge_num = bundle->extra_edges.slots_occupied,
     };
 
     assert(hdag_bundle_is_valid(bundle));
@@ -120,10 +122,8 @@ hdag_file_from_bundle(struct hdag_file *pfile,
     );
 
     /* Copy the bundle data */
-    file.header->node_num = bundle->nodes.slots_occupied;
     memcpy(file.nodes, bundle->nodes.slots,
            hdag_darr_occupied_size(&bundle->nodes));
-    file.header->extra_edge_num = bundle->extra_edges.slots_occupied;
     memcpy(file.extra_edges, bundle->extra_edges.slots,
            hdag_darr_occupied_size(&bundle->extra_edges));
 
