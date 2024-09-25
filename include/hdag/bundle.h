@@ -7,6 +7,7 @@
 
 #include <hdag/edge.h>
 #include <hdag/node.h>
+#include <hdag/nodes.h>
 #include <hdag/node_seq.h>
 #include <hdag/darr.h>
 #include <hdag/res.h>
@@ -535,7 +536,6 @@ hdag_bundle_targets_count(const struct hdag_bundle *bundle, uint32_t node_idx)
  * node's index.
  *
  * @param bundle        The bundle to get the node's target from.
- *                      Must be indexed.
  * @param node_idx      The index of the node to get the target for.
  * @param target_idx    The index of the target to get node index for.
  *
@@ -547,17 +547,30 @@ hdag_bundle_targets_node_idx(const struct hdag_bundle *bundle,
 {
     const struct hdag_targets *targets;
     assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_has_hash_targets(bundle));
     targets = HDAG_BUNDLE_TARGETS(bundle, node_idx);
     assert(target_idx < hdag_targets_count(targets));
 
     if (hdag_target_is_ind_idx(targets->first)) {
-        return HDAG_DARR_ELEMENT(
-            &bundle->extra_edges,
-            struct hdag_edge,
-            hdag_target_to_ind_idx(targets->first) +
-            target_idx
-        )->node_idx;
+        if (hdag_darr_is_empty(&bundle->extra_edges)) {
+            uint32_t target_node_idx = hdag_nodes_find(
+                bundle->nodes.slots,
+                bundle->nodes.slots_occupied,
+                bundle->hash_len,
+                HDAG_DARR_ELEMENT_UNSIZED(
+                    &bundle->target_hashes, uint8_t,
+                    hdag_target_to_ind_idx(targets->first) +
+                    target_idx
+                )
+            );
+            assert(target_node_idx < INT32_MAX);
+            return target_node_idx;
+        } else {
+            return HDAG_DARR_ELEMENT(
+                &bundle->extra_edges, struct hdag_edge,
+                hdag_target_to_ind_idx(targets->first) +
+                target_idx
+            )->node_idx;
+        }
     }
 
     if (target_idx == 0 && hdag_target_is_dir_idx(targets->first)) {
@@ -608,7 +621,6 @@ hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
  * node.
  *
  * @param bundle        The bundle to get the node's target from.
- *                      Must be indexed.
  * @param node_idx      The index of the node to get the target for.
  * @param target_idx    The index of the target to get node for.
  *
@@ -619,7 +631,6 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
                          uint32_t node_idx, uint32_t target_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_has_hash_targets(bundle));
     return hdag_bundle_node(
         bundle,
         hdag_bundle_targets_node_idx(bundle, node_idx, target_idx)
@@ -631,7 +642,6 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
  * return the target node.
  *
  * @param _bundle       The bundle to get the node's target from.
- *                      Must be indexed.
  * @param _node_idx     The index of the node to get the target for.
  * @param _target_idx   The index of the target to get node for.
  *
