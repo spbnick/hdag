@@ -59,5 +59,11 @@ add_executable(hdagt-misc src/hdagt/hdagt-misc.c)
 target_link_libraries(hdagt-misc hdag)
 add_test(NAME misc COMMAND hdagt-misc)
 
+add_executable(hdag-file-to-dot src/hdag/hdag-file-to-dot.c)
+target_link_libraries(hdag-file-to-dot hdag)
+
+add_executable(hdag-file-to-txt src/hdag/hdag-file-to-txt.c)
+target_link_libraries(hdag-file-to-txt hdag)
+
 add_executable(hdag-file-from-txt src/hdag/hdag-file-from-txt.c)
 target_link_libraries(hdag-file-from-txt hdag)
