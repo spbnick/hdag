@@ -3,6 +3,7 @@
  */
 
 #include <hdag/bundle.h>
+#include <hdag/misc.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -1089,40 +1090,48 @@ test_component_enumerating(uint16_t hash_len)
     return failed;
 }
 
-static size_t test_txt(uint16_t hash_len)
-{
-    const char hex_digits[17] = "0123456789abcdef";
-    size_t failed = 0;
-    struct hdag_bundle bundle;
-    FILE *file;
-    size_t i;
-    const struct hdag_node *node;
-
 #define WITH_BUNDLES_AND_FILES(...) \
     for (                                                                   \
         const char **_contents_ptr = (const char *[]){__VA_ARGS__, NULL};   \
         *_contents_ptr != NULL &&                                           \
         (                                                                   \
-            file = fmemopen((char *)*_contents_ptr,                         \
+            input_file = fmemopen((char *)*_contents_ptr,                   \
                             strlen(*_contents_ptr), "r"),                   \
-            failed += (file == NULL),                                       \
-            file != NULL                                                    \
+            output_file = fmemopen(output_buf, sizeof(output_buf), "w"),    \
+            setbuf(output_file, NULL),                                      \
+            failed += (input_file == NULL || output_file == NULL),          \
+            input_file != NULL && output_file != NULL                       \
         );                                                                  \
         _contents_ptr++,                                                    \
         hdag_bundle_cleanup(&bundle),                                       \
-        fclose(file), file = NULL                                           \
+        fclose(input_file), input_file = NULL,                              \
+        fclose(output_file), output_file = NULL                             \
     )
+
+static size_t
+test_txt(uint16_t hash_len)
+{
+    const char hex_digits[17] = "0123456789abcdef";
+    size_t failed = 0;
+    struct hdag_bundle bundle;
+    FILE *input_file;
+    FILE *output_file;
+    char output_buf[4096];
+    size_t i;
+    const struct hdag_node *node;
 
     /* Test empty file */
     WITH_BUNDLES_AND_FILES("", " ", "\n", " \n", "\n ", " \t\r\n") {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.hash_len == hash_len);
         TEST(bundle.nodes.slots_occupied == 0);
         TEST(bundle.target_hashes.slots_occupied == 0);
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("", " ", "\n", " \n", "\n ", " \t\r\n") {
-        TEST(hdag_bundle_txt_ingest(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_ingest(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.hash_len == hash_len);
         TEST(bundle.nodes.slots_occupied == 0);
         TEST(bundle.target_hashes.slots_occupied == 0);
@@ -1131,7 +1140,7 @@ static size_t test_txt(uint16_t hash_len)
 
     /* Test various invalid files */
     WITH_BUNDLES_AND_FILES("x", "1", "01x", "01 x", "01\nx", "01\rx", "012") {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) ==
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
              HDAG_RES_INVALID_FORMAT);
     }
 
@@ -1139,7 +1148,8 @@ static size_t test_txt(uint16_t hash_len)
     WITH_BUNDLES_AND_FILES(
         "01", "01\n", "\n01", " 01", "01 ", "\t\r\n01", "01\t\r\n"
     ) {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.hash_len == hash_len);
         TEST(bundle.nodes.slots_occupied == 1);
         node = HDAG_BUNDLE_NODE(&bundle, 0);
@@ -1154,7 +1164,8 @@ static size_t test_txt(uint16_t hash_len)
     WITH_BUNDLES_AND_FILES(
         "00", "00\n", "\n00", " 00", "00 ", "\t\r\n00", "00\t\r\n"
     ) {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) == 
+             HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 1);
         node = HDAG_BUNDLE_NODE(&bundle, 0);
         TEST(hdag_hash_is_filled(node->hash, hash_len, 0));
@@ -1174,14 +1185,14 @@ static size_t test_txt(uint16_t hash_len)
         }
         text[i << 1] = '\0';
         WITH_BUNDLES_AND_FILES(text) {
-            TEST(hdag_bundle_txt_load(&bundle, file, hash_len) ==
+            TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
                  HDAG_RES_INVALID_FORMAT);
         }
 
         i--;
         text[i << 1] = '\0';
         WITH_BUNDLES_AND_FILES(text) {
-            TEST(hdag_bundle_txt_load(&bundle, file, hash_len) ==
+            TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
                  HDAG_RES_OK);
             TEST(bundle.hash_len == hash_len);
             TEST(bundle.nodes.slots_occupied == 1);
@@ -1194,7 +1205,7 @@ static size_t test_txt(uint16_t hash_len)
         i--;
         text[i << 1] = '\0';
         WITH_BUNDLES_AND_FILES(text) {
-            TEST(hdag_bundle_txt_load(&bundle, file, hash_len) ==
+            TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
                  HDAG_RES_OK);
             TEST(bundle.hash_len == hash_len);
             TEST(bundle.nodes.slots_occupied == 1);
@@ -1208,7 +1219,8 @@ static size_t test_txt(uint16_t hash_len)
 
     /* Test a two node (source and target) file */
     WITH_BUNDLES_AND_FILES("01 02") {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 2);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 2);
         TEST(HDAG_BUNDLE_NODE(&bundle, 1)->hash[hash_len - 1] == 1);
@@ -1219,7 +1231,8 @@ static size_t test_txt(uint16_t hash_len)
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("01 02") {
-        TEST(hdag_bundle_txt_ingest(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_ingest(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 2);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 1);
         TEST(hdag_bundle_targets_count(&bundle, 0) == 1);
@@ -1231,7 +1244,8 @@ static size_t test_txt(uint16_t hash_len)
 
     /* Test a little more complicated graph */
     WITH_BUNDLES_AND_FILES("01 02 03\n03 02 01") {
-        TEST(hdag_bundle_txt_load(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_load(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 6);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 2);
         TEST(HDAG_BUNDLE_NODE(&bundle, 1)->hash[hash_len - 1] == 3);
@@ -1255,12 +1269,13 @@ static size_t test_txt(uint16_t hash_len)
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("01 02 03\n03 02 01") {
-        TEST(hdag_bundle_txt_ingest(&bundle, file, hash_len) ==
+        TEST(hdag_bundle_txt_ingest(&bundle, input_file, hash_len) ==
              HDAG_RES_GRAPH_CYCLE);
     }
 
     WITH_BUNDLES_AND_FILES("01 02 03\n04 01 02") {
-        TEST(hdag_bundle_txt_ingest(&bundle, file, hash_len) == HDAG_RES_OK);
+        TEST(hdag_bundle_txt_ingest(&bundle, input_file, hash_len) ==
+             HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 4);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 1);
         TEST(hdag_bundle_targets_count(&bundle, 0) == 2);
@@ -1278,10 +1293,106 @@ static size_t test_txt(uint16_t hash_len)
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
 
-#undef WITH_BUNDLES_AND_FILES
+    return failed;
+}
+
+static size_t
+test_txt_buggy_case(void)
+{
+    size_t failed = 0;
+    struct hdag_bundle bundle;
+    FILE *input_file;
+    FILE *output_file;
+    char output_buf[4096];
+    size_t i;
+
+    WITH_BUNDLES_AND_FILES("0a06811d664b8695a7612d3e59c1defb4382f4e0 "
+                           "52f1192887f825bd29c1e72303d9e62f8382ba20 "
+                           "c3565a35d97102fbea69e324086d5e33ee2ab34e "
+                           "339d9d8792aef5b42909c8732ee7c228d0eca310 "
+                           "ffa1f26d3ddf6416119f0354bd9ab340dbdb163e\n"
+                           "f765274d0c9436bc130911abbd97e52b1648d13c "
+                           "58ff04e2e22319e63ea646d9a38890c17836a7f6 "
+                           "3c217a182018e6c6d381b3fdc32626275eefbfb0") {
+        TEST(hdag_bundle_txt_ingest(&bundle, input_file, 20) == HDAG_RES_OK);
+        TEST(bundle.nodes.slots_occupied == 8);
+        uint8_t hashes[][20] = {
+            {0x0a, 0x06, 0x81, 0x1d, 0x66, 0x4b, 0x86, 0x95, 0xa7, 0x61,
+             0x2d, 0x3e, 0x59, 0xc1, 0xde, 0xfb, 0x43, 0x82, 0xf4, 0xe0},
+            {0x33, 0x9d, 0x9d, 0x87, 0x92, 0xae, 0xf5, 0xb4, 0x29, 0x09,
+             0xc8, 0x73, 0x2e, 0xe7, 0xc2, 0x28, 0xd0, 0xec, 0xa3, 0x10},
+            {0x3c, 0x21, 0x7a, 0x18, 0x20, 0x18, 0xe6, 0xc6, 0xd3, 0x81,
+             0xb3, 0xfd, 0xc3, 0x26, 0x26, 0x27, 0x5e, 0xef, 0xbf, 0xb0},
+            {0x52, 0xf1, 0x19, 0x28, 0x87, 0xf8, 0x25, 0xbd, 0x29, 0xc1,
+             0xe7, 0x23, 0x03, 0xd9, 0xe6, 0x2f, 0x83, 0x82, 0xba, 0x20},
+            {0x58, 0xff, 0x04, 0xe2, 0xe2, 0x23, 0x19, 0xe6, 0x3e, 0xa6,
+             0x46, 0xd9, 0xa3, 0x88, 0x90, 0xc1, 0x78, 0x36, 0xa7, 0xf6},
+            {0xc3, 0x56, 0x5a, 0x35, 0xd9, 0x71, 0x02, 0xfb, 0xea, 0x69,
+             0xe3, 0x24, 0x08, 0x6d, 0x5e, 0x33, 0xee, 0x2a, 0xb3, 0x4e},
+            {0xf7, 0x65, 0x27, 0x4d, 0x0c, 0x94, 0x36, 0xbc, 0x13, 0x09,
+             0x11, 0xab, 0xbd, 0x97, 0xe5, 0x2b, 0x16, 0x48, 0xd1, 0x3c},
+            {0xff, 0xa1, 0xf2, 0x6d, 0x3d, 0xdf, 0x64, 0x16, 0x11, 0x9f,
+             0x03, 0x54, 0xbd, 0x9a, 0xb3, 0x40, 0xdb, 0xdb, 0x16, 0x3e},
+        };
+        for (i = 0; i < bundle.nodes.slots_occupied; i++) {
+            TEST(memcmp(
+                HDAG_BUNDLE_NODE(&bundle, i)->hash, hashes[i], 20
+            ) == 0);
+        }
+        uint32_t target_counts[8] = {4, 0, 0, 0, 0, 0, 2, 0};
+        for (i = 0; i < 8; i++) {
+            TEST(hdag_bundle_targets_count(&bundle, i) == target_counts[i]);
+        }
+        uint8_t node0_target_hashes[][20] = {
+            {0x33, 0x9d, 0x9d, 0x87, 0x92, 0xae, 0xf5, 0xb4, 0x29, 0x09,
+             0xc8, 0x73, 0x2e, 0xe7, 0xc2, 0x28, 0xd0, 0xec, 0xa3, 0x10},
+            {0x52, 0xf1, 0x19, 0x28, 0x87, 0xf8, 0x25, 0xbd, 0x29, 0xc1,
+             0xe7, 0x23, 0x03, 0xd9, 0xe6, 0x2f, 0x83, 0x82, 0xba, 0x20},
+            {0xc3, 0x56, 0x5a, 0x35, 0xd9, 0x71, 0x02, 0xfb, 0xea, 0x69,
+             0xe3, 0x24, 0x08, 0x6d, 0x5e, 0x33, 0xee, 0x2a, 0xb3, 0x4e},
+            {0xff, 0xa1, 0xf2, 0x6d, 0x3d, 0xdf, 0x64, 0x16, 0x11, 0x9f,
+             0x03, 0x54, 0xbd, 0x9a, 0xb3, 0x40, 0xdb, 0xdb, 0x16, 0x3e}
+        };
+        for (i = 0; i < hdag_bundle_targets_count(&bundle, 0); i++) {
+            TEST(memcmp(
+                HDAG_BUNDLE_TARGETS_NODE(&bundle, 0, i)->hash,
+                node0_target_hashes[i],
+                20
+            ) == 0);
+        }
+        uint8_t node6_target_hashes[][20] = {
+            {0x3c, 0x21, 0x7a, 0x18, 0x20, 0x18, 0xe6, 0xc6, 0xd3, 0x81,
+             0xb3, 0xfd, 0xc3, 0x26, 0x26, 0x27, 0x5e, 0xef, 0xbf, 0xb0},
+            {0x58, 0xff, 0x04, 0xe2, 0xe2, 0x23, 0x19, 0xe6, 0x3e, 0xa6,
+             0x46, 0xd9, 0xa3, 0x88, 0x90, 0xc1, 0x78, 0x36, 0xa7, 0xf6},
+        };
+        for (i = 0; i < hdag_bundle_targets_count(&bundle, 6); i++) {
+            TEST(memcmp(
+                HDAG_BUNDLE_TARGETS_NODE(&bundle, 6, i)->hash,
+                node6_target_hashes[i],
+                20
+            ) == 0);
+        }
+
+        /* Output */
+        TEST(hdag_bundle_txt_save(output_file, &bundle) == HDAG_RES_OK);
+        TEST(strcmp(
+            output_buf,
+            "0a06811d664b8695a7612d3e59c1defb4382f4e0 "
+            "339d9d8792aef5b42909c8732ee7c228d0eca310 "
+            "52f1192887f825bd29c1e72303d9e62f8382ba20 "
+            "c3565a35d97102fbea69e324086d5e33ee2ab34e "
+            "ffa1f26d3ddf6416119f0354bd9ab340dbdb163e\n"
+            "f765274d0c9436bc130911abbd97e52b1648d13c "
+            "3c217a182018e6c6d381b3fdc32626275eefbfb0 "
+            "58ff04e2e22319e63ea646d9a38890c17836a7f6\n"
+        ) == 0);
+    }
 
     return failed;
 }
+
+#undef WITH_BUNDLES_AND_FILES
 
 static size_t
 test(uint16_t hash_len)
@@ -1381,6 +1492,7 @@ int
 main(void)
 {
     size_t failed = test(4) + test(32) + test(256) + test(1024);
+    failed += test_txt_buggy_case();
     if (failed) {
         fprintf(stderr, "%zu tests failed.\n", failed);
     }
