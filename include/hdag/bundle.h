@@ -616,7 +616,7 @@ hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
  */
 static inline struct hdag_node *
 hdag_bundle_targets_node(struct hdag_bundle *bundle,
-                        uint32_t node_idx, uint32_t target_idx)
+                         uint32_t node_idx, uint32_t target_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
     assert(!hdag_bundle_has_hash_targets(bundle));
