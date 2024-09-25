@@ -150,6 +150,19 @@ extern hdag_res hdag_file_from_bundle(struct hdag_file *pfile,
                                       const struct hdag_bundle *bundle);
 
 /**
+ * Create a bundle from the contents of a file.
+ *
+ * @param pbundle           The location for the output bundle.
+ *                          Not modified in case of failure.
+ *                          Can be NULL to have bundle discarded.
+ * @param file              The opened file to create the bundle from.
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_file_to_bundle(struct hdag_bundle *pbundle,
+                                    const struct hdag_file *file);
+
+/**
  * Create and open a hash DAG file with specified parameters and a node
  * sequence (adjacency list).
  *

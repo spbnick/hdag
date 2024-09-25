@@ -153,6 +153,41 @@ cleanup:
 }
 
 hdag_res
+hdag_file_to_bundle(struct hdag_bundle *pbundle,
+                    const struct hdag_file *file)
+{
+    assert(hdag_file_is_valid(file));
+
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_bundle bundle = {
+        .hash_len = file->header->hash_len,
+        .nodes = HDAG_DARR_EMPTY(hdag_node_size(file->header->hash_len), 64),
+        .target_hashes = HDAG_DARR_EMPTY(file->header->hash_len, 64),
+        .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),
+    };
+    if (hdag_darr_append(
+            &bundle.nodes, file->nodes, file->header->node_num
+        ) == NULL ||
+        hdag_darr_append(
+            &bundle.extra_edges, file->extra_edges,
+            file->header->extra_edge_num
+        ) == NULL
+    ) {
+        goto cleanup;
+    }
+
+    if (pbundle != NULL) {
+        *pbundle = bundle;
+        bundle = HDAG_BUNDLE_EMPTY(bundle.hash_len);
+    }
+    res = HDAG_RES_OK;
+
+cleanup:
+    hdag_bundle_cleanup(&bundle);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
 hdag_file_from_node_seq(struct hdag_file *pfile,
                         const char *pathname,
                         int template_sfxlen,
