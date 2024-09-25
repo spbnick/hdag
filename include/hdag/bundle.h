@@ -660,4 +660,46 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
             )                                                           \
     )
 
+/**
+ * Given a bundle, a node index, and a node's target index, return target
+ * node's hash.
+ *
+ * @param bundle        The bundle to get the node's target from.
+ * @param node_idx      The index of the node to get the target for.
+ * @param target_idx    The index of the target to get node index for.
+ *
+ * @return The specified target's node index.
+ */
+static inline const uint8_t *
+hdag_bundle_targets_node_hash(const struct hdag_bundle *bundle,
+                              uint32_t node_idx, uint32_t target_idx)
+{
+    const struct hdag_targets *targets;
+    uint32_t target_node_idx;
+    assert(hdag_bundle_is_valid(bundle));
+    targets = HDAG_BUNDLE_TARGETS(bundle, node_idx);
+    assert(target_idx < hdag_targets_count(targets));
+
+    if (hdag_target_is_ind_idx(targets->first)) {
+        if (hdag_darr_is_empty(&bundle->extra_edges)) {
+            return HDAG_DARR_ELEMENT_UNSIZED(
+                &bundle->target_hashes, uint8_t,
+                hdag_target_to_ind_idx(targets->first) +
+                target_idx
+            );
+        } else {
+            target_node_idx = HDAG_DARR_ELEMENT(
+                &bundle->extra_edges, struct hdag_edge,
+                hdag_target_to_ind_idx(targets->first) +
+                target_idx
+            )->node_idx;
+        }
+    } else if (target_idx == 0 && hdag_target_is_dir_idx(targets->first)) {
+        target_node_idx = hdag_target_to_dir_idx(targets->first);
+    } else {
+        target_node_idx = hdag_target_to_dir_idx(targets->last);
+    }
+    return HDAG_BUNDLE_NODE(bundle, target_node_idx)->hash;
+}
+
 #endif /* _HDAG_BUNDLE_H */
