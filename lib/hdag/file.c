@@ -240,6 +240,24 @@ cleanup:
 }
 
 hdag_res
+hdag_file_to_txt(FILE *stream, const struct hdag_file *file)
+{
+    assert(stream != NULL);
+    assert(hdag_file_is_valid(file));
+
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
+
+    HDAG_RES_TRY(hdag_file_to_bundle(&bundle, file));
+    HDAG_RES_TRY(hdag_bundle_txt_save(stream, &bundle));
+    res = HDAG_RES_OK;
+
+cleanup:
+    hdag_bundle_cleanup(&bundle);
+    return res;
+}
+
+hdag_res
 hdag_file_open(struct hdag_file *pfile,
                const char *pathname)
 {

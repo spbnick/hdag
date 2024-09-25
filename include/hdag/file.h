@@ -231,6 +231,16 @@ extern hdag_res hdag_file_from_txt(struct hdag_file *pfile,
                                    uint16_t hash_len);
 
 /**
+ * Write the contents of a file to an adjacency list text stream.
+ *
+ * @param stream            The FILE stream to output to.
+ * @param file              The file to output.
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_file_to_txt(FILE *stream, const struct hdag_file *file);
+
+/**
  * Open a previously-created hash DAG file.
  *
  * @param pfile         Location for the state of the opened file.
