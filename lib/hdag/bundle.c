@@ -1027,6 +1027,64 @@ hdag_bundle_txt_load(struct hdag_bundle *pbundle,
 }
 
 hdag_res
+hdag_bundle_txt_save(FILE *stream, const struct hdag_bundle *bundle)
+{
+    assert(stream != NULL);
+    assert(hdag_bundle_is_valid(bundle));
+
+    hdag_res res = HDAG_RES_INVALID;
+    size_t hex_len = bundle->hash_len * 2;
+    char *hex_buf = NULL;
+    const struct hdag_node *node;
+    ssize_t idx;
+    size_t target_idx;
+
+    hex_buf = malloc(hex_len + 1);
+    if (hex_buf == NULL) {
+        goto cleanup;
+    }
+
+    /* For each node */
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
+        /*
+         * Skip the nodes with unknown targets, as they can't be represented
+         */
+        if (hdag_targets_are_unknown(&node->targets)) {
+            continue;
+        }
+        hdag_bytes_to_hex(hex_buf, node->hash, bundle->hash_len);
+        if (fwrite(hex_buf, hex_len, 1, stream) != 1) {
+            goto cleanup;
+        }
+        /* For each target */
+        for (target_idx = 0;
+             target_idx < hdag_node_targets_count(node);
+             target_idx++) {
+            if (fputc(' ', stream) == EOF) {
+                goto cleanup;
+            }
+            hdag_bytes_to_hex(
+                hex_buf,
+                hdag_bundle_targets_node_hash(bundle, idx, target_idx),
+                bundle->hash_len
+            );
+            if (fwrite(hex_buf, hex_len, 1, stream) != 1) {
+                goto cleanup;
+            }
+        }
+        if (fputc('\n', stream) == EOF) {
+            goto cleanup;
+        }
+    }
+
+    res = HDAG_RES_OK;
+
+cleanup:
+    free(hex_buf);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
 hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
                        FILE *stream, uint16_t hash_len)
 {

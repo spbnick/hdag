@@ -265,6 +265,17 @@ extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
                                      FILE *stream, uint16_t hash_len);
 
 /**
+ * Output the bundle hash DAG as an adjacency list text file.
+ *
+ * @param stream    The stream to output the text to.
+ * @param bundle    The bundle to output.
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_bundle_txt_save(FILE *stream,
+                                     const struct hdag_bundle *bundle);
+
+/**
  * Load a node sequence (adjacency list) into a bundle, optimize, and
  * validate.
  *
