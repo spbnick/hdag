@@ -50,9 +50,9 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
     }
 
     /* Fetch destination node (we won't change it) */
-    dst_node = HDAG_DARR_ELEMENT(&bundle->nodes,
-                                 struct hdag_node,
-                                 hdag_target_to_dir_idx(target));
+    dst_node = HDAG_DARR_ELEMENT_UNSIZED(&bundle->nodes,
+                                         struct hdag_node,
+                                         hdag_target_to_dir_idx(target));
 
     /* Create/fetch destination agnode */
     hdag_bytes_to_hex(dst_hash_buf, dst_node->hash, bundle->hash_len);
@@ -116,7 +116,7 @@ hdag_dot_write_bundle_ind_targets(const struct hdag_bundle *bundle,
             edge = HDAG_DARR_ELEMENT(
                 &bundle->extra_edges, struct hdag_edge, idx
             );
-            dst_node = HDAG_DARR_ELEMENT(
+            dst_node = HDAG_DARR_ELEMENT_UNSIZED(
                 &bundle->nodes, struct hdag_node, edge->node_idx
             );
             dst_hash = dst_node->hash;
