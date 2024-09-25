@@ -644,8 +644,8 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
             (struct hdag_node *)hdag_bundle_targets_node(               \
                 (struct hdag_bundle *)_bundle, _node_idx, _target_idx   \
             ),                                                          \
-        struct const hdag_bundle *:                                     \
-            (struct const hdag_node *)hdag_bundle_targets_node(         \
+        const struct hdag_bundle *:                                     \
+            (const struct hdag_node *)hdag_bundle_targets_node(         \
                 (struct hdag_bundle *)_bundle, _node_idx, _target_idx   \
             )                                                           \
     )
