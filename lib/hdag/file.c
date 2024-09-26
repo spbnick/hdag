@@ -200,7 +200,7 @@ hdag_file_from_node_seq(struct hdag_file *pfile,
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Ingest the nodes and their targets into the bundle */
-    HDAG_RES_TRY(hdag_bundle_ingest_node_seq(&bundle, node_seq));
+    HDAG_RES_TRY(hdag_bundle_node_seq_ingest(&bundle, node_seq));
     /* Create the file from the bundle */
     HDAG_RES_TRY(hdag_file_from_bundle(pfile, pathname,
                                        template_sfxlen, open_mode,

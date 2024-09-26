@@ -489,3 +489,23 @@ component -> the node to return to
 ---
 TODO: Test enumerating with extra edges
 TODO: Support "hashless" bundles - ones with hash_len == 0
+---
+OK, it seems like we don't need to do the Bloom filter thing, because Git only
+uses it for finding modified paths, not actual commits.
+
+They're also using commit graph chains to split down files. However for us it
+might not work, because we can be adding earlier commits than already exist in
+the database. For that matter we need to start our generation numbers from
+INT32_MAX by default, so we can grow them *both* ways: up and down.
+
+TODO: Add file hash?
+
+So, we would need to leave outer nodes unknown, and have a way to look up
+which file they're in.
+
+What should we be able to do:
+* Lookup a commit by hash
+* Follow the edges to the right file and commit
+
+Git doesn't have anything helping find the right file, except the fanout
+structure.

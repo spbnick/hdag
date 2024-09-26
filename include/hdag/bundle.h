@@ -238,7 +238,7 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
+extern hdag_res hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
                                           struct hdag_node_seq node_seq);
 
 /**
@@ -287,7 +287,7 @@ extern hdag_res hdag_bundle_txt_save(FILE *stream,
  *
  * @return A void universal result.
  */
-extern hdag_res hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
+extern hdag_res hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
                                             struct hdag_node_seq node_seq);
 
 /**

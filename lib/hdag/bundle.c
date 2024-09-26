@@ -770,7 +770,7 @@ cleanup:
 }
 
 hdag_res
-hdag_bundle_load_node_seq(struct hdag_bundle *pbundle,
+hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
                           struct hdag_node_seq node_seq)
 {
     hdag_res                res = HDAG_RES_INVALID;
@@ -1019,7 +1019,7 @@ hdag_bundle_txt_load(struct hdag_bundle *pbundle,
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
-    return hdag_bundle_load_node_seq(pbundle, (struct hdag_node_seq){
+    return hdag_bundle_node_seq_load(pbundle, (struct hdag_node_seq){
         .hash_len = hash_len,
         .next_fn = hdag_bundle_txt_node_seq_next,
         .data = &txt_seq,
@@ -1093,7 +1093,7 @@ hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
-    return hdag_bundle_ingest_node_seq(pbundle, (struct hdag_node_seq){
+    return hdag_bundle_node_seq_ingest(pbundle, (struct hdag_node_seq){
         .hash_len = hash_len,
         .next_fn = hdag_bundle_txt_node_seq_next,
         .data = &txt_seq,
@@ -1101,7 +1101,7 @@ hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
 }
 
 hdag_res
-hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
+hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
                             struct hdag_node_seq node_seq)
 {
     hdag_res            res      = HDAG_RES_INVALID;
@@ -1115,7 +1115,7 @@ hdag_bundle_ingest_node_seq(struct hdag_bundle *pbundle,
 
     /* Load the node sequence (adjacency list) */
     PROFILE_TIME("Loading node sequence",
-                 HDAG_RES_TRY(hdag_bundle_load_node_seq(&bundle, node_seq)));
+                 HDAG_RES_TRY(hdag_bundle_node_seq_load(&bundle, node_seq)));
 
     /* Sort the nodes and edges by hash lexicographically */
     PROFILE_TIME("Sorting the bundle",
