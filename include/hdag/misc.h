@@ -213,4 +213,13 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
                 _elapsed.tv_sec, _elapsed.tv_nsec);     \
     } while (0)
 
+/**
+ * Get the length of an array (number of elements).
+ *
+ * @param _arr  The array to get the number of elements for.
+ *
+ * @return The array length (number of elements).
+ */
+#define HDAG_ARR_LEN(_arr) (sizeof(_arr) / sizeof((_arr)[0]))
+
 #endif /* _HDAG_MISC_H */
