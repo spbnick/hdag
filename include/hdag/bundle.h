@@ -10,7 +10,9 @@
 #include <hdag/nodes.h>
 #include <hdag/node_seq.h>
 #include <hdag/darr.h>
+#include <hdag/fanout.h>
 #include <hdag/res.h>
+#include <hdag/misc.h>
 #include <stdio.h>
 
 /** A bundle */
@@ -26,6 +28,16 @@ struct hdag_bundle {
      * array, or indirect indices pointing into the extra_edges array.
      */
     struct hdag_darr    nodes;
+
+    /**
+     * An array of node numbers, where each element stores the number of nodes
+     * with the first byte of their hash equal to or less than the index of
+     * the element. So each element is either equal or greater than the
+     * previous one, and the last element represents the total number of nodes
+     * in the bundle. No elements can be greater than INT32_MAX.
+     * Otherwise the array is considered invalid.
+     */
+    uint32_t            nodes_fanout[256];
 
     /**
      * Target hashes.
@@ -50,6 +62,7 @@ struct hdag_bundle {
 #define HDAG_BUNDLE_EMPTY(_hash_len) (struct hdag_bundle){ \
     .hash_len = hdag_hash_len_validate(_hash_len),                  \
     .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),        \
+    .nodes_fanout = HDAG_FANOUT_EMPTY,                              \
     .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                \
     .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),   \
 }
@@ -69,6 +82,8 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_is_valid(&bundle->nodes) &&
         bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
         hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
+        hdag_fanout_is_valid(bundle->nodes_fanout,
+                             HDAG_ARR_LEN(bundle->nodes_fanout)) &&
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
@@ -319,6 +334,28 @@ extern hdag_res hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
  * @param bundle    The bundle to sort the nodes and targets in.
  */
 extern void hdag_bundle_sort(struct hdag_bundle *bundle);
+
+/**
+ * Fill in the nodes fanout array for a bundle.
+ *
+ * @param bundle    The bundle to fill in the nodes fanout array for.
+ *                  Must be sorted. And have nodes fanout empty.
+ */
+extern void hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
+
+/**
+ * Check if the nodes_fanout array is empty in a bundle.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bundle's nodes_fanout array is empty, false otherwise.
+ */
+static inline bool
+hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
+{
+    return hdag_fanout_is_empty(bundle->nodes_fanout,
+                                HDAG_ARR_LEN(bundle->nodes_fanout));
+}
 
 /**
  * Remove duplicate node entries from a bundle, preferring known ones, as well

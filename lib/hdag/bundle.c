@@ -16,6 +16,8 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     hdag_darr_cleanup(&bundle->nodes);
+    hdag_fanout_empty(bundle->nodes_fanout,
+                      HDAG_ARR_LEN(bundle->nodes_fanout));
     hdag_darr_cleanup(&bundle->target_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
     assert(hdag_bundle_is_valid(bundle));
@@ -71,6 +73,31 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_sorted(bundle));
 }
 
+void
+hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
+{
+    /* Position in the fanout array == first byte of node hash */
+    size_t pos;
+    /* Currently traversed node */
+    struct hdag_node *node;
+    /* The index of the currently-traversed node */
+    ssize_t idx;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_sorted(bundle));
+    assert(hdag_bundle_fanout_is_empty(bundle));
+
+    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, pos = 0, (void)0) {
+        if (node->hash[0] != pos) {
+            bundle->nodes_fanout[pos++] = idx;
+        }
+    }
+    for (; pos < HDAG_ARR_LEN(bundle->nodes_fanout); pos++) {
+        bundle->nodes_fanout[pos] = idx;
+    }
+
+    assert(idx == 0 || !hdag_bundle_fanout_is_empty(bundle));
+}
 
 /*
  * Check if both the nodes and targets of a bundle are sorted according to
@@ -1124,6 +1151,9 @@ hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
     /* Deduplicate the nodes and edges */
     PROFILE_TIME("Deduping the bundle",
                  HDAG_RES_TRY(hdag_bundle_dedup(&bundle)));
+
+    /* Fill in the fanout array */
+    hdag_bundle_fanout_fill(&bundle);
 
     /* Compact the edges */
     PROFILE_TIME("Compacting the bundle",

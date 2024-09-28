@@ -1395,6 +1395,65 @@ test_txt_buggy_case(void)
 #undef WITH_BUNDLES_AND_FILES
 
 static size_t
+test_fanout(uint16_t hash_len)
+{
+    size_t failed = 0;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
+    size_t i;
+    ssize_t idx;
+    struct hdag_node *node;
+
+    TEST(hdag_fanout_is_valid(NULL, 0));
+    TEST(hdag_fanout_is_empty(NULL, 0));
+    TEST(hdag_fanout_is_valid((uint32_t []){0}, 1));
+    TEST(hdag_fanout_is_empty((uint32_t []){0}, 1));
+    TEST(hdag_fanout_is_valid((uint32_t []){UINT32_MAX}, 1));
+    TEST(!hdag_fanout_is_empty((uint32_t []){UINT32_MAX}, 1));
+    TEST(hdag_fanout_is_valid((uint32_t []){0, 0}, 2));
+    TEST(hdag_fanout_is_valid((uint32_t []){0, 1}, 2));
+    TEST(!hdag_fanout_is_valid((uint32_t []){1, 0}, 2));
+    TEST(hdag_fanout_is_valid((uint32_t []){1, 1, 1}, 3));
+    TEST(!hdag_fanout_is_valid((uint32_t []){1, 2, 1}, 3));
+
+    /* Fill fanout in an empty bundle */
+    hdag_bundle_fanout_fill(&bundle);
+    hdag_bundle_cleanup(&bundle);
+
+    /* Fill fanout in a bundle with one node */
+    hdag_darr_cappend(&bundle.nodes, 1);
+    hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
+    hdag_bundle_fanout_fill(&bundle);
+    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
+        TEST(bundle.nodes_fanout[i] == 1);
+    }
+    hdag_bundle_cleanup(&bundle);
+
+    /* Fill fanout in a bundle with two nodes with same hashes */
+    hdag_darr_cappend(&bundle.nodes, 2);
+    hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
+    hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 1), hash_len, 0);
+    hdag_bundle_fanout_fill(&bundle);
+    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
+        TEST(bundle.nodes_fanout[i] == 2);
+    }
+    hdag_bundle_cleanup(&bundle);
+
+    /* Fill fanout in a bundle with 256 different hashes */
+    hdag_darr_cappend(&bundle.nodes, 256);
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node,
+                           (void)0, (void)0) {
+        memset(node->hash, idx, bundle.hash_len);
+    }
+    hdag_bundle_fanout_fill(&bundle);
+    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
+        TEST(bundle.nodes_fanout[i] == (i + 1));
+    }
+    hdag_bundle_cleanup(&bundle);
+
+    return failed;
+}
+
+static size_t
 test(uint16_t hash_len)
 {
     size_t failed = 0;
@@ -1456,6 +1515,11 @@ test(uint16_t hash_len)
      * Check deduplicating works.
      */
     failed += test_deduplicating(hash_len);
+
+    /*
+     * Check fanout generation works.
+     */
+    failed += test_fanout(hash_len);
 
     /*
      * Check compacting works.
