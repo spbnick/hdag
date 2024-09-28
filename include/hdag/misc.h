@@ -181,7 +181,7 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
  *
  * @return The result of the subtraction.
  */
-#define TIMESPEC_SUB(_a, _b) ({ \
+#define HDAG_TIMESPEC_SUB(_a, _b) ({ \
     struct timespec _result;                                            \
     _result.tv_sec = (_a).tv_sec - (_b).tv_sec;                         \
     if ((_a).tv_nsec < (_b).tv_nsec) {                                  \
@@ -199,7 +199,7 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
  * @param _action       The string with the action gerund.
  * @param _statement    The statement to execute and time.
  */
-#define PROFILE_TIME(_action, _statement) \
+#define HDAG_PROFILE_TIME(_action, _statement) \
     do {                                                \
         struct timespec     _before;                    \
         struct timespec     _after;                     \
@@ -208,7 +208,7 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
         clock_gettime(CLOCK_MONOTONIC, &_before);       \
         _statement;                                     \
         clock_gettime(CLOCK_MONOTONIC, &_after);        \
-        _elapsed = TIMESPEC_SUB(_after, _before);       \
+        _elapsed = HDAG_TIMESPEC_SUB(_after, _before);  \
         fprintf(stderr, "done in %ld.%09lds\n",         \
                 _elapsed.tv_sec, _elapsed.tv_nsec);     \
     } while (0)
