@@ -1159,7 +1159,8 @@ hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
                       HDAG_RES_TRY(hdag_bundle_dedup(&bundle)));
 
     /* Fill in the fanout array */
-    hdag_bundle_fanout_fill(&bundle);
+    HDAG_PROFILE_TIME("Filling in fanout array",
+                      hdag_bundle_fanout_fill(&bundle));
 
     /* Compact the edges */
     HDAG_PROFILE_TIME("Compacting the bundle",
