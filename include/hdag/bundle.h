@@ -84,6 +84,10 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
         hdag_fanout_is_valid(bundle->nodes_fanout,
                              HDAG_ARR_LEN(bundle->nodes_fanout)) &&
+        (hdag_fanout_is_empty(bundle->nodes_fanout,
+                              HDAG_ARR_LEN(bundle->nodes_fanout)) ||
+         bundle->nodes_fanout[255] ==
+            hdag_darr_occupied_slots(&bundle->nodes)) &&
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
