@@ -509,3 +509,6 @@ What should we be able to do:
 
 Git doesn't have anything helping find the right file, except the fanout
 structure.
+---
+TODO: Unify plural usage in compound names (nodes_num vs node_num, and so on).
+TODO: Make kcidb_bundle_compact() react to memory allocation failures.

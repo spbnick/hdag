@@ -32,8 +32,19 @@ struct hdag_file_header {
     } version;
     /** Hash length, bytes, must be divisible by four */
     uint16_t    hash_len;
-    /** Number of nodes */
-    uint32_t    node_num;
+    union {
+        /**
+         * Node hash fanout - an array where each element
+         * corresponds to the number of nodes having the first byte of their
+         * hash equal to or lower than the element index.
+         */
+        uint32_t    node_fanout[256];
+        struct {
+            uint32_t    _padding[255];
+            /** Number of all nodes (with hash[0] <= 255) */
+            uint32_t    node_num;
+        };
+    };
     /** Number of extra edges */
     uint32_t    extra_edge_num;
 };
@@ -44,7 +55,7 @@ HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
     version.major,
     version.minor,
     hash_len,
-    node_num,
+    node_fanout,
     extra_edge_num
 );
 
@@ -63,6 +74,8 @@ hdag_file_header_is_valid(const struct hdag_file_header *header)
         header->version.major == 0 &&
         header->version.minor == 0 &&
         hdag_hash_len_is_valid(header->hash_len) &&
+        hdag_fanout_is_valid(header->node_fanout,
+                             HDAG_ARR_LEN(header->node_fanout)) &&
         ffs(header->node_num) <= header->hash_len * 8;
 }
 

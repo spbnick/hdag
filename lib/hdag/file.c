@@ -40,7 +40,6 @@ hdag_file_from_bundle(struct hdag_file *pfile,
         .signature = HDAG_FILE_SIGNATURE,
         .version = {0, 0},
         .hash_len = bundle->hash_len,
-        .node_num = bundle->nodes.slots_occupied,
         .extra_edge_num = bundle->extra_edges.slots_occupied,
     };
 
@@ -54,6 +53,10 @@ hdag_file_from_bundle(struct hdag_file *pfile,
             goto cleanup;
         }
     }
+
+    /* Copy the fanout (and thus node number) from the bundle */
+    memcpy(header.node_fanout, bundle->nodes_fanout,
+           sizeof(header.node_fanout));
 
     /* Calculate the file size */
     file.size = hdag_file_size(bundle->hash_len,
