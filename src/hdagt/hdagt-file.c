@@ -136,7 +136,7 @@ test_empty(void)
      */
     TEST(!hdag_file_from_node_seq(&file, NULL, -1, 0,
                                   HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
-    TEST(file.size = sizeof(expected_contents));
+    TEST(file.size == sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
 
@@ -148,7 +148,8 @@ test_empty(void)
                                   HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
     TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
-    memcpy(pathname, file.pathname, sizeof(pathname));
+    assert(strlen(file.pathname) < sizeof(pathname));
+    strncpy(pathname, file.pathname, sizeof(pathname));
     TEST(!hdag_file_sync(&file));
     TEST(file.size == sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
