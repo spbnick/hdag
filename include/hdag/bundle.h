@@ -357,6 +357,7 @@ extern void hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
 static inline bool
 hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
 {
+    assert(hdag_bundle_is_valid(bundle));
     return hdag_fanout_is_empty(bundle->nodes_fanout,
                                 HDAG_ARR_LEN(bundle->nodes_fanout));
 }
