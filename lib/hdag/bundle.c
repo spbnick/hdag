@@ -331,9 +331,14 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     size_t found_idx;
     /* Currently traversed node */
     struct hdag_node *node;
+    /* The new extra_edges array */
+    struct hdag_darr extra_edges =
+        HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64);
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
+    assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
+           !hdag_bundle_fanout_is_empty(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
     assert(hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
 
@@ -347,15 +352,14 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
         }
         /* If there's more than two targets */
         if (node->targets.last - node->targets.first > 1) {
-            size_t first_extra_edge_idx = bundle->extra_edges.slots_occupied;
+            size_t first_extra_edge_idx = extra_edges.slots_occupied;
 
             /* Convert all target hashes to extra edges */
             for (hash_idx = hdag_target_to_ind_idx(node->targets.first);
                  hash_idx <= hdag_target_to_ind_idx(node->targets.last);
                  hash_idx++) {
-                found_idx = hdag_nodes_find(
-                    bundle->nodes.slots, bundle->nodes.slots_occupied,
-                    bundle->hash_len,
+                found_idx = hdag_bundle_find_node_idx(
+                    bundle,
                     hdag_darr_element(&bundle->target_hashes, hash_idx)
                 );
                 /* All hashes must be locatable */
@@ -364,7 +368,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
                 assert(found_idx < bundle->nodes.slots_occupied);
                 /* Store the edge */
                 ((struct hdag_edge *)hdag_darr_cappend_one(
-                    &bundle->extra_edges
+                    &extra_edges
                 ))->node_idx = found_idx;
             }
 
@@ -372,17 +376,14 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
             node->targets.first =
                 hdag_target_from_ind_idx(first_extra_edge_idx);
             node->targets.last =
-                hdag_target_from_ind_idx(
-                        bundle->extra_edges.slots_occupied - 1
-                );
+                hdag_target_from_ind_idx(extra_edges.slots_occupied - 1);
         } else {
             /* If there are two targets */
             if (node->targets.last > node->targets.first) {
                 /* Store the second target inside the node */
                 hash_idx = hdag_target_to_ind_idx(node->targets.last);
-                found_idx = hdag_nodes_find(
-                    bundle->nodes.slots, bundle->nodes.slots_occupied,
-                    bundle->hash_len,
+                found_idx = hdag_bundle_find_node_idx(
+                    bundle,
                     hdag_darr_element(&bundle->target_hashes, hash_idx)
                 );
                 /* All hashes must be locatable */
@@ -398,9 +399,8 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
             /* Store first target inside the node */
             hash_idx = hdag_target_to_ind_idx(node->targets.first);
-            found_idx = hdag_nodes_find(
-                bundle->nodes.slots, bundle->nodes.slots_occupied,
-                bundle->hash_len,
+            found_idx = hdag_bundle_find_node_idx(
+                bundle,
                 hdag_darr_element(&bundle->target_hashes, hash_idx)
             );
             /* All hashes must be locatable */
@@ -415,6 +415,9 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
     /* Remove target hashes */
     hdag_darr_cleanup(&bundle->target_hashes);
+    /* Move extra edges */
+    hdag_darr_cleanup(&bundle->extra_edges);
+    bundle->extra_edges = extra_edges;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_compacted(bundle));

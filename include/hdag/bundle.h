@@ -755,4 +755,31 @@ hdag_bundle_targets_node_hash(const struct hdag_bundle *bundle,
     return HDAG_BUNDLE_NODE(bundle, target_node_idx)->hash;
 }
 
+/**
+ * Lookup the index of a node within a bundle, using its hash.
+ *
+ * @param bundle    The bundle to look up the node in.
+ *                  Must have the nodes fanout filled in.
+ * @param hash_ptr  The hash the node must have.
+ *                  The hash length must match the bundle hash length.
+ *
+ * @return The index of the found node (< INT32_MAX),
+ *         or INT32_MAX, if not found.
+ */
+static inline uint32_t
+hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
+                          const uint8_t *hash_ptr)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
+           !hdag_bundle_fanout_is_empty(bundle));
+    return hdag_nodes_slice_find(
+        bundle->nodes.slots,
+        (*hash_ptr == 0 ? 0 : bundle->nodes_fanout[*hash_ptr - 1]),
+        bundle->nodes_fanout[*hash_ptr],
+        bundle->hash_len,
+        hash_ptr
+    );
+}
+
 #endif /* _HDAG_BUNDLE_H */
