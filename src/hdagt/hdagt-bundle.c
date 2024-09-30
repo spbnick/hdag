@@ -355,6 +355,8 @@ test_compacting(uint16_t hash_len)
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
+    hdag_bundle_fanout_fill(&bundle);
+    TEST(!hdag_bundle_fanout_is_empty(&bundle));
     hdag_bundle_compact(&bundle);
     TEST(!hdag_bundle_has_hash_targets(&bundle));
     TEST(hdag_bundle_has_index_targets(&bundle));
@@ -414,6 +416,8 @@ test_compacting(uint16_t hash_len)
     TEST(bundle.nodes.slots_occupied == 9);
     TEST(bundle.target_hashes.slots_occupied == 8);
     TEST(bundle.extra_edges.slots_occupied == 0);
+    hdag_bundle_fanout_fill(&bundle);
+    TEST(!hdag_bundle_fanout_is_empty(&bundle));
     hdag_bundle_compact(&bundle);
     TEST(bundle.nodes.slots_occupied == 9);
     TEST(bundle.target_hashes.slots_occupied == 0);
@@ -1447,6 +1451,18 @@ test_fanout(uint16_t hash_len)
     hdag_bundle_fanout_fill(&bundle);
     for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
         TEST(bundle.nodes_fanout[i] == (i + 1));
+    }
+    hdag_bundle_cleanup(&bundle);
+
+    /* Fill fanout in a bundle with 16 different hashes with gaps between */
+    hdag_darr_cappend(&bundle.nodes, 16);
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node,
+                           (void)0, (void)0) {
+        memset(node->hash, idx * 16, bundle.hash_len);
+    }
+    hdag_bundle_fanout_fill(&bundle);
+    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
+        TEST(bundle.nodes_fanout[i] == (i / 16 + 1));
     }
     hdag_bundle_cleanup(&bundle);
 
