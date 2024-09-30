@@ -90,14 +90,16 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     assert(hdag_bundle_fanout_is_empty(bundle));
 
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, pos = 0, (void)0) {
-        if (node->hash[0] != pos) {
-            bundle->nodes_fanout[pos++] = idx;
+        for (; pos < node->hash[0]; pos++) {
+            bundle->nodes_fanout[pos] = idx;
         }
     }
     for (; pos < HDAG_ARR_LEN(bundle->nodes_fanout); pos++) {
         bundle->nodes_fanout[pos] = idx;
     }
 
+    assert(hdag_fanout_is_valid(bundle->nodes_fanout,
+                                HDAG_ARR_LEN(bundle->nodes_fanout)));
     assert(idx == 0 || !hdag_bundle_fanout_is_empty(bundle));
 }
 
