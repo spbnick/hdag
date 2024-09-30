@@ -29,6 +29,8 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     hdag_darr_empty(&bundle->nodes);
+    hdag_fanout_empty(bundle->nodes_fanout,
+                      HDAG_ARR_LEN(bundle->nodes_fanout));
     hdag_darr_empty(&bundle->target_hashes);
     hdag_darr_empty(&bundle->extra_edges);
     assert(hdag_bundle_is_valid(bundle));
