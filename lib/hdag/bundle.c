@@ -1141,40 +1141,46 @@ hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Disable profiling */
-#undef PROFILE_TIME
-#define PROFILE_TIME(_action, _statement) _statement
+#undef HDAG_PROFILE_TIME
+#define HDAG_PROFILE_TIME(_action, _statement) _statement
 
     /* Load the node sequence (adjacency list) */
-    PROFILE_TIME("Loading node sequence",
-                 HDAG_RES_TRY(hdag_bundle_node_seq_load(&bundle, node_seq)));
+    HDAG_PROFILE_TIME(
+        "Loading node sequence",
+        HDAG_RES_TRY(hdag_bundle_node_seq_load(&bundle, node_seq))
+    );
 
     /* Sort the nodes and edges by hash lexicographically */
-    PROFILE_TIME("Sorting the bundle",
-                 hdag_bundle_sort(&bundle));
+    HDAG_PROFILE_TIME("Sorting the bundle",
+                      hdag_bundle_sort(&bundle));
 
     /* Deduplicate the nodes and edges */
-    PROFILE_TIME("Deduping the bundle",
-                 HDAG_RES_TRY(hdag_bundle_dedup(&bundle)));
+    HDAG_PROFILE_TIME("Deduping the bundle",
+                      HDAG_RES_TRY(hdag_bundle_dedup(&bundle)));
 
     /* Fill in the fanout array */
     hdag_bundle_fanout_fill(&bundle);
 
     /* Compact the edges */
-    PROFILE_TIME("Compacting the bundle",
-                 hdag_bundle_compact(&bundle));
+    HDAG_PROFILE_TIME("Compacting the bundle",
+                      hdag_bundle_compact(&bundle));
 
     /* Try to enumerate the generations */
-    PROFILE_TIME("Enumerating the generations",
-                 HDAG_RES_TRY(hdag_bundle_generations_enumerate(&bundle)));
+    HDAG_PROFILE_TIME(
+        "Enumerating the generations",
+        HDAG_RES_TRY(hdag_bundle_generations_enumerate(&bundle))
+    );
 
     /* Try to enumerate the components */
-    PROFILE_TIME("Enumerating the components",
-                 HDAG_RES_TRY(hdag_bundle_components_enumerate(&bundle)));
+    HDAG_PROFILE_TIME(
+        "Enumerating the components",
+        HDAG_RES_TRY(hdag_bundle_components_enumerate(&bundle))
+    );
 
     /* Shrink the extra space allocated for the bundle */
     HDAG_RES_TRY(hdag_bundle_deflate(&bundle));
 
-#undef PROFILE_TIME
+#undef HDAG_PROFILE_TIME
 
     assert(hdag_bundle_is_valid(&bundle));
     if (pbundle != NULL) {
