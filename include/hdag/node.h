@@ -186,4 +186,18 @@ hdag_node_targets_count(const struct hdag_node *node)
     return hdag_targets_count(&node->targets);
 }
 
+/**
+ * Check if a node is known, or is simply a record of node's existence.
+ *
+ * @param node  The node to check.
+ *
+ * @return True if the complete node's information is known, false if not.
+ */
+static inline bool
+hdag_node_is_known(const struct hdag_node *node)
+{
+    assert(hdag_node_is_valid(node));
+    return hdag_targets_are_known(&node->targets);
+}
+
 #endif /* _HDAG_NODE_H */
