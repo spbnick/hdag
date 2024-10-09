@@ -1,5 +1,5 @@
 /*
- * Hash DAG file operations
+ * Hash DAG file
  *
  * NOTE: Files use host order.
  */
