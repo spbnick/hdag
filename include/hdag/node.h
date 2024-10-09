@@ -71,6 +71,29 @@ hdag_node_off(struct hdag_node *node, uint16_t hash_len, ssize_t off)
 }
 
 /**
+ * Calculate a pointer to a const node with the specified offset from the
+ * given one.
+ *
+ * @param node      The node to start the offset from.
+ *                  Must be non-NULL and divisible by four.
+ * @param hash_len  The length of the node's hash.
+ * @param off       The number of nodes to offset by.
+ *
+ * @return The pointer to the offset node.
+ */
+static inline const struct hdag_node *
+hdag_node_off_const(const struct hdag_node *node,
+                    uint16_t hash_len,
+                    ssize_t off)
+{
+    assert(((uintptr_t)node & 3) == 0);
+    assert(hdag_hash_len_is_valid(hash_len));
+    return (const struct hdag_node *)(
+        (const uint8_t *)node + off * hdag_node_size(hash_len)
+    );
+}
+
+/**
  * Compare two nodes by hash lexicographically.
  *
  * @param a         The first node to compare.
