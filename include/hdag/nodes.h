@@ -48,4 +48,26 @@ hdag_nodes_find(const struct hdag_node *nodes, size_t nodes_num,
 {
     return hdag_nodes_slice_find(nodes, 0, nodes_num, hash_len, hash_ptr);
 }
+
+/**
+ * Get a const node from a const node array by its index.
+ *
+ * @param nodes     The node array to get the node from.
+ * @param hash_len  The length of the hash of each node in the array.
+ * @param idx       The index of the node to get (up to the caller to
+ *                  validate). Must be less than INT32_MAX.
+ *
+ * @return The node at the specified index.
+ */
+static inline const struct hdag_node *
+hdag_nodes_get_const(const struct hdag_node *nodes,
+                     uint16_t hash_len,
+                     uint32_t idx)
+{
+    assert(nodes != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+    assert(idx < INT32_MAX);
+    return hdag_node_off_const(nodes, hash_len, idx);
+}
+
 #endif /* _HDAG_NODES_H */
