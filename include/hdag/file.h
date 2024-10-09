@@ -354,4 +354,33 @@ hdag_file_sync(struct hdag_file *file)
  */
 extern hdag_res hdag_file_close(struct hdag_file *pfile);
 
+/**
+ * Lookup the index of a node within a file, using its hash.
+ *
+ * @param file      The bundle to look up the node in.
+ * @param hash_ptr  The hash the node must have.
+ *                  The hash length must match the file's hash length.
+ *
+ * @return The index of the found node (< INT32_MAX),
+ *         or INT32_MAX, if not found.
+ */
+static inline uint32_t
+hdag_file_find_node_idx(const struct hdag_file *file,
+                        const uint8_t *hash_ptr)
+{
+    assert(hdag_file_is_valid(file));
+    assert(hdag_file_is_open(file));
+    assert(hash_ptr != NULL);
+
+    const uint32_t *fanout = file->header->node_fanout;
+
+    return hdag_nodes_slice_find(
+        file->nodes,
+        (*hash_ptr == 0 ? 0 : fanout[*hash_ptr - 1]),
+        fanout[*hash_ptr],
+        file->header->hash_len,
+        hash_ptr
+    );
+}
+
 #endif /* _HDAG_FILE_H */
