@@ -12,7 +12,14 @@
 
 /** A dynamic array */
 struct hdag_darr {
-    /** The size of each array element slot */
+    /**
+     * The size of each array element slot.
+     * If zero, the array is considered "void".
+     * A void array cannot be changed and its elements cannot be accessed
+     * (without assertions NULL pointers will be returned).
+     * However, allocating/appending zero elements will return NULL as usual,
+     * and removing zero elements, emptying and cleanup will succeed.
+     */
     size_t slot_size;
     /** The memory slots allocated for the elements */
     void *slots;
@@ -25,72 +32,15 @@ struct hdag_darr {
 };
 
 /**
- * Check if a slot size is valid.
- *
- * @param slot_size  The element slot size to check.
- *
- * @return True if the size is valid, false otherwise.
- */
-static inline bool
-hdag_darr_slot_size_is_valid(size_t slot_size)
-{
-    return slot_size != 0;
-}
-
-/**
- * Check if the number of slots to preallocate is valid.
- *
- * @param slots_preallocate The number of slots to check.
- *
- * @return True if the number is valid, false otherwise.
- */
-static inline bool
-hdag_darr_slots_preallocate_is_valid(size_t slots_preallocate)
-{
-    return slots_preallocate != 0;
-}
-
-/**
- * Validate a dynamic array's element slot size.
- *
- * @param size  The element slot size to validate.
- *
- * @return The validated size.
- */
-static inline size_t
-hdag_darr_slot_size_validate(size_t slot_size)
-{
-    assert(hdag_darr_slot_size_is_valid(slot_size));
-    return slot_size;
-}
-
-/**
- * Validate the number of slots to preallocate for an array.
- *
- * @param slots_preallocate   The number of slots to validate.
- *
- * @return The validated number of slots.
- */
-static inline size_t
-hdag_darr_slots_preallocate_validate(size_t slots_preallocate)
-{
-    assert(hdag_darr_slots_preallocate_is_valid(slots_preallocate));
-    return slots_preallocate;
-}
-
-/**
  * An initializer for an empty dynamic array.
  *
  * @param _slot_size            The size of each element slot.
- *                              Cannot be zero.
+ *                              The array is considered "void", if zero.
  * @param _slots_preallocate    Number of slots to preallocate.
- *                              Cannot be zero.
  */
 #define HDAG_DARR_EMPTY(_slot_size, _slots_preallocate) (struct hdag_darr){ \
-    .slot_size =                                                            \
-        hdag_darr_slot_size_validate(_slot_size),                           \
-    .slots_preallocate =                                                    \
-        hdag_darr_slots_preallocate_validate(_slots_preallocate),           \
+    .slot_size = (_slot_size),                                              \
+    .slots_preallocate = (_slots_preallocate),                              \
 }
 
 /**
@@ -104,10 +54,25 @@ static inline bool
 hdag_darr_is_valid(const struct hdag_darr *darr)
 {
     return darr != NULL &&
-        hdag_darr_slot_size_is_valid(darr->slot_size) &&
-        hdag_darr_slots_preallocate_is_valid(darr->slots_preallocate) &&
         darr->slots_occupied <= darr->slots_allocated &&
-        (darr->slots != NULL || darr->slots_allocated == 0);
+        (darr->slots != NULL ||
+         darr->slots_allocated == 0 ||
+         darr->slot_size == 0);
+}
+
+/**
+ * Check if a dynamic array is void (has slot size zero), cannot be
+ * accessed or modified, and always has size zero.
+ *
+ * @param darr  The dynamic array to check.
+ *
+ * @return True if the dynamic array is void, false otherwise.
+ */
+static inline bool
+hdag_darr_is_void(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return darr->slot_size == 0;
 }
 
 /**
@@ -171,10 +136,12 @@ hdag_darr_allocated_size(const struct hdag_darr *darr)
  * elements.
  *
  * @param darr  The dynamic array to allocate slots in.
+ *              Cannot be void unless num is zero.
  * @param num   The number of elements to allocate slots for.
  *
  * @return The pointer to the first allocated element slot in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ *         succeeded. NULL, if "num" was zero, the array was "void", or
+ *         allocation failed (in which case errno is set).
  */
 extern void *hdag_darr_alloc(struct hdag_darr *darr, size_t num);
 
@@ -183,10 +150,12 @@ extern void *hdag_darr_alloc(struct hdag_darr *darr, size_t num);
  * number of elements.
  *
  * @param darr  The dynamic array to allocate and zero slots in.
+ *              Cannot be void unless num is zero.
  * @param num   The number of elements to allocate slots for.
  *
  * @return The pointer to the first allocated element slot in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ *         succeeded. NULL, if "num" was zero, the array was "void", or
+ *         allocation failed (in which case errno is set).
  */
 static inline void *
 hdag_darr_calloc(struct hdag_darr *darr, size_t num)
@@ -202,15 +171,17 @@ hdag_darr_calloc(struct hdag_darr *darr, size_t num)
 /**
  * Make sure a dynamic array has a slot allocated for one more elements.
  *
- * @param darr  The dynamic array to allocate the slot in.
+ * @param darr  The dynamic array to allocate the slot in. Cannot be void.
  *
  * @return The pointer to the allocated element slot in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ *         succeeded. NULL, if the array was "void", or allocation failed (in
+ *         which case errno is set).
  */
 static inline void *
 hdag_darr_alloc_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     return hdag_darr_alloc(darr, 1);
 }
 
@@ -219,25 +190,30 @@ hdag_darr_alloc_one(struct hdag_darr *darr)
  * element.
  *
  * @param darr  The dynamic array to allocate and zero the slot in.
+ *              Cannot be void.
  *
  * @return The pointer to the allocated element slot in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ *         succeeded. NULL, if the array was "void", or allocation failed (in
+ *         which case errno is set).
  */
 static inline void *
 hdag_darr_calloc_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     return hdag_darr_calloc(darr, 1);
 }
 
 /**
  * Append the specified number of *uninitialized* elements to a dynamic array.
  *
- * @param darr      The dynamic array to append elements to
- * @param num       The number of elements to append.
+ * @param darr  The dynamic array to append elements to.
+ *              Cannot be void unless num is zero.
+ * @param num   The number of elements to append.
  *
- * @return The pointer to the appended elements in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ * @return The pointer to the first appended element in the array, if
+ *         succeeded. NULL, if "num" was zero, the array was "void", or
+ *         allocation failed (in which case errno is set).
  */
 static inline void *
 hdag_darr_uappend(struct hdag_darr *darr, size_t num)
@@ -254,12 +230,14 @@ hdag_darr_uappend(struct hdag_darr *darr, size_t num)
 /**
  * Append the specified number of elements to a dynamic array.
  *
- * @param darr      The dynamic array to append elements to
+ * @param darr      The dynamic array to append elements to.
+ *                  Cannot be void unless num is zero.
  * @param elements  The array containing elements to append.
  * @param num       The number of elements from the array to append.
  *
- * @return The pointer to the appended elements in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ * @return The pointer to the first appended element in the array, if
+ *         succeeded. NULL, if "num" was zero, the array was "void", or
+ *         allocation failed (in which case errno is set).
  */
 static void *
 hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
@@ -277,27 +255,31 @@ hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
 /**
  * Append one element to a dynamic array.
  *
- * @param darr      The dynamic array to append elements to
+ * @param darr      The dynamic array to append elements to. Cannot be void.
  * @param element   The pointer to the element to append.
  *
- * @return The pointer to the appended element in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ * @return The pointer to the appended element in the array, if succeeded.
+ *         NULL, if the array was "void", or allocation failed (in which case
+ *         errno is set).
  */
 static inline void *
 hdag_darr_append_one(struct hdag_darr *darr, void *element)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     return hdag_darr_append(darr, element, 1);
 }
 
 /**
  * Append the specified number of zero-filled elements to a dynamic array.
  *
- * @param darr      The dynamic array to append elements to
+ * @param darr      The dynamic array to append elements to.
+ *                  Cannot be void unless num is zero.
  * @param num       The number of zeroed elements to append.
  *
- * @return The pointer to the appended elements in the array, if
- *         succeeded. NULL, if allocation failed, and errno was set.
+ * @return The pointer to the first appended element in the array, if
+ *         succeeded. NULL, if "num" was zero, the array was "void", or
+ *         allocation failed (in which case errno is set).
  */
 static inline void *
 hdag_darr_cappend(struct hdag_darr *darr, size_t num)
@@ -315,31 +297,57 @@ hdag_darr_cappend(struct hdag_darr *darr, size_t num)
  * Append a zero-filled element to a dynamic array.
  *
  * @param darr      The dynamic array to append the zeroed element to.
+ *                  Cannot be void.
  *
- * @return The pointer to the appended element, if succeeded.
- *         NULL, if allocation failed, and errno was set.
+ * @return The pointer to the appended element in the array, if succeeded.
+ *         NULL, if the array was "void", or allocation failed (in which case
+ *         errno is set).
  */
 static inline void *
 hdag_darr_cappend_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     return hdag_darr_cappend(darr, 1);
+}
+
+/**
+ * Retrieve the const pointer to a const dynamic array element slot at
+ * specified index.
+ *
+ * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
+ * @param idx   The index of the element slot to retrieve the pointer to.
+ *              Must be within allocated area, but not necessarily within
+ *              occupied area.
+ *
+ * @return The element slot pointer. NULL if the array was void.
+ */
+static inline const void *
+hdag_darr_slot_const(const struct hdag_darr *darr, size_t idx)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
+    assert(idx <= darr->slots_allocated);
+    return (char *)darr->slots + darr->slot_size * idx;
 }
 
 /**
  * Retrieve the pointer to a dynamic array element slot at specified index.
  *
  * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param idx   The index of the element slot to retrieve the pointer to.
  *              Must be within allocated area, but not necessarily within
  *              occupied area.
  *
- * @return The element slot pointer.
+ * @return The element slot pointer. NULL if the array was void.
  */
 static inline void *
 hdag_darr_slot(struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(idx <= darr->slots_allocated);
     return (char *)darr->slots + darr->slot_size * idx;
 }
@@ -348,15 +356,17 @@ hdag_darr_slot(struct hdag_darr *darr, size_t idx)
  * Retrieve the pointer to a dynamic array element at specified index.
  *
  * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param idx   The index of the element to retrieve the pointer to.
  *              Must be within occupied area.
  *
- * @return The element pointer.
+ * @return The element pointer. NULL if the array was void.
  */
 static inline void *
 hdag_darr_element(struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(idx < darr->slots_occupied);
     return (char *)darr->slots + darr->slot_size * idx;
 }
@@ -366,16 +376,18 @@ hdag_darr_element(struct hdag_darr *darr, size_t idx)
  * asserting that the size of the element matches the specified size.
  *
  * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param size  The expected size of the element to assert.
  * @param idx   The index of the element to retrieve the pointer to.
  *              Must be within occupied area.
  *
- * @return The element pointer.
+ * @return The element pointer. NULL if the array was void.
  */
 static inline void *
 hdag_darr_element_sized(struct hdag_darr *darr, size_t size, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(size == darr->slot_size);
     assert(idx < darr->slots_occupied);
     (void)size;
@@ -387,15 +399,17 @@ hdag_darr_element_sized(struct hdag_darr *darr, size_t size, size_t idx)
  * dynamic array.
  *
  * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param idx   The index of the element to retrieve the pointer to.
  *              Must be within occupied area.
  *
- * @return The element pointer.
+ * @return The element pointer. NULL if the array was void.
  */
 static inline const void *
 hdag_darr_element_const(const struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(idx < darr->slots_occupied);
     return (const char *)darr->slots + darr->slot_size * idx;
 }
@@ -406,17 +420,19 @@ hdag_darr_element_const(const struct hdag_darr *darr, size_t idx)
  * size.
  *
  * @param darr  The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param idx   The index of the element to retrieve the pointer to.
  *              Must be within occupied area.
  * @param size  The expected size of the element to assert.
  *
- * @return The element pointer.
+ * @return The element pointer. NULL if the array was void.
  */
 static inline const void *
 hdag_darr_element_sized_const(const struct hdag_darr *darr,
                               size_t size, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(size == darr->slot_size);
     assert(idx < darr->slots_occupied);
     (void)size;
@@ -430,6 +446,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  * returned pointer to a pointer to the specified type.
  *
  * @param _darr The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param _type The type of the array element (not a pointer to it) to assert
  *              the size of, and to cast the returned type to (making it a
  *              pointer). Will have "const" qualifier added, if _darr is
@@ -438,6 +455,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  *              Must be within occupied area.
  *
  * @return The element pointer (const, if the dynamic array was const).
+ *         NULL if the array was void.
  */
 #define HDAG_DARR_ELEMENT(_darr, _type, _idx) \
     _Generic(                                                               \
@@ -459,6 +477,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  * the specified type.
  *
  * @param _darr The array to retrieve the element pointer from.
+ *              Cannot be void.
  * @param _type The type of the array element (not a pointer to it) to cast
  *              the returned type to (making it a pointer). Will have "const"
  *              qualifier added, if _darr is const.
@@ -466,6 +485,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  *              Must be within occupied area.
  *
  * @return The element pointer (const, if the dynamic array was const).
+ *         NULL if the array was void.
  */
 #define HDAG_DARR_ELEMENT_UNSIZED(_darr, _type, _idx) \
     _Generic(                                                       \
@@ -483,8 +503,8 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  *
  * @param darr  The dynamic array to deflate.
  *
- * @return True if deflating succeeded, false if memory reallocation failed,
- *         and errno was set.
+ * @return True if deflating succeeded, false if memory reallocation failed
+ *         (in which case errno is set).
  */
 extern bool hdag_darr_deflate(struct hdag_darr *darr);
 
@@ -550,6 +570,7 @@ hdag_darr_is_clean(const struct hdag_darr *darr)
  * Remove a slice of elements from a dynamic array.
  *
  * @param darr  The dynamic array to remove the slice from.
+ *              Cannot be void unless start == end.
  * @param start The index of the first slot of the slice to remove.
  * @param end   The index of the first slot after the slice being removed.
  *              Must be equal to, or greater than "start".
@@ -560,21 +581,26 @@ hdag_darr_remove(struct hdag_darr *darr, size_t start, size_t end)
     assert(hdag_darr_is_valid(darr));
     assert(start <= end);
     assert(end <= darr->slots_occupied);
-    memmove(hdag_darr_slot(darr, start), hdag_darr_slot(darr, end),
-            (darr->slots_occupied - end) * darr->slot_size);
-    darr->slots_occupied -= end - start;
+    if (start != end) {
+        assert(!hdag_darr_is_void(darr));
+        memmove(hdag_darr_slot(darr, start), hdag_darr_slot(darr, end),
+                (darr->slots_occupied - end) * darr->slot_size);
+        darr->slots_occupied -= end - start;
+    }
 }
 
 /**
  * Remove an element from a dynamic array.
  *
  * @param darr  The dynamic array to remove the slice from.
+ *              Cannot be void.
  * @param idx   The index of the element to remove.
  */
 static inline void
 hdag_darr_remove_one(struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(idx < darr->slots_occupied);
     hdag_darr_remove(darr, idx, idx + 1);
 }
@@ -640,6 +666,7 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
  * Qsort a slice of a dynamic array.
  *
  * @param darr  The dynamic array containing the slice to sort.
+ *              Cannot be void unless both start and end are zero.
  * @param start The index of the first element of the slice to be sorted.
  * @param end   The index of the first element *after* the slice to be sorted.
  * @param cmp   The element comparison function.
@@ -650,11 +677,14 @@ hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
                 hdag_darr_cmp_fn cmp, void *data)
 {
     assert(hdag_darr_is_valid(darr));
-    assert(end <= darr->slots_occupied);
     assert(start <= end);
+    assert(end <= darr->slots_occupied);
     assert(cmp != NULL);
-    qsort_r(hdag_darr_slot(darr, start), end - start,
-            darr->slot_size, cmp, data);
+    if (start != end) {
+        assert(!hdag_darr_is_void(darr));
+        qsort_r(hdag_darr_slot(darr, start), end - start,
+                darr->slot_size, cmp, data);
+    }
 }
 
 /**
@@ -676,6 +706,7 @@ hdag_darr_qsort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
  * Return the index corresponding to an array slot pointer.
  *
  * @param darr  The dynamic array containing the slot.
+ *              Cannot be void.
  * @param slot  The pointer to the slot to return index of.
  *
  * @return The slot index.
@@ -684,7 +715,9 @@ static inline size_t
 hdag_darr_element_idx(const struct hdag_darr *darr, const void *element)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
     assert(element >= darr->slots);
+    assert(element < hdag_darr_slot_const(darr, darr->slots_occupied));
     size_t off = (const char *)element - (const char *)darr->slots;
     assert(off % darr->slot_size == 0);
     return off / darr->slot_size;
@@ -709,11 +742,13 @@ hdag_darr_copy(struct hdag_darr *pdst, const struct hdag_darr *src)
     size_t size_occupied = src->slots_occupied * src->slot_size;
     struct hdag_darr dst = *src;
 
-    dst.slots = malloc(size_occupied);
-    if (dst.slots == NULL) {
-        return false;
+    if (size_occupied != 0) {
+        dst.slots = malloc(size_occupied);
+        if (dst.slots == NULL) {
+            return false;
+        }
+        memcpy(dst.slots, src->slots, size_occupied);
     }
-    memcpy(dst.slots, src->slots, size_occupied);
     *pdst = dst;
     return true;
 }
