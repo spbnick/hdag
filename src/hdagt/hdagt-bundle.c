@@ -31,7 +31,7 @@ test_deduplicating(uint16_t hash_len)
     TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
 
     /* Create sixteen zeroed nodes */
-    hdag_darr_cappend(&bundle.nodes, 16);
+    TEST(hdag_darr_cappend(&bundle.nodes, 16));
 
     /* Check basic node deduplication works */
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
@@ -60,9 +60,9 @@ test_deduplicating(uint16_t hash_len)
 
     /* Check deduplicating a 64-node bundle to a single-node bundle works */
     hdag_darr_empty(&bundle.nodes);
-    hdag_darr_cappend(&bundle.nodes, 64);
+    TEST(hdag_darr_cappend(&bundle.nodes, 64));
     /* Make sure there's no more space allocated */
-    hdag_darr_deflate(&bundle.nodes);
+    TEST(hdag_darr_deflate(&bundle.nodes));
     TEST(bundle.nodes.slots_occupied == 64);
     TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 1);
@@ -83,6 +83,7 @@ test_deduplicating(uint16_t hash_len)
 #define APPEND_NODE_UNKNOWN \
     do {                                                \
         node = hdag_darr_cappend_one(&bundle.nodes);    \
+        TEST(node);                                     \
         hdag_node_hash_fill(node, hash_len, hash_idx);  \
         node->component = idx++;                        \
         node->targets = HDAG_TARGETS_UNKNOWN;           \
@@ -91,6 +92,7 @@ test_deduplicating(uint16_t hash_len)
 #define APPEND_NODE_ABSENT \
     do {                                                \
         node = hdag_darr_cappend_one(&bundle.nodes);    \
+        TEST(node);                                     \
         hdag_node_hash_fill(node, hash_len, hash_idx);  \
         node->component = idx++;                        \
         node->targets = HDAG_TARGETS_ABSENT;            \
@@ -174,6 +176,7 @@ test_deduplicating(uint16_t hash_len)
      */
     /* Two same edges */
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 0);
     node->targets.first =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
@@ -186,6 +189,7 @@ test_deduplicating(uint16_t hash_len)
 
     /* Edge a, edge b, edge b */
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 1);
     node->targets.first =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
@@ -200,6 +204,7 @@ test_deduplicating(uint16_t hash_len)
 
     /* Edge a, edge b, edge a */
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 2);
     node->targets.first =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
@@ -212,10 +217,12 @@ test_deduplicating(uint16_t hash_len)
     node->targets.last =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 3);
 
     /* Edge a, edge a, edge b */
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 4);
     node->targets.first =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
@@ -228,10 +235,12 @@ test_deduplicating(uint16_t hash_len)
     node->targets.last =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 5);
 
     /* Three same edges */
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 6);
     node->targets.first =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied);
@@ -244,8 +253,10 @@ test_deduplicating(uint16_t hash_len)
     node->targets.last =
         hdag_target_from_ind_idx(bundle.target_hashes.slots_occupied - 1);
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 7);
     node = hdag_darr_cappend_one(&bundle.nodes);
+    TEST(node);
     hdag_node_hash_fill(node, hash_len, 8);
 
     /* Check we have the expected number of nodes and target hashes */
@@ -338,8 +349,8 @@ test_compacting(uint16_t hash_len)
     uint8_t *hash_ptr;
 
     /* Create a directed path: 15->14->13->...->2->1->0 */
-    hdag_darr_cappend(&bundle.nodes, 16);
-    hdag_darr_cappend(&bundle.target_hashes, 15);
+    TEST(hdag_darr_cappend(&bundle.nodes, 16));
+    TEST(hdag_darr_cappend(&bundle.target_hashes, 15));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         hdag_node_hash_fill(node, hash_len, 15 - idx);
         if (idx <= 14) {
@@ -383,8 +394,8 @@ test_compacting(uint16_t hash_len)
     /*
      * Check unknown nodes are handled correctly, and extra edges are created
      */
-    hdag_darr_cappend(&bundle.nodes, 9);
-    hdag_darr_cappend(&bundle.target_hashes, 8);
+    TEST(hdag_darr_cappend(&bundle.nodes, 9));
+    TEST(hdag_darr_cappend(&bundle.target_hashes, 8));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         hdag_node_hash_fill(node, hash_len, idx);
         if (idx == 0) {
@@ -442,7 +453,7 @@ test_inverting(uint16_t hash_len)
     do {                                                        \
         ssize_t _idx;                                           \
         struct hdag_node *_node;                                \
-        hdag_darr_cappend(&original.nodes, _num);               \
+        TEST(hdag_darr_cappend(&original.nodes, _num));         \
         HDAG_DARR_ITER_FORWARD(&original.nodes, _idx, _node,    \
                                (void)0, (void)0) {              \
             hdag_node_hash_fill(_node, hash_len, _idx + 1);     \
@@ -582,6 +593,7 @@ test_inverting(uint16_t hash_len)
     /* Invert N0 -> (N1, N2, N3) (indirect->direct) */
     ORIGINAL_ADD_NODES(4);
     edge = hdag_darr_uappend(&original.extra_edges, 3);
+    TEST(edge);
     edge++->node_idx = 1;
     edge++->node_idx = 2;
     edge++->node_idx = 3;
@@ -740,7 +752,7 @@ test_generation_enumerating(uint16_t hash_len)
     do {                                                    \
         ssize_t _idx;                                       \
         struct hdag_node *_node;                            \
-        hdag_darr_cappend(&bundle.nodes, _num);             \
+        TEST(hdag_darr_cappend(&bundle.nodes, _num));       \
         HDAG_DARR_ITER_FORWARD(&bundle.nodes, _idx, _node,  \
                                (void)0, (void)0) {          \
             hdag_node_hash_fill(_node, hash_len, _idx + 1); \
@@ -874,6 +886,7 @@ test_generation_enumerating(uint16_t hash_len)
     /* Enumerate N0 -> (N1, N2, N3) */
     ADD_NODES(4);
     edge = hdag_darr_uappend(&bundle.extra_edges, 3);
+    TEST(edge);
     edge++->node_idx = 1;
     edge++->node_idx = 2;
     edge++->node_idx = 3;
@@ -923,7 +936,7 @@ test_component_enumerating(uint16_t hash_len)
     do {                                                    \
         ssize_t _idx;                                       \
         struct hdag_node *_node;                            \
-        hdag_darr_cappend(&bundle.nodes, _num);             \
+        TEST(hdag_darr_cappend(&bundle.nodes, _num));       \
         HDAG_DARR_ITER_FORWARD(&bundle.nodes, _idx, _node,  \
                                (void)0, (void)0) {          \
             hdag_node_hash_fill(_node, hash_len, _idx + 1); \
@@ -1121,6 +1134,7 @@ test_component_enumerating(uint16_t hash_len)
     /* Enumerate N0 -> (N1, N2, N3) */
     ADD_NODES(4);
     edge = hdag_darr_uappend(&bundle.extra_edges, 3);
+    TEST(edge);
     edge++->node_idx = 1;
     edge++->node_idx = 2;
     edge++->node_idx = 3;
@@ -1488,7 +1502,7 @@ test_fanout(uint16_t hash_len)
     hdag_bundle_cleanup(&bundle);
 
     /* Fill fanout in a bundle with one node */
-    hdag_darr_cappend(&bundle.nodes, 1);
+    TEST(hdag_darr_cappend(&bundle.nodes, 1));
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
     hdag_bundle_fanout_fill(&bundle);
     for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
@@ -1497,7 +1511,7 @@ test_fanout(uint16_t hash_len)
     hdag_bundle_cleanup(&bundle);
 
     /* Fill fanout in a bundle with two nodes with same hashes */
-    hdag_darr_cappend(&bundle.nodes, 2);
+    TEST(hdag_darr_cappend(&bundle.nodes, 2));
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 1), hash_len, 0);
     hdag_bundle_fanout_fill(&bundle);
@@ -1507,7 +1521,7 @@ test_fanout(uint16_t hash_len)
     hdag_bundle_cleanup(&bundle);
 
     /* Fill fanout in a bundle with 256 different hashes */
-    hdag_darr_cappend(&bundle.nodes, 256);
+    TEST(hdag_darr_cappend(&bundle.nodes, 256));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node,
                            (void)0, (void)0) {
         memset(node->hash, idx, bundle.hash_len);
@@ -1519,7 +1533,7 @@ test_fanout(uint16_t hash_len)
     hdag_bundle_cleanup(&bundle);
 
     /* Fill fanout in a bundle with 16 different hashes with gaps between */
-    hdag_darr_cappend(&bundle.nodes, 16);
+    TEST(hdag_darr_cappend(&bundle.nodes, 16));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node,
                            (void)0, (void)0) {
         memset(node->hash, idx * 16, bundle.hash_len);
@@ -1566,7 +1580,7 @@ test(uint16_t hash_len)
     hdag_bundle_sort(&bundle);
 
     /* Create sixteen zeroed nodes */
-    hdag_darr_cappend(&bundle.nodes, 16);
+    TEST(hdag_darr_cappend(&bundle.nodes, 16));
 
     /* Check sorting works */
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {

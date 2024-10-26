@@ -16,6 +16,7 @@
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_dot_write_bundle(const struct hdag_bundle *bundle,
                                       const char *name, FILE *stream);
 

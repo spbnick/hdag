@@ -51,10 +51,11 @@ main(int argc, const char **argv)
         res = HDAG_RES_ERRNO;
         goto cleanup;
     }
+    HDAG_RES_TRY(hdag_file_close(&file));
 
     res = HDAG_RES_OK;
 cleanup:
-    hdag_file_close(&file);
+    (void)hdag_file_close(&file);
     if (hdag_res_is_ok(res)) {
         return 0;
     }

@@ -45,6 +45,7 @@ struct hdag_node_seq {
 };
 
 /** A next-node retrieval function which never returns nodes */
+[[nodiscard]]
 extern hdag_res hdag_node_seq_empty_next_fn(
                 const struct hdag_node_seq *node_seq,
                 uint8_t *phash,

@@ -146,6 +146,7 @@ hdag_darr_allocated_size(const struct hdag_darr *darr)
  *         succeeded. NULL, if "num" was zero, the array was "void", or
  *         allocation failed (in which case errno is set).
  */
+[[nodiscard]]
 extern void *hdag_darr_alloc(struct hdag_darr *darr, size_t num);
 
 /**
@@ -160,6 +161,7 @@ extern void *hdag_darr_alloc(struct hdag_darr *darr, size_t num);
  *         succeeded. NULL, if "num" was zero, the array was "void", or
  *         allocation failed (in which case errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_calloc(struct hdag_darr *darr, size_t num)
 {
@@ -180,6 +182,7 @@ hdag_darr_calloc(struct hdag_darr *darr, size_t num)
  *         succeeded. NULL, if the array was "void", or allocation failed (in
  *         which case errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_alloc_one(struct hdag_darr *darr)
 {
@@ -199,6 +202,7 @@ hdag_darr_alloc_one(struct hdag_darr *darr)
  *         succeeded. NULL, if the array was "void", or allocation failed (in
  *         which case errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_calloc_one(struct hdag_darr *darr)
 {
@@ -218,6 +222,7 @@ hdag_darr_calloc_one(struct hdag_darr *darr)
  *         succeeded. NULL, if "num" was zero, the array was "void", or
  *         allocation failed (in which case errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_uappend(struct hdag_darr *darr, size_t num)
 {
@@ -242,6 +247,7 @@ hdag_darr_uappend(struct hdag_darr *darr, size_t num)
  *         succeeded. NULL, if "num" was zero, the array was "void", or
  *         allocation failed (in which case errno is set).
  */
+[[nodiscard]]
 static void *
 hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
 {
@@ -265,6 +271,7 @@ hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
  *         NULL, if the array was "void", or allocation failed (in which case
  *         errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_append_one(struct hdag_darr *darr, void *element)
 {
@@ -284,6 +291,7 @@ hdag_darr_append_one(struct hdag_darr *darr, void *element)
  *         succeeded. NULL, if "num" was zero, the array was "void", or
  *         allocation failed (in which case errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_cappend(struct hdag_darr *darr, size_t num)
 {
@@ -306,6 +314,7 @@ hdag_darr_cappend(struct hdag_darr *darr, size_t num)
  *         NULL, if the array was "void", or allocation failed (in which case
  *         errno is set).
  */
+[[nodiscard]]
 static inline void *
 hdag_darr_cappend_one(struct hdag_darr *darr)
 {
@@ -509,6 +518,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  * @return True if deflating succeeded, false if memory reallocation failed
  *         (in which case errno is set).
  */
+[[nodiscard]]
 extern bool hdag_darr_deflate(struct hdag_darr *darr);
 
 /**

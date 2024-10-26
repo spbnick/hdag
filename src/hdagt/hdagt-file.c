@@ -336,7 +336,7 @@ test_basic(void)
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(node->hash[0] == 1);
     TEST(file.extra_edges != NULL);
-    hdag_file_close(&file);
+    TEST(hdag_file_close(&file) == HDAG_RES_OK);
 
     /*
      * Two-node in-memory file.
@@ -359,7 +359,7 @@ test_basic(void)
     TEST(node->targets.first == HDAG_TARGET_ABSENT);
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
-    hdag_file_close(&file);
+    TEST(hdag_file_close(&file) == HDAG_RES_OK);
 
     /*
      * N1->N2 in-memory file.
@@ -384,7 +384,7 @@ test_basic(void)
     TEST(node->targets.first == HDAG_TARGET_ABSENT);
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
-    hdag_file_close(&file);
+    TEST(hdag_file_close(&file) == HDAG_RES_OK);
 
     /*
      * N1<-N2 in-memory file.
@@ -409,7 +409,7 @@ test_basic(void)
     TEST(node->targets.first == hdag_target_from_dir_idx(0));
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
-    hdag_file_close(&file);
+    TEST(hdag_file_close(&file) == HDAG_RES_OK);
 
     return failed;
 }

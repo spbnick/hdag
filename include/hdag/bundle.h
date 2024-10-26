@@ -251,6 +251,7 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_deflate(struct hdag_bundle *bundle);
 
 /**
@@ -280,6 +281,7 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
                                           struct hdag_node_seq node_seq);
 
@@ -303,6 +305,7 @@ extern hdag_res hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
  *         if the file format is invalid, and HDAG_RES_ERRNO's in case of
  *         libc errors.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
                                      FILE *stream, uint16_t hash_len);
 
@@ -314,6 +317,7 @@ extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_txt_save(FILE *stream,
                                      const struct hdag_bundle *bundle);
 
@@ -329,6 +333,7 @@ extern hdag_res hdag_bundle_txt_save(FILE *stream,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
                                             struct hdag_node_seq node_seq);
 
@@ -351,6 +356,7 @@ extern hdag_res hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
  *         if the file format is invalid, HDAG_RES_ERRNO's in case of
  *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
                                        FILE *stream, uint16_t hash_len);
 
@@ -397,6 +403,7 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
 
 /**
@@ -410,6 +417,7 @@ extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_compact(struct hdag_bundle *bundle);
 
 /**
@@ -426,6 +434,7 @@ extern hdag_res hdag_bundle_compact(struct hdag_bundle *bundle);
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
                                    const struct hdag_bundle *original,
                                    bool hashless);
@@ -438,6 +447,7 @@ extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
 
 /**
@@ -495,6 +505,7 @@ hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
 
 /**

@@ -332,7 +332,7 @@ hdag_file_open(struct hdag_file *pfile,
 
     /* Output the opened file, if requested */
     if (pfile == NULL) {
-        hdag_file_close(&file);
+        HDAG_RES_TRY(hdag_file_close(&file));
     } else {
         *pfile = file;
         file = HDAG_FILE_CLOSED;

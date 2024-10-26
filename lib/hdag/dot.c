@@ -21,6 +21,7 @@
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 static hdag_res
 hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
                                  const struct hdag_node *src_node,
@@ -82,6 +83,7 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 static hdag_res
 hdag_dot_write_bundle_ind_targets(const struct hdag_bundle *bundle,
                                   const struct hdag_node *src_node,

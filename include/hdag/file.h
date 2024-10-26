@@ -156,6 +156,7 @@ hdag_file_size(uint16_t hash_len,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_from_bundle(struct hdag_file *pfile,
                                       const char *pathname,
                                       int template_sfxlen,
@@ -172,6 +173,7 @@ extern hdag_res hdag_file_from_bundle(struct hdag_file *pfile,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_to_bundle(struct hdag_bundle *pbundle,
                                     const struct hdag_file *file);
 
@@ -200,6 +202,7 @@ extern hdag_res hdag_file_to_bundle(struct hdag_bundle *pbundle,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_from_node_seq(struct hdag_file *pfile,
                                         const char *pathname,
                                         int template_sfxlen,
@@ -236,6 +239,7 @@ extern hdag_res hdag_file_from_node_seq(struct hdag_file *pfile,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_from_txt(struct hdag_file *pfile,
                                    const char *pathname,
                                    int template_sfxlen,
@@ -251,6 +255,7 @@ extern hdag_res hdag_file_from_txt(struct hdag_file *pfile,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_to_txt(FILE *stream, const struct hdag_file *file);
 
 /**
@@ -263,6 +268,7 @@ extern hdag_res hdag_file_to_txt(FILE *stream, const struct hdag_file *file);
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_open(struct hdag_file *pfile,
                                const char *pathname);
 
@@ -331,6 +337,7 @@ hdag_file_is_backed(const struct hdag_file *file)
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 static inline hdag_res
 hdag_file_sync(struct hdag_file *file)
 {
@@ -352,6 +359,7 @@ hdag_file_sync(struct hdag_file *file)
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_file_close(struct hdag_file *pfile);
 
 /**

@@ -954,6 +954,7 @@ struct hdag_bundle_txt_seq {
  *          including HDAG_RES_INVALID_FORMAT, if the file format is invalid,
  *          and HDAG_RES_ERRNO's in case of libc errors.
  */
+[[nodiscard]]
 static hdag_res
 hdag_bundle_txt_read_hash(FILE *stream, uint8_t *hash_buf, uint16_t hash_len,
                           bool skip_linebreaks)
@@ -1030,6 +1031,7 @@ output:
 /**
  * Return the next target hash from an adjacency list text file.
  */
+[[nodiscard]]
 static hdag_res
 hdag_bundle_txt_hash_seq_next(const struct hdag_hash_seq *hash_seq,
                               uint8_t *phash)
@@ -1056,6 +1058,7 @@ hdag_bundle_txt_hash_seq_next(const struct hdag_hash_seq *hash_seq,
 /**
  * Return the next node from an adjacency list text file.
  */
+[[nodiscard]]
 static hdag_res
 hdag_bundle_txt_node_seq_next(const struct hdag_node_seq *node_seq,
                               uint8_t                    *phash,
