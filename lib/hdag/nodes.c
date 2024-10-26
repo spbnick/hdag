@@ -24,10 +24,8 @@ hdag_nodes_slice_find(const struct hdag_node *nodes,
 
     int relation;
     size_t middle_idx = (start_idx + end_idx) >> 1;
-    const struct hdag_node *middle_node = hdag_node_off(
-        /* We promise we won't change them */
-        (struct hdag_node *)nodes,
-        hash_len, middle_idx
+    const struct hdag_node *middle_node = hdag_node_off_const(
+        nodes, hash_len, middle_idx
     );
     relation = memcmp(hash_ptr, middle_node->hash, hash_len);
     if (relation == 0) {
