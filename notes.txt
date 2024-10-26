@@ -516,3 +516,4 @@ TODO: Make kcidb_bundle_compact() react to memory allocation failures.
 TODO: Move hdag_node_hash_*fill* to hash.h, or even to misc.h
 TODO: Use hdag_node_off_const wherever applicable
 TODO: Make HDAG_BUNDLE_IS_SORTED_AS a function
+    - DONE!
