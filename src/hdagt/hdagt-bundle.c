@@ -462,15 +462,35 @@ test_inverting(uint16_t hash_len)
         }                                                               \
     } while (0)
 
+#define INVERTED_CHECK_HASHLESS_NODES(_num) \
+    TEST(hdag_darr_occupied_slots(&inverted.nodes) == (_num))
+
     /* Invert empty bundle */
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     TEST(memcmp(&inverted, &original, sizeof(struct hdag_bundle)) == 0);
+    hdag_bundle_cleanup(&inverted);
+
+    /* Invert empty bundle without hashes */
+    TEST(!hdag_bundle_is_hashless(&original));
+    TEST(!hdag_bundle_invert(&inverted, &original, true));
+    TEST(hdag_bundle_is_hashless(&inverted));
+    TEST(hdag_bundle_is_empty(&inverted));
     hdag_bundle_cleanup(&inverted);
 
     /* Invert single-node bundle */
     ORIGINAL_ADD_NODES(1);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(1);
+    TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
+    TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
+    TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
+    hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
+
+    /* Invert single-node bundle without hashes */
+    ORIGINAL_ADD_NODES(1);
+    TEST(!hdag_bundle_invert(&inverted, &original, true));
+    INVERTED_CHECK_HASHLESS_NODES(1);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
@@ -480,9 +500,19 @@ test_inverting(uint16_t hash_len)
     /* Invert single unknown-node bundle */
     ORIGINAL_ADD_NODES(1);
     HDAG_BUNDLE_NODE(&original, 0)->targets = HDAG_TARGETS_UNKNOWN;
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(1);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
+    TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
+    TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
+    hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
+
+    /* Invert single unknown-node bundle without hashes */
+    ORIGINAL_ADD_NODES(1);
+    HDAG_BUNDLE_NODE(&original, 0)->targets = HDAG_TARGETS_UNKNOWN;
+    TEST(!hdag_bundle_invert(&inverted, &original, true));
+    INVERTED_CHECK_HASHLESS_NODES(1);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 0);
     TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
@@ -491,7 +521,7 @@ test_inverting(uint16_t hash_len)
 
     /* Invert two disconnected-node bundle */
     ORIGINAL_ADD_NODES(2);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(2);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
@@ -504,7 +534,7 @@ test_inverting(uint16_t hash_len)
     ORIGINAL_ADD_NODES(2);
     HDAG_BUNDLE_NODE(&original, 0)->targets = HDAG_TARGETS_UNKNOWN;
     HDAG_BUNDLE_NODE(&original, 1)->targets = HDAG_TARGETS_UNKNOWN;
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(2);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
@@ -519,7 +549,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_bundle_targets_count(&original, 0) == 1);
     TEST(hdag_bundle_targets_count(&original, 1) == 0);
     TEST(hdag_bundle_targets_node_idx(&original, 0, 0) == 1);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(2);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 1);
@@ -537,7 +567,7 @@ test_inverting(uint16_t hash_len)
     TEST(hdag_bundle_targets_count(&original, 2) == 0);
     TEST(hdag_bundle_targets_node_idx(&original, 0, 0) == 1);
     TEST(hdag_bundle_targets_node_idx(&original, 0, 1) == 2);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(3);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 1);
@@ -564,7 +594,7 @@ test_inverting(uint16_t hash_len)
     assert(hdag_bundle_targets_node_idx(&original, 0, 1) == 2);
     assert(hdag_bundle_targets_node_idx(&original, 0, 2) == 3);
     assert(hdag_bundle_is_valid(&original));
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(4);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 1);
@@ -591,7 +621,7 @@ test_inverting(uint16_t hash_len)
     assert(hdag_bundle_targets_node_idx(&original, 1, 0) == 3);
     assert(hdag_bundle_targets_node_idx(&original, 2, 0) == 3);
     assert(hdag_bundle_is_valid(&original));
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(4);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
@@ -618,8 +648,42 @@ test_inverting(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&original, 6)->targets = hdag_targets_direct_one(7);
     assert(hdag_bundle_is_valid(&original));
     assert(hdag_darr_occupied_slots(&original.extra_edges) == 0);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(8);
+    TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 2) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 3) == 3);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 3, 0) == 0);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 3, 1) == 1);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 3, 2) == 2);
+    TEST(hdag_bundle_targets_count(&inverted, 4) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 5) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 6) == 0);
+    TEST(hdag_bundle_targets_count(&inverted, 7) == 3);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 7, 0) == 4);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 7, 1) == 5);
+    TEST(hdag_bundle_targets_node_idx(&inverted, 7, 2) == 6);
+    TEST(hdag_darr_occupied_slots(&inverted.extra_edges) == 6);
+    TEST(hdag_darr_occupied_slots(&inverted.target_hashes) == 0);
+    hdag_bundle_empty(&original);
+    hdag_bundle_cleanup(&inverted);
+
+    /*
+     * Invert (N0, N1, N2) -> N3 (N4, N5, N6) -> N7 (hashless)
+     * (direct->multiple-indirect)
+     */
+    ORIGINAL_ADD_NODES(8);
+    HDAG_BUNDLE_NODE(&original, 0)->targets = hdag_targets_direct_one(3);
+    HDAG_BUNDLE_NODE(&original, 1)->targets = hdag_targets_direct_one(3);
+    HDAG_BUNDLE_NODE(&original, 2)->targets = hdag_targets_direct_one(3);
+    HDAG_BUNDLE_NODE(&original, 4)->targets = hdag_targets_direct_one(7);
+    HDAG_BUNDLE_NODE(&original, 5)->targets = hdag_targets_direct_one(7);
+    HDAG_BUNDLE_NODE(&original, 6)->targets = hdag_targets_direct_one(7);
+    assert(hdag_bundle_is_valid(&original));
+    assert(hdag_darr_occupied_slots(&original.extra_edges) == 0);
+    TEST(!hdag_bundle_invert(&inverted, &original, true));
+    INVERTED_CHECK_HASHLESS_NODES(8);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 2) == 0);
@@ -645,7 +709,7 @@ test_inverting(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&original, 2)->targets = hdag_targets_direct_one(1);
     assert(hdag_bundle_is_valid(&original));
     assert(hdag_darr_occupied_slots(&original.extra_edges) == 0);
-    TEST(!hdag_bundle_invert(&inverted, &original));
+    TEST(!hdag_bundle_invert(&inverted, &original, false));
     INVERTED_CHECK_NODES(3);
     TEST(hdag_bundle_targets_count(&inverted, 0) == 0);
     TEST(hdag_bundle_targets_count(&inverted, 1) == 2);

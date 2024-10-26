@@ -86,6 +86,7 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     ssize_t idx;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(hdag_bundle_fanout_is_empty(bundle));
 
@@ -182,6 +183,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle)
 {
     hdag_res res = HDAG_RES_INVALID;
     assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
 
@@ -336,6 +338,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
         HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64);
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
            !hdag_bundle_fanout_is_empty(bundle));
@@ -425,14 +428,17 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
 
 hdag_res
 hdag_bundle_invert(struct hdag_bundle *pinverted,
-                   const struct hdag_bundle *original)
+                   const struct hdag_bundle *original,
+                   bool hashless)
 {
     assert(hdag_bundle_is_valid(original));
     assert(hdag_bundle_is_sorted_and_deduped(original));
     assert(!hdag_bundle_has_hash_targets(original));
 
     hdag_res                res = HDAG_RES_INVALID;
-    struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(original->hash_len);
+    struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(
+        hashless ? 0 : original->hash_len
+    );
     ssize_t                 node_idx;
     const struct hdag_node *original_node;
     struct hdag_node       *inverted_node;
@@ -443,9 +449,24 @@ hdag_bundle_invert(struct hdag_bundle *pinverted,
         goto output;
     }
 
-    if (!hdag_darr_append(&inverted.nodes, original->nodes.slots,
-                          hdag_darr_occupied_slots(&original->nodes))) {
+    /* Append uninitialized nodes to inverted bundle */
+    if (!hdag_darr_uappend(&inverted.nodes,
+                           hdag_darr_occupied_slots(&original->nodes))) {
         goto cleanup;
+    }
+    /* If we're not dropping hashes */
+    if (hdag_darr_occupied_size(&inverted.nodes) ==
+        hdag_darr_occupied_size(&original->nodes)) {
+        /* Copy all nodes in one go */
+        memcpy(inverted.nodes.slots, original->nodes.slots,
+               hdag_darr_occupied_size(&inverted.nodes));
+    } else {
+        /* Copy nodes without hashes, one-by-one */
+        HDAG_DARR_ITER_FORWARD(&inverted.nodes, node_idx, inverted_node,
+                               (void)0, (void)0) {
+            memcpy(inverted_node, HDAG_BUNDLE_NODE(original, node_idx),
+                   inverted.nodes.slot_size);
+        }
     }
 
     /* Put the number of node's eventual targets into the "generation" */
@@ -526,7 +547,8 @@ hdag_bundle_invert(struct hdag_bundle *pinverted,
 
 output:
     assert(hdag_bundle_is_valid(&inverted));
-    assert(hdag_bundle_is_sorted_and_deduped(&inverted));
+    assert(hashless ? hdag_bundle_is_hashless(&inverted)
+                    : hdag_bundle_is_sorted_and_deduped(&inverted));
     assert(!hdag_bundle_has_hash_targets(&inverted));
     assert(!hdag_bundle_some_nodes_have_generations(&inverted));
 
@@ -686,7 +708,7 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
     assert(!hdag_bundle_some_nodes_have_components(bundle));
 
     /* Invert the graph */
-    HDAG_RES_TRY(hdag_bundle_invert(&inverted, bundle));
+    HDAG_RES_TRY(hdag_bundle_invert(&inverted, bundle, true));
 
     /* Use short alias pointers for uniformity */
     orig = bundle;
@@ -1065,6 +1087,7 @@ hdag_bundle_txt_save(FILE *stream, const struct hdag_bundle *bundle)
 {
     assert(stream != NULL);
     assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
 
     hdag_res res = HDAG_RES_INVALID;
     size_t hex_len = bundle->hash_len * 2;

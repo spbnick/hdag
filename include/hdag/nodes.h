@@ -19,6 +19,7 @@
  *                  Must be greater than or equal to start_idx.
  *                  Must be less than INT32_MAX.
  * @param hash_len  The length of the node hash.
+ *                  Must be valid according to hdag_hash_len_is_valid().
  * @param hash_ptr  Pointer to the hash to find in the array.
  *
  * @return The array index of the found node (< INT32_MAX),
@@ -37,6 +38,7 @@ extern uint32_t hdag_nodes_slice_find(const struct hdag_node *nodes,
  *                  Must be sorted lexicographically by node hashes.
  * @param nodes_num Number of nodes in the array. Must be less than INT32_MAX.
  * @param hash_len  The length of the node hash.
+ *                  Must be valid according to hdag_hash_len_is_valid().
  * @param hash_ptr  Pointer to the hash to find in the array.
  *
  * @return The array index of the found node (< INT32_MAX),
@@ -65,7 +67,7 @@ hdag_nodes_get_const(const struct hdag_node *nodes,
                      uint32_t idx)
 {
     assert(nodes != NULL);
-    assert(hdag_hash_len_is_valid(hash_len));
+    assert(hash_len == 0 || hdag_hash_len_is_valid(hash_len));
     assert(idx < INT32_MAX);
     return hdag_node_off_const(nodes, hash_len, idx);
 }

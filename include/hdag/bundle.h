@@ -17,7 +17,12 @@
 
 /** A bundle */
 struct hdag_bundle {
-    /** The length of the node hash */
+    /**
+     * The length of the node hash.
+     * Has to be valid according to hdag_hash_len_is_valid(), or be zero.
+     * If zero, then nodes in "nodes" don't have hashes, and both
+     * "nodes_fanout" and "target_hashes" must be "empty".
+     */
     uint16_t            hash_len;
 
     /**
@@ -60,11 +65,11 @@ struct hdag_bundle {
  * @param _hash_len The length of node hashes.
  */
 #define HDAG_BUNDLE_EMPTY(_hash_len) (struct hdag_bundle){ \
-    .hash_len = hdag_hash_len_validate(_hash_len),                  \
-    .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),        \
-    .nodes_fanout = HDAG_FANOUT_EMPTY,                              \
-    .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                \
-    .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),   \
+    .hash_len = (_hash_len) ? hdag_hash_len_validate(_hash_len) : 0,    \
+    .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),            \
+    .nodes_fanout = HDAG_FANOUT_EMPTY,                                  \
+    .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                    \
+    .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),       \
 }
 
 /**
@@ -78,7 +83,7 @@ static inline bool
 hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 {
     return bundle != NULL &&
-        hdag_hash_len_is_valid(bundle->hash_len) &&
+        (bundle->hash_len == 0 || hdag_hash_len_is_valid(bundle->hash_len)) &&
         hdag_darr_is_valid(&bundle->nodes) &&
         bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
         hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
@@ -88,14 +93,32 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
                               HDAG_ARR_LEN(bundle->nodes_fanout)) ||
          bundle->nodes_fanout[255] ==
             hdag_darr_occupied_slots(&bundle->nodes)) &&
+        (bundle->hash_len != 0 ||
+         hdag_fanout_is_empty(bundle->nodes_fanout,
+                              HDAG_ARR_LEN(bundle->nodes_fanout))) &&
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
         hdag_darr_is_valid(&bundle->extra_edges) &&
         bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
         hdag_darr_occupied_slots(&bundle->extra_edges) < INT32_MAX &&
-        (hdag_darr_occupied_slots(&bundle->target_hashes) == 0 ||
-         hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
+        (bundle->hash_len != 0 || hdag_darr_is_empty(&bundle->target_hashes)) &&
+        (hdag_darr_is_empty(&bundle->target_hashes) ||
+         hdag_darr_is_empty(&bundle->extra_edges));
+}
+
+/**
+ * Check if a bundle is "hashless" (has zero-length hashes).
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bundle is hashless, false otherwise.
+ */
+static inline bool
+hdag_bundle_is_hashless(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return bundle->hash_len == 0;
 }
 
 /**
@@ -287,7 +310,7 @@ extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
  * Output the bundle hash DAG as an adjacency list text file.
  *
  * @param stream    The stream to output the text to.
- * @param bundle    The bundle to output.
+ * @param bundle    The bundle to output. Must be valid and have hashes.
  *
  * @return A void universal result.
  */
@@ -336,6 +359,7 @@ extern hdag_res hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
  * assuming target nodes are not referenced by their indices.
  *
  * @param bundle    The bundle to sort the nodes and targets in.
+ *                  Must be valid.
  */
 extern void hdag_bundle_sort(struct hdag_bundle *bundle);
 
@@ -343,7 +367,8 @@ extern void hdag_bundle_sort(struct hdag_bundle *bundle);
  * Fill in the nodes fanout array for a bundle.
  *
  * @param bundle    The bundle to fill in the nodes fanout array for.
- *                  Must be sorted. And have nodes fanout empty.
+ *                  Must be valid, have hashes, be sorted, and have nodes
+ *                  fanout empty.
  */
 extern void hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
 
@@ -368,6 +393,7 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
  * direct-index targets.
  *
  * @param bundle    The bundle to deduplicate nodes in.
+ *                  Must be valid, and have hashes.
  *
  * @return A void universal result.
  */
@@ -380,6 +406,7 @@ extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
  * "indexed" and "compacted".
  *
  * @param bundle    The bundle to compact edges in.
+ *                  Must be valid, and have hashes.
  */
 extern void hdag_bundle_compact(struct hdag_bundle *bundle);
 
@@ -392,11 +419,14 @@ extern void hdag_bundle_compact(struct hdag_bundle *bundle);
  *                  Can be NULL to have the result discarded.
  * @param original  The bundle containing the graph to be inverted.
  *                  Must be sorted, deduped, and indexed.
+ * @param hashless  True if the inverted array should have hashes dropped.
+ *                  False if the original hashes should be preserved.
  *
  * @return A void universal result.
  */
 extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
-                                   const struct hdag_bundle *original);
+                                   const struct hdag_bundle *original,
+                                   bool hashless);
 
 /**
  * Enumerate generations in a bundle: assign generation numbers to every node.
