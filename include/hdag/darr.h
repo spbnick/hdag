@@ -43,6 +43,9 @@ struct hdag_darr {
     .slots_preallocate = (_slots_preallocate),                              \
 }
 
+/** An initializer for a void dynamic array */
+#define HDAG_DARR_VOID  HDAG_DARR_EMPTY(0, 0)
+
 /**
  * Check if a dynamic array is valid.
  *

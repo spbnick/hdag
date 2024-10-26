@@ -407,8 +407,10 @@ extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
  *
  * @param bundle    The bundle to compact edges in.
  *                  Must be valid, and have hashes.
+ *
+ * @return A void universal result.
  */
-extern void hdag_bundle_compact(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_compact(struct hdag_bundle *bundle);
 
 /**
  * Invert the graph in a bundle: create a new graph with edge directions

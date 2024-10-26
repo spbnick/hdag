@@ -332,9 +332,10 @@ cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-void
+hdag_res
 hdag_bundle_compact(struct hdag_bundle *bundle)
 {
+    hdag_res res = HDAG_RES_INVALID;
     /* The index of the currently-traversed node */
     ssize_t idx;
     /* A hash index */
@@ -346,6 +347,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* The new extra_edges array */
     struct hdag_darr extra_edges =
         HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64);
+    struct hdag_edge *edge;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
@@ -380,9 +382,11 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
                 /* Hash indices must be valid */
                 assert(found_idx < bundle->nodes.slots_occupied);
                 /* Store the edge */
-                ((struct hdag_edge *)hdag_darr_cappend_one(
-                    &extra_edges
-                ))->node_idx = found_idx;
+                edge = hdag_darr_cappend_one(&extra_edges);
+                if (edge == NULL) {
+                    goto cleanup;
+                }
+                edge->node_idx = found_idx;
             }
 
             /* Store the extra edge indices */
@@ -431,9 +435,15 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     /* Move extra edges */
     hdag_darr_cleanup(&bundle->extra_edges);
     bundle->extra_edges = extra_edges;
+    extra_edges = HDAG_DARR_VOID;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_compacted(bundle));
+    res = HDAG_RES_OK;
+
+cleanup:
+    hdag_darr_cleanup(&extra_edges);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
 hdag_res
@@ -1200,7 +1210,7 @@ hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
 
     /* Compact the edges */
     HDAG_PROFILE_TIME("Compacting the bundle",
-                      hdag_bundle_compact(&bundle));
+                      HDAG_RES_TRY(hdag_bundle_compact(&bundle)));
 
     /* Try to enumerate the generations */
     HDAG_PROFILE_TIME(

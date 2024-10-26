@@ -311,6 +311,7 @@ TODO: See if we could normalize on the "destination hash", instead of "target
       hash", or vice versa.
 TODO: Consider replacing "ind_extra_edges" with looking at which of
       target_hashes/extra_edges is non-empty.
+        - done!
 ---
 ASSIGNING GENERATION AND COMPONENT NUMBERS
 
@@ -488,7 +489,9 @@ generation == 0 -> no mark
 component -> the node to return to
 ---
 TODO: Test enumerating with extra edges
+    - DONE!
 TODO: Support "hashless" bundles - ones with hash_len == 0
+    - DONE!
 ---
 OK, it seems like we don't need to do the Bloom filter thing, because Git only
 uses it for finding modified paths, not actual commits.
@@ -512,8 +515,10 @@ structure.
 ---
 TODO: Unify plural usage in compound names (nodes_num vs node_num, and so on).
 TODO: Make kcidb_bundle_compact() react to memory allocation failures.
+    - DONE!
 ---
 TODO: Move hdag_node_hash_*fill* to hash.h, or even to misc.h
+    - Ah, not needed.
 TODO: Use hdag_node_off_const wherever applicable
     - DONE!
 TODO: Make HDAG_BUNDLE_IS_SORTED_AS a function

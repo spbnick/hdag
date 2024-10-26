@@ -357,7 +357,7 @@ test_compacting(uint16_t hash_len)
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     hdag_bundle_fanout_fill(&bundle);
     TEST(!hdag_bundle_fanout_is_empty(&bundle));
-    hdag_bundle_compact(&bundle);
+    TEST(hdag_bundle_compact(&bundle) == HDAG_RES_OK);
     TEST(!hdag_bundle_has_hash_targets(&bundle));
     TEST(hdag_bundle_has_index_targets(&bundle));
     /* Expecting: 0<-1<-2<-...13<-14<-15 */
@@ -418,7 +418,7 @@ test_compacting(uint16_t hash_len)
     TEST(bundle.extra_edges.slots_occupied == 0);
     hdag_bundle_fanout_fill(&bundle);
     TEST(!hdag_bundle_fanout_is_empty(&bundle));
-    hdag_bundle_compact(&bundle);
+    TEST(hdag_bundle_compact(&bundle) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 9);
     TEST(bundle.target_hashes.slots_occupied == 0);
     TEST(bundle.extra_edges.slots_occupied == 8);
@@ -1555,7 +1555,7 @@ test(uint16_t hash_len)
     TEST(memcmp(&bundle, &empty_bundle, sizeof(struct hdag_bundle)) == 0);
 
     bundle = empty_bundle;
-    hdag_bundle_compact(&bundle);
+    TEST(hdag_bundle_compact(&bundle) == HDAG_RES_OK);
     TEST(memcmp(&bundle, &compacted_empty_bundle,
                 sizeof(struct hdag_bundle)) == 0);
 
