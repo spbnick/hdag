@@ -40,7 +40,7 @@ main(int argc, const char **argv)
 
     HDAG_RES_TRY(hdag_file_open(&file, pathname));
     HDAG_RES_TRY(hdag_file_to_bundle(&bundle, &file));
-    HDAG_RES_TRY(hdag_bundle_txt_save(stdout, &bundle));
+    HDAG_RES_TRY(hdag_bundle_to_txt(stdout, &bundle));
     HDAG_RES_TRY(hdag_file_close(&file));
 
     res = HDAG_RES_OK;

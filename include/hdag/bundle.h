@@ -270,27 +270,27 @@ extern void hdag_bundle_empty(struct hdag_bundle *bundle);
 extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
 
 /**
- * Load a node sequence (adjacency list) into a bundle, but don't do any
+ * Create a bundle from a node sequence (adjacency list), but don't do any
  * optimization or validation.
  *
- * @param pbundle   The location for the bundle with loaded node sequence.
- *                  Can be NULL to have the bundle discarded after loading.
- *                  Will not be modified on failure.
+ * @param pbundle   The location for the bundle created from the node
+ *                  sequence. Can be NULL to have the bundle discarded after
+ *                  creating. Will not be modified on failure.
  * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to load.
+ *                  to create the bundle from.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
-                                          struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_raw_from_node_seq(struct hdag_bundle *pbundle,
+                                              struct hdag_node_seq node_seq);
 
 /**
- * Load an adjacency list text file into a bundle, but don't do any
+ * Create a bundle from an adjacency list text file, but don't do any
  * optimization or validation.
  *
- * @param pbundle   The location for the bundle with loaded node sequence.
- *                  Can be NULL to have the bundle discarded after loading.
+ * @param pbundle   The location for the bundle created from the text file.
+ *                  Can be NULL to have the bundle discarded after creating.
  *                  Will not be modified on failure.
  * @param stream    The FILE stream containing the text to parse and load.
  *                  Each line of the stream is expected to contain a node's
@@ -306,11 +306,11 @@ extern hdag_res hdag_bundle_node_seq_load(struct hdag_bundle *pbundle,
  *         libc errors.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
-                                     FILE *stream, uint16_t hash_len);
+extern hdag_res hdag_bundle_raw_from_txt(struct hdag_bundle *pbundle,
+                                         FILE *stream, uint16_t hash_len);
 
 /**
- * Output the bundle hash DAG as an adjacency list text file.
+ * Output the hash DAG of a bundle into an adjacency list text file.
  *
  * @param stream    The stream to output the text to.
  * @param bundle    The bundle to output. Must be valid and have hashes.
@@ -318,31 +318,31 @@ extern hdag_res hdag_bundle_txt_load(struct hdag_bundle *pbundle,
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_txt_save(FILE *stream,
-                                     const struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_to_txt(FILE *stream,
+                                   const struct hdag_bundle *bundle);
 
 /**
- * Load a node sequence (adjacency list) into a bundle, optimize, and
+ * Create a bundle from a node sequence (adjacency list), optimize, and
  * validate.
  *
- * @param pbundle   The location for the bundle with ingested node sequence.
- *                  Can be NULL to have the bundle discarded after ingesting.
- *                  Will not be modified on failure.
+ * @param pbundle   The location for the bundle created from the node
+ *                  sequence. Can be NULL to have the bundle discarded after
+ *                  creation. Will not be modified on failure.
  * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to load.
+ *                  to create the bundle from.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
-                                            struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
+                                          struct hdag_node_seq node_seq);
 
 /**
- * Load an adjacency list text file into a bundle, optimize and validate.
+ * Create a bundle from an adjacency list text file, optimize and validate.
  *
- * @param pbundle   The location for the bundle with loaded node sequence.
- *                  Can be NULL to have the bundle discarded after loading.
- *                  Will not be modified on failure.
+ * @param pbundle   The location for the bundle created from the adjacency
+ *                  list text file. Can be NULL to have the bundle discarded
+ *                  after creating. Will not be modified on failure.
  * @param stream    The FILE stream containing the text to parse and load.
  *                  Each line of the stream is expected to contain a node's
  *                  hash followed by hashes of its targets, if any. Each hash is
@@ -357,8 +357,8 @@ extern hdag_res hdag_bundle_node_seq_ingest(struct hdag_bundle *pbundle,
  *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_txt_ingest(struct hdag_bundle *pbundle,
-                                       FILE *stream, uint16_t hash_len);
+extern hdag_res hdag_bundle_from_txt(struct hdag_bundle *pbundle,
+                                     FILE *stream, uint16_t hash_len);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
