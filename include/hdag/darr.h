@@ -249,7 +249,7 @@ hdag_darr_uappend(struct hdag_darr *darr, size_t num)
  */
 [[nodiscard]]
 static void *
-hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
+hdag_darr_append(struct hdag_darr *darr, const void *elements, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
     void *appended_slots;
@@ -273,7 +273,7 @@ hdag_darr_append(struct hdag_darr *darr, void *elements, size_t num)
  */
 [[nodiscard]]
 static inline void *
-hdag_darr_append_one(struct hdag_darr *darr, void *element)
+hdag_darr_append_one(struct hdag_darr *darr, const void *element)
 {
     assert(hdag_darr_is_valid(darr));
     assert(!hdag_darr_is_void(darr));
