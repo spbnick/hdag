@@ -9,11 +9,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* The forward declaration of the node sequence */
+/* The forward declaration of the hash sequence */
 struct hdag_hash_seq;
 
 /**
- * The prototype for a function returning the next node hash from a sequence.
+ * The prototype for a function resetting hash sequence to the start position.
+ *
+ * @param hash_seq  Hash sequence to reset.
+ */
+typedef void (*hdag_hash_seq_reset_fn)(
+    const struct hdag_hash_seq *hash_seq
+);
+
+/**
+ * The prototype for a function returning the next hash from a sequence.
  *
  * @param hash_seq  Hash sequence being traversed.
  * @param phash     Location for the retrieved hash.
@@ -31,6 +40,11 @@ typedef hdag_res (*hdag_hash_seq_next_fn)(const struct hdag_hash_seq *hash_seq,
 struct hdag_hash_seq {
     /** The length of returned hashes, bytes */
     uint16_t                hash_len;
+    /**
+     * The function resetting the sequence to the first element.
+     * If NULL, the sequence is single-pass only.
+     */
+    hdag_hash_seq_reset_fn  reset_fn;
     /** The function retrieving the next hash from the sequence */
     hdag_hash_seq_next_fn   next_fn;
     /** The sequence state data */
@@ -52,11 +66,30 @@ hdag_hash_seq_is_valid(const struct hdag_hash_seq *hash_seq)
         hash_seq->next_fn != NULL;
 }
 
+/**
+ * Check if a hash sequence is resettable (multi-pass).
+ *
+ * @param hash_seq  The hash sequence to check.
+ *
+ * @return True if the sequence is resettable (can be rewinded and reused),
+ *         false if it's single-pass only.
+ */
+static inline bool
+hdag_hash_seq_is_resettable(const struct hdag_hash_seq *hash_seq)
+{
+    assert(hdag_hash_seq_is_valid(hash_seq));
+    return hash_seq->reset_fn != NULL;
+}
+
 /** A next-hash retrieval function which never returns hashes */
 [[nodiscard]]
 extern hdag_res hdag_hash_seq_empty_next_fn(
                     const struct hdag_hash_seq *hash_seq,
                     uint8_t *phash);
+
+/** A reset function which does nothing */
+extern void hdag_hash_seq_empty_reset_fn(
+                    const struct hdag_hash_seq *hash_seq);
 
 /**
  * An initializer for an empty hash sequence
@@ -65,7 +98,8 @@ extern hdag_res hdag_hash_seq_empty_next_fn(
  *                  (if they were returned).
  */
 #define HDAG_HASH_SEQ_EMPTY(_hash_len) (struct hdag_hash_seq){ \
-    .hash_len = (_hash_len),                                    \
+    .hash_len = hdag_hash_len_validate(_hash_len),              \
+    .reset_fn = hdag_hash_seq_empty_reset_fn,                   \
     .next_fn = hdag_hash_seq_empty_next_fn                      \
 }
 
