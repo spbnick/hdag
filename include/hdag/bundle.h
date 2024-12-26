@@ -322,47 +322,6 @@ extern hdag_res hdag_bundle_to_txt(FILE *stream,
                                    const struct hdag_bundle *bundle);
 
 /**
- * Create a bundle from a node sequence (adjacency list), optimize, and
- * validate.
- *
- * @param pbundle   The location for the bundle created from the node
- *                  sequence. Can be NULL to have the bundle discarded after
- *                  creation. Will not be modified on failure.
- * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to create the bundle from.
- *
- * @return A void universal result.
- */
-[[nodiscard]]
-extern hdag_res hdag_bundle_organized_from_node_seq(
-                        struct hdag_bundle *pbundle,
-                        struct hdag_node_seq node_seq);
-
-/**
- * Create a bundle from an adjacency list text file, optimize and validate.
- *
- * @param pbundle   The location for the bundle created from the adjacency
- *                  list text file. Can be NULL to have the bundle discarded
- *                  after creating. Will not be modified on failure.
- * @param stream    The FILE stream containing the text to parse and load.
- *                  Each line of the stream is expected to contain a node's
- *                  hash followed by hashes of its targets, if any. Each hash is
- *                  represented by a hexadecimal number, separated by
- *                  (non-linebreak) whitespace. Hashes are assumed to be
- *                  right-aligned.
- * @param hash_len  The length of hashes expected to be contained in the
- *                  stream. Must be a valid hash length.
- *
- * @return A void universal result, including HDAG_RES_INVALID_FORMAT,
- *         if the file format is invalid, HDAG_RES_ERRNO's in case of
- *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
- */
-[[nodiscard]]
-extern hdag_res hdag_bundle_organized_from_txt(
-                        struct hdag_bundle *pbundle,
-                        FILE *stream, uint16_t hash_len);
-
-/**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
  * assuming target nodes are not referenced by their indices.
  *
@@ -826,5 +785,56 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
         hash_ptr
     );
 }
+
+/**
+ * Organize a bundle - prepare it for becoming a file - sort, dedup, fill
+ * the fanout, compact, enumerate generations and components, and deflate.
+ *
+ * @param bundle    The bundle to organize. Must be completely unorganized.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle);
+
+/**
+ * Create a bundle from a node sequence (adjacency list), and organize it.
+ *
+ * @param pbundle   The location for the bundle created from the node
+ *                  sequence. Can be NULL to have the bundle discarded after
+ *                  creation. Will not be modified on failure.
+ * @param node_seq  The sequence of nodes (and optionally their targets)
+ *                  to create the bundle from.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_organized_from_node_seq(
+                        struct hdag_bundle *pbundle,
+                        struct hdag_node_seq node_seq);
+
+/**
+ * Create a bundle from an adjacency list text file, optimize and validate.
+ *
+ * @param pbundle   The location for the bundle created from the adjacency
+ *                  list text file. Can be NULL to have the bundle discarded
+ *                  after creating. Will not be modified on failure.
+ * @param stream    The FILE stream containing the text to parse and load.
+ *                  Each line of the stream is expected to contain a node's
+ *                  hash followed by hashes of its targets, if any. Each hash is
+ *                  represented by a hexadecimal number, separated by
+ *                  (non-linebreak) whitespace. Hashes are assumed to be
+ *                  right-aligned.
+ * @param hash_len  The length of hashes expected to be contained in the
+ *                  stream. Must be a valid hash length.
+ *
+ * @return A void universal result, including HDAG_RES_INVALID_FORMAT,
+ *         if the file format is invalid, HDAG_RES_ERRNO's in case of
+ *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_organized_from_txt(
+                        struct hdag_bundle *pbundle,
+                        FILE *stream, uint16_t hash_len);
 
 #endif /* _HDAG_BUNDLE_H */

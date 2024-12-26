@@ -1165,6 +1165,61 @@ cleanup:
 }
 
 hdag_res
+hdag_bundle_organize(struct hdag_bundle *bundle)
+{
+    hdag_res            res      = HDAG_RES_INVALID;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_has_index_targets(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
+    assert(hdag_bundle_fanout_is_empty(bundle));
+    assert(!hdag_bundle_some_nodes_have_generations(bundle));
+    assert(!hdag_bundle_some_nodes_have_components(bundle));
+
+    /* Disable profiling */
+#undef HDAG_PROFILE_TIME
+#define HDAG_PROFILE_TIME(_action, _statement) _statement
+
+    /* Sort the nodes and edges by hash lexicographically */
+    HDAG_PROFILE_TIME("Sorting the bundle",
+                      hdag_bundle_sort(bundle));
+
+    /* Deduplicate the nodes and edges */
+    HDAG_PROFILE_TIME("Deduping the bundle",
+                      HDAG_RES_TRY(hdag_bundle_dedup(bundle)));
+
+    /* Fill in the fanout array */
+    HDAG_PROFILE_TIME("Filling in fanout array",
+                      hdag_bundle_fanout_fill(bundle));
+
+    /* Compact the edges */
+    HDAG_PROFILE_TIME("Compacting the bundle",
+                      HDAG_RES_TRY(hdag_bundle_compact(bundle)));
+
+    /* Try to enumerate the generations */
+    HDAG_PROFILE_TIME(
+        "Enumerating the generations",
+        HDAG_RES_TRY(hdag_bundle_generations_enumerate(bundle))
+    );
+
+    /* Try to enumerate the components */
+    HDAG_PROFILE_TIME(
+        "Enumerating the components",
+        HDAG_RES_TRY(hdag_bundle_components_enumerate(bundle))
+    );
+
+    /* Shrink the extra space allocated for the bundle */
+    HDAG_RES_TRY(hdag_bundle_deflate(bundle));
+
+#undef HDAG_PROFILE_TIME
+
+    assert(hdag_bundle_is_valid(bundle));
+    res = HDAG_RES_OK;
+cleanup:
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
 hdag_bundle_organized_from_txt(struct hdag_bundle *pbundle,
                                FILE *stream, uint16_t hash_len)
 {
@@ -1202,36 +1257,9 @@ hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
         HDAG_RES_TRY(hdag_bundle_from_node_seq(&bundle, node_seq))
     );
 
-    /* Sort the nodes and edges by hash lexicographically */
-    HDAG_PROFILE_TIME("Sorting the bundle",
-                      hdag_bundle_sort(&bundle));
-
-    /* Deduplicate the nodes and edges */
-    HDAG_PROFILE_TIME("Deduping the bundle",
-                      HDAG_RES_TRY(hdag_bundle_dedup(&bundle)));
-
-    /* Fill in the fanout array */
-    HDAG_PROFILE_TIME("Filling in fanout array",
-                      hdag_bundle_fanout_fill(&bundle));
-
-    /* Compact the edges */
-    HDAG_PROFILE_TIME("Compacting the bundle",
-                      HDAG_RES_TRY(hdag_bundle_compact(&bundle)));
-
-    /* Try to enumerate the generations */
-    HDAG_PROFILE_TIME(
-        "Enumerating the generations",
-        HDAG_RES_TRY(hdag_bundle_generations_enumerate(&bundle))
-    );
-
-    /* Try to enumerate the components */
-    HDAG_PROFILE_TIME(
-        "Enumerating the components",
-        HDAG_RES_TRY(hdag_bundle_components_enumerate(&bundle))
-    );
-
-    /* Shrink the extra space allocated for the bundle */
-    HDAG_RES_TRY(hdag_bundle_deflate(&bundle));
+    /* Organize */
+    HDAG_PROFILE_TIME("Organizing the bundle",
+                      HDAG_RES_TRY(hdag_bundle_organize(&bundle)));
 
 #undef HDAG_PROFILE_TIME
 
