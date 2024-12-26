@@ -28,6 +28,8 @@ hdag_res_str_r(hdag_res res, char *buf, size_t size)
         return buf;
     case HDAG_FAULT_GRAPH_CYCLE:
         return "Graph contains a cycle";
+    case HDAG_FAULT_INVALID_FORMAT:
+        return "Invalid file format";
     default:
         snprintf(buf, size, "INVALID RESULT: 0x%016lx", res);
         return buf;
