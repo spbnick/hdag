@@ -145,6 +145,15 @@ hdag_res_get_code(hdag_res res)
 /** The invalid (file) format failure result */
 #define HDAG_RES_INVALID_FORMAT HDAG_RES_FAILURE(HDAG_FAULT_INVALID_FORMAT, 0)
 
+/** The conflicting node info failure result */
+#define HDAG_RES_NODE_CONFLICT HDAG_RES_FAILURE(HDAG_FAULT_NODE_CONFLICT, 0)
+
+/** The duplicate node failure result */
+#define HDAG_RES_NODE_DUPLICATE HDAG_RES_FAILURE(HDAG_FAULT_NODE_DUPLICATE, 0)
+
+/** The duplicate edge failure result */
+#define HDAG_RES_EDGE_DUPLICATE HDAG_RES_FAILURE(HDAG_FAULT_EDGE_DUPLICATE, 0)
+
 /** The invalid result */
 #define HDAG_RES_INVALID INT64_MIN
 

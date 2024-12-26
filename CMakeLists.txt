@@ -24,6 +24,7 @@ add_library(
     lib/hdag/dot.c
     lib/hdag/bundle.c
     lib/hdag/file.c
+    lib/hdag/ctx.c
     lib/hdag/node_seq.c
     lib/hdag/hash_seq.c
     lib/hdag/nodes.c
