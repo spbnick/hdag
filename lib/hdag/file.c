@@ -203,7 +203,7 @@ hdag_file_from_node_seq(struct hdag_file *pfile,
     assert(hdag_node_seq_is_valid(&node_seq));
 
     /* Ingest the nodes and their targets into the bundle */
-    HDAG_RES_TRY(hdag_bundle_from_node_seq(&bundle, node_seq));
+    HDAG_RES_TRY(hdag_bundle_organized_from_node_seq(&bundle, node_seq));
     /* Create the file from the bundle */
     HDAG_RES_TRY(hdag_file_from_bundle(pfile, pathname,
                                        template_sfxlen, open_mode,
@@ -230,7 +230,7 @@ hdag_file_from_txt(struct hdag_file *pfile,
     assert(hdag_hash_len_is_valid(hash_len));
 
     /* Ingest the stream into the bundle */
-    HDAG_RES_TRY(hdag_bundle_from_txt(&bundle, stream, hash_len));
+    HDAG_RES_TRY(hdag_bundle_organized_from_txt(&bundle, stream, hash_len));
     /* Create the file from the bundle */
     HDAG_RES_TRY(hdag_file_from_bundle(pfile, pathname,
                                        template_sfxlen, open_mode,

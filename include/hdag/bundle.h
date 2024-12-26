@@ -282,8 +282,8 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_raw_from_node_seq(struct hdag_bundle *pbundle,
-                                              struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
+                                          struct hdag_node_seq node_seq);
 
 /**
  * Create a bundle from an adjacency list text file, but don't do any
@@ -306,8 +306,8 @@ extern hdag_res hdag_bundle_raw_from_node_seq(struct hdag_bundle *pbundle,
  *         libc errors.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_raw_from_txt(struct hdag_bundle *pbundle,
-                                         FILE *stream, uint16_t hash_len);
+extern hdag_res hdag_bundle_from_txt(struct hdag_bundle *pbundle,
+                                     FILE *stream, uint16_t hash_len);
 
 /**
  * Output the hash DAG of a bundle into an adjacency list text file.
@@ -334,8 +334,9 @@ extern hdag_res hdag_bundle_to_txt(FILE *stream,
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
-                                          struct hdag_node_seq node_seq);
+extern hdag_res hdag_bundle_organized_from_node_seq(
+                        struct hdag_bundle *pbundle,
+                        struct hdag_node_seq node_seq);
 
 /**
  * Create a bundle from an adjacency list text file, optimize and validate.
@@ -357,8 +358,9 @@ extern hdag_res hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
  *         libc errors, and HDAG_RES_GRAPH_CYCLE in case of cycles.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_from_txt(struct hdag_bundle *pbundle,
-                                     FILE *stream, uint16_t hash_len);
+extern hdag_res hdag_bundle_organized_from_txt(
+                        struct hdag_bundle *pbundle,
+                        FILE *stream, uint16_t hash_len);
 
 /**
  * Sort the bundle's nodes and their target nodes by hash, lexicographically,
