@@ -523,3 +523,140 @@ TODO: Use hdag_node_off_const wherever applicable
     - DONE!
 TODO: Make HDAG_BUNDLE_IS_SORTED_AS a function
     - DONE!
+TODO: Make darr members and functions match verb/noun order (slots_occupied vs
+      occupied_slots)
+---
+OK, each file can contain multiple components and they can be from any part of
+the graph. So we need to maintain a mapping from local component and
+generation numbers to global numbers, so we can meaningfully compare nodes
+from different files.
+
+It would also be good to maintain a mapping of "unknown nodes" to their
+location in the files where they're "known", to speed up lookups. However,
+that's not strictly necessary for the start. The paragraph above is more
+important.
+---
+No, we can't really support adding child nodes and not rebuild parent files.
+
+We must assume that the generation numbers are consistent throughout, and
+component numbers match, and only keep additions of parent nodes in separate
+files. Otherwise we have to rebuild existing parents when adding children.
+---
+OK, after thinking about it for a while, it look like we'll need file-global
+node indexes after all, as well as global generations and component IDs.
+To be able to do that, we'll have to recount all files with unknown nodes
+appearing in a newly-added file.
+
+Each file would have to be given the starting index for its nodes, so that it
+can offset the stored numbers. Each file would need to be given access to a
+function looking up a node outside it, so that generations and components
+could be calculated correctly.
+---
+We have to distinguish the indexes inside the bundle's nodes array, and the
+global indexes, referencing a node in the bundle's (arbitrary) context.
+The translation between them is done using the `nodes_off` structure member.
+
+Should we call them local index and global index?
+
+Ah, wait we gotta distinguish the local index that is inside the nodes array,
+and the global index that points to this bundle (is within its range,
+considering nodes_off and the size of the nodes array).
+
+Could we call the global index "node index", and the local index the "array
+index"?
+---
+OK, we have the convention of "lidx" and "gidx" for local and global indices
+respectively. Now, what if we wanted to access nodes in a bundle both by local
+and by global indices? How would we distinguish and call such
+macros/functions? "HDAG_BUNDLE_GNODE" and "HDAG_BUNDLE_LNODE"?
+
+Or should we simply make all bundle node accesses use local indices?
+---
+OK, no having global indexes requires us to manage the index space and
+reshuffle them when earlier nodes are added. Git doesn't have to do that, so
+they can afford global indexes. We'll have to have looser coupling.
+We can have global component IDs, but local indexes, and not refer to outside
+nodes using indexes, but using hashes, and look them up on traversal.
+
+This would also help modularity and isolation.
+
+This also means that multiple files can contain an unknown node, and we won't
+know it's unknown until we find it. OTOH, we would still have to look through
+all files even if they don't have that node at all, until we stumble on the
+one with the actual node.
+
+Should we then simply not store unknown nodes? Ah, wait we have to, because we
+have direct index system. OK. Anyway, this is a small matter and doesn't
+affect correctness, and this is what we're after first of all for now.
+---
+OK, we gotta decide what we can do with duplicate nodes and edges.
+
+When we read in a bundle, we add both the nodes themselves and their
+references to the nodes array. Then we pick a node in favor of references, and
+we leave just one reference, if there are no actual nodes. What should we do
+if we have multiple nodes?
+
+Our choices:
+    * Simply drop the duplicate without inspecting it
+        * When processing bundle, drop the node completely
+    * Report an error without inspecting the duplicate
+    * Make sure the duplicate is the same as what we already have.
+        * If yes, drop it.
+        * If not, report an error.
+
+Actually there are two dimensions: how to match the nodes:
+
+* Just the hash
+* The hash and the targets
+
+and what to do on matches:
+
+* Drop the new duplicate
+* Report an error
+
+What about edges? Edges are defined by the nodes they connect. There's nothing
+to compare. If they're duplicates, then they're complete duplicates (whereas
+nodes can have a different set of out edges).
+
+Our choices:
+
+    * Report an error
+    * Discard duplicates
+    * Keep duplicates
+        * Is this even possible? Should be? We can debug it later.
+
+In addition to that we need to check the context for pre-existence of nodes.
+We don't need to check the context for pre-existence of edges, because we
+wouldn't have the same node in our file to create a duplicate edge.
+
+---
+So what could be the operations for checking node presence in a context?
+---
+So, when we scan the bundle after sorting, and encounter a known node, we need
+to check both if the bundle and if the context already have it. We can do the
+context check after we've finished the bundle's run check, and decide to
+either drop the node, or raise an error, if it's a duplicate.
+
+---
+OK, how about the context node-finding interface?
+
+targets specified:
+    none    - node not found
+    hash    - conflict          - error reported
+    full    - completely identical node found - new duplicate discarded or error reported
+
+targets NOT specified:
+    none    - node not found
+    hash    - node found - new duplicate discarded or error reported
+    full    - not possible
+
+So we have two booleans:
+
+compare targets: true/false
+discard duplicates: true/false (report errors)
+---
+TODO: Rename match_targets to something more general, like "match_contents".
+      - done
+TODO: Rename "drop_dups" to something else which would mean "ignore
+      duplicates" when set to the default false.
+      - done

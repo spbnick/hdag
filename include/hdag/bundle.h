@@ -12,6 +12,7 @@
 #include <hdag/darr.h>
 #include <hdag/fanout.h>
 #include <hdag/res.h>
+#include <hdag/ctx.h>
 #include <hdag/misc.h>
 #include <stdio.h>
 
@@ -361,11 +362,21 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
  *
  * @param bundle    The bundle to deduplicate nodes in.
  *                  Must be valid, and have hashes.
+ * @param ctx       The context of this bundle (the abstract supergraph) to
+ *                  check if nodes are duplicates. Can be NULL, which is
+ *                  interpreted as an empty context.
  *
- * @return A void universal result.
+ * @return A void universal result. Including:
+ *         * HDAG_RES_NODE_CONFLICT, if the context's "match_content" is true,
+ *           and nodes with matching hashes but different targets were found.
+ *         * HDAG_RES_NODE_DUPLICATE, if the context's "reject_dups" is true,
+ *           and a duplicate node was detected (according to "match_content").
+ *         * HDAG_RES_EDGE_DUPLICATE, if the context's "reject_dups" is true,
+ *           and a duplicate edge was detected.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle,
+                                  const struct hdag_ctx *ctx);
 
 /**
  * Convert a bundle's target references from hashes to indexes, and compact
@@ -791,11 +802,15 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
  * the fanout, compact, enumerate generations and components, and deflate.
  *
  * @param bundle    The bundle to organize. Must be completely unorganized.
+ * @param ctx       The context of this bundle (the abstract supergraph) to
+ *                  check if nodes are duplicates. Can be NULL, which is
+ *                  interpreted as an empty context.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle,
+                                     const struct hdag_ctx *ctx);
 
 /**
  * Create a bundle from a node sequence (adjacency list), and organize it.
@@ -803,6 +818,9 @@ extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle);
  * @param pbundle   The location for the bundle created from the node
  *                  sequence. Can be NULL to have the bundle discarded after
  *                  creation. Will not be modified on failure.
+ * @param ctx       The context of the created bundle (the abstract
+ *                  supergraph) to check if nodes are duplicates. Can be NULL,
+ *                  which is interpreted as an empty context.
  * @param node_seq  The sequence of nodes (and optionally their targets)
  *                  to create the bundle from.
  *
@@ -811,6 +829,7 @@ extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle);
 [[nodiscard]]
 extern hdag_res hdag_bundle_organized_from_node_seq(
                         struct hdag_bundle *pbundle,
+                        const struct hdag_ctx *ctx,
                         struct hdag_node_seq node_seq);
 
 /**
@@ -819,6 +838,9 @@ extern hdag_res hdag_bundle_organized_from_node_seq(
  * @param pbundle   The location for the bundle created from the adjacency
  *                  list text file. Can be NULL to have the bundle discarded
  *                  after creating. Will not be modified on failure.
+ * @param ctx       The context of the created bundle (the abstract
+ *                  supergraph) to check if nodes are duplicates. Can be NULL,
+ *                  which is interpreted as an empty context.
  * @param stream    The FILE stream containing the text to parse and load.
  *                  Each line of the stream is expected to contain a node's
  *                  hash followed by hashes of its targets, if any. Each hash is
@@ -835,6 +857,7 @@ extern hdag_res hdag_bundle_organized_from_node_seq(
 [[nodiscard]]
 extern hdag_res hdag_bundle_organized_from_txt(
                         struct hdag_bundle *pbundle,
+                        const struct hdag_ctx *ctx,
                         FILE *stream, uint16_t hash_len);
 
 #endif /* _HDAG_BUNDLE_H */

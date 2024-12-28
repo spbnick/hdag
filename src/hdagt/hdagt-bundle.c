@@ -28,7 +28,7 @@ test_deduplicating(uint16_t hash_len)
     ssize_t hash_idx;
 
     /* Check deduplicating empty bundle works */
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
 
     /* Create sixteen zeroed nodes */
     TEST(hdag_darr_cappend(&bundle.nodes, 16));
@@ -40,7 +40,7 @@ test_deduplicating(uint16_t hash_len)
     assert(bundle.nodes.slots_occupied == 16);
     TEST(hdag_bundle_is_sorted(&bundle));
     TEST(!hdag_bundle_is_sorted_and_deduped(&bundle));
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 8);
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         TEST(hdag_node_hash_is_filled(node, hash_len, idx));
@@ -51,7 +51,7 @@ test_deduplicating(uint16_t hash_len)
     /* Check deduplicating single-node bundle works */
     hdag_darr_remove(&bundle.nodes, 1, bundle.nodes.slots_occupied);
     TEST(bundle.nodes.slots_occupied == 1);
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 1);
     hdag_node_hash_is_filled(hdag_darr_element(&bundle.nodes, 0),
                              hash_len, 0);
@@ -64,7 +64,7 @@ test_deduplicating(uint16_t hash_len)
     /* Make sure there's no more space allocated */
     TEST(hdag_darr_deflate(&bundle.nodes));
     TEST(bundle.nodes.slots_occupied == 64);
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 1);
     hdag_node_hash_is_filled(hdag_darr_element(&bundle.nodes, 0),
                              hash_len, 0);
@@ -136,21 +136,21 @@ test_deduplicating(uint16_t hash_len)
     hash_idx++;
 
     assert(bundle.nodes.slots_occupied == 26);
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 10);
 
 #define GET_NODE_COMPONENT(_idx) \
     ((struct hdag_node *)hdag_darr_element(&bundle.nodes, (_idx)))->component
 
     TEST(GET_NODE_COMPONENT(0) == 1);
-    TEST(GET_NODE_COMPONENT(1) == 3);
+    TEST(GET_NODE_COMPONENT(1) == 2);
     TEST(GET_NODE_COMPONENT(2) == 4);
     TEST(GET_NODE_COMPONENT(3) == 7);
-    TEST(GET_NODE_COMPONENT(4) == 10);
+    TEST(GET_NODE_COMPONENT(4) == 8);
     TEST(GET_NODE_COMPONENT(5) == 12);
     TEST(GET_NODE_COMPONENT(6) == 16);
-    TEST(GET_NODE_COMPONENT(7) == 18);
-    TEST(GET_NODE_COMPONENT(8) == 22);
+    TEST(GET_NODE_COMPONENT(7) == 17);
+    TEST(GET_NODE_COMPONENT(8) == 21);
     TEST(GET_NODE_COMPONENT(9) == 23);
 
     /* Empty the bundle */
@@ -265,7 +265,7 @@ test_deduplicating(uint16_t hash_len)
 
     /* Sort and dedup */
     hdag_bundle_sort(&bundle);
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
 
     /* Check the expected results:
      *
@@ -275,62 +275,49 @@ test_deduplicating(uint16_t hash_len)
      *      `--> 3
      */
     TEST(bundle.nodes.slots_occupied == 9);
-    TEST(bundle.target_hashes.slots_occupied == 8);
+    TEST(bundle.target_hashes.slots_occupied == 14);
+    TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         TEST(hdag_node_hash_is_filled(node, hash_len, idx));
     }
-    node = hdag_darr_element(&bundle.nodes, 0);
-    TEST(hdag_targets_are_indirect(&node->targets));
-    TEST(hdag_target_to_ind_idx(node->targets.first) == 0);
-    TEST(hdag_target_to_ind_idx(node->targets.last) == 0);
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 0),
+    TEST(hdag_targets_are_indirect(HDAG_BUNDLE_TARGETS(&bundle, 0)));
+    TEST(hdag_bundle_targets_count(&bundle, 0) == 1);
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 0, 0),
                              hash_len, 1));
 
-    node = hdag_darr_element(&bundle.nodes, 1);
-    TEST(hdag_targets_are_indirect(&node->targets));
-    TEST(hdag_target_to_ind_idx(node->targets.first) == 1);
-    TEST(hdag_target_to_ind_idx(node->targets.last) == 2);
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 1),
+    TEST(hdag_targets_are_indirect(HDAG_BUNDLE_TARGETS(&bundle, 1)));
+    TEST(hdag_bundle_targets_count(&bundle, 1) == 2);
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 1, 0),
                              hash_len, 2));
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 2),
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 1, 1),
                              hash_len, 3));
 
-    node = hdag_darr_element(&bundle.nodes, 2);
-    TEST(hdag_targets_are_indirect(&node->targets));
-    TEST(hdag_target_to_ind_idx(node->targets.first) == 3);
-    TEST(hdag_target_to_ind_idx(node->targets.last) == 4);
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 3),
+    TEST(hdag_targets_are_indirect(HDAG_BUNDLE_TARGETS(&bundle, 2)));
+    TEST(hdag_bundle_targets_count(&bundle, 2) == 2);
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 2, 0),
                              hash_len, 4));
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 4),
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 2, 1),
                              hash_len, 5));
 
-    node = hdag_darr_element(&bundle.nodes, 3);
-    TEST(hdag_targets_are_absent(&node->targets));
+    TEST(hdag_targets_are_absent(HDAG_BUNDLE_TARGETS(&bundle, 3)));
 
-    node = hdag_darr_element(&bundle.nodes, 4);
-    TEST(hdag_targets_are_indirect(&node->targets));
-    TEST(hdag_target_to_ind_idx(node->targets.first) == 5);
-    TEST(hdag_target_to_ind_idx(node->targets.last) == 6);
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 5),
+    TEST(hdag_targets_are_indirect(HDAG_BUNDLE_TARGETS(&bundle, 4)));
+    TEST(hdag_bundle_targets_count(&bundle, 4) == 2);
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 4, 0),
                              hash_len, 6));
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 6),
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 4, 1),
                              hash_len, 7));
 
-    node = hdag_darr_element(&bundle.nodes, 5);
-    TEST(hdag_targets_are_absent(&node->targets));
+    TEST(hdag_targets_are_absent(HDAG_BUNDLE_TARGETS(&bundle, 5)));
 
-    node = hdag_darr_element(&bundle.nodes, 6);
-    TEST(hdag_targets_are_indirect(&node->targets));
-    TEST(hdag_target_to_ind_idx(node->targets.first) == 7);
-    TEST(hdag_target_to_ind_idx(node->targets.last) == 7);
-    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.target_hashes, 7),
+    TEST(hdag_targets_are_indirect(HDAG_BUNDLE_TARGETS(&bundle, 6)));
+    TEST(hdag_bundle_targets_count(&bundle, 6) == 1);
+    TEST(hdag_hash_is_filled(hdag_bundle_targets_node_hash(&bundle, 6, 0),
                              hash_len, 8));
 
-    node = hdag_darr_element(&bundle.nodes, 7);
-    TEST(hdag_targets_are_absent(&node->targets));
+    TEST(hdag_targets_are_absent(HDAG_BUNDLE_TARGETS(&bundle, 7)));
 
-    node = hdag_darr_element(&bundle.nodes, 8);
-    TEST(hdag_targets_are_absent(&node->targets));
+    TEST(hdag_targets_are_absent(HDAG_BUNDLE_TARGETS(&bundle, 8)));
 
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);
@@ -364,7 +351,7 @@ test_compacting(uint16_t hash_len)
     hdag_bundle_sort(&bundle);
     TEST(hdag_bundle_is_sorted(&bundle));
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     hdag_bundle_fanout_fill(&bundle);
     TEST(!hdag_bundle_fanout_is_empty(&bundle));
@@ -423,7 +410,7 @@ test_compacting(uint16_t hash_len)
     TEST(bundle.nodes.slots_occupied == 9);
     TEST(bundle.target_hashes.slots_occupied == 8);
     TEST(bundle.extra_edges.slots_occupied == 0);
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 9);
     TEST(bundle.target_hashes.slots_occupied == 8);
     TEST(bundle.extra_edges.slots_occupied == 0);
@@ -1204,16 +1191,18 @@ test_txt(uint16_t hash_len)
 
     /* Test empty file */
     WITH_BUNDLES_AND_FILES("", " ", "\n", " \n", "\n ", " \t\r\n") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, hash_len) ==
-             HDAG_RES_OK);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, hash_len
+             ) == HDAG_RES_OK);
         TEST(bundle.hash_len == hash_len);
         TEST(bundle.nodes.slots_occupied == 0);
         TEST(bundle.target_hashes.slots_occupied == 0);
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("", " ", "\n", " \n", "\n ", " \t\r\n") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, hash_len) ==
-             HDAG_RES_OK);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, hash_len
+             ) == HDAG_RES_OK);
         TEST(bundle.hash_len == hash_len);
         TEST(bundle.nodes.slots_occupied == 0);
         TEST(bundle.target_hashes.slots_occupied == 0);
@@ -1313,8 +1302,9 @@ test_txt(uint16_t hash_len)
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("01 02") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, hash_len) ==
-             HDAG_RES_OK);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, hash_len
+             ) == HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 2);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 1);
         TEST(hdag_bundle_targets_count(&bundle, 0) == 1);
@@ -1351,13 +1341,15 @@ test_txt(uint16_t hash_len)
         TEST(bundle.extra_edges.slots_occupied == 0);
     }
     WITH_BUNDLES_AND_FILES("01 02 03\n03 02 01") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, hash_len) ==
-             HDAG_RES_GRAPH_CYCLE);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, hash_len
+             ) == HDAG_RES_GRAPH_CYCLE);
     }
 
     WITH_BUNDLES_AND_FILES("01 02 03\n04 01 02") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, hash_len) ==
-             HDAG_RES_OK);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, hash_len
+             ) == HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 4);
         TEST(HDAG_BUNDLE_NODE(&bundle, 0)->hash[hash_len - 1] == 1);
         TEST(hdag_bundle_targets_count(&bundle, 0) == 2);
@@ -1396,8 +1388,9 @@ test_txt_buggy_case(void)
                            "f765274d0c9436bc130911abbd97e52b1648d13c "
                            "58ff04e2e22319e63ea646d9a38890c17836a7f6 "
                            "3c217a182018e6c6d381b3fdc32626275eefbfb0") {
-        TEST(hdag_bundle_organized_from_txt(&bundle, input_file, 20) ==
-             HDAG_RES_OK);
+        TEST(hdag_bundle_organized_from_txt(
+                &bundle, NULL, input_file, 20
+             ) == HDAG_RES_OK);
         TEST(bundle.nodes.slots_occupied == 8);
         uint8_t hashes[][20] = {
             {0x0a, 0x06, 0x81, 0x1d, 0x66, 0x4b, 0x86, 0x95, 0xa7, 0x61,
@@ -1566,7 +1559,7 @@ test(uint16_t hash_len)
     TEST(!hdag_bundle_has_hash_targets(&empty_bundle));
 
     bundle = empty_bundle;
-    TEST(hdag_bundle_dedup(&bundle) == HDAG_RES_OK);
+    TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(memcmp(&bundle, &empty_bundle, sizeof(struct hdag_bundle)) == 0);
 
     bundle = empty_bundle;
