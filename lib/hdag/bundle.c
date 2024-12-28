@@ -11,6 +11,35 @@
 #include <string.h>
 #include <ctype.h>
 
+hdag_res
+hdag_bundle_targets_hash_seq_next_fn(const struct hdag_hash_seq *hash_seq,
+                                     uint8_t *phash)
+{
+    assert(hdag_hash_seq_is_valid(hash_seq));
+    assert(phash != NULL);
+    struct hdag_bundle_targets_hash_seq_state *data = hash_seq->data;
+    assert(data->bundle->hash_len == hash_seq->hash_len);
+    if (data->target_idx <
+        hdag_bundle_targets_count(data->bundle, data->node_idx)) {
+        memcpy(phash,
+               hdag_bundle_targets_node_hash(data->bundle, data->node_idx,
+                                             data->target_idx),
+               hash_seq->hash_len);
+        data->target_idx++;
+        return HDAG_RES_OK;
+    }
+    return 1;
+}
+
+void
+hdag_bundle_targets_hash_seq_reset_fn(const struct hdag_hash_seq *hash_seq)
+{
+    assert(hdag_hash_seq_is_valid(hash_seq));
+    struct hdag_bundle_targets_hash_seq_state *data = hash_seq->data;
+    assert(data->bundle->hash_len == hash_seq->hash_len);
+    data->target_idx = 0;
+}
+
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {

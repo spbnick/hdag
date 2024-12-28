@@ -770,6 +770,61 @@ hdag_bundle_targets_node_hash(const struct hdag_bundle *bundle,
     return HDAG_BUNDLE_NODE(bundle, target_node_idx)->hash;
 }
 
+/** The state of a (resettable) node target sequence */
+struct hdag_bundle_targets_hash_seq_state {
+    /** The bundle with the node having targets to go over */
+    const struct hdag_bundle   *bundle;
+    /** The index of the node having targets to go over */
+    uint32_t                    node_idx;
+    /** The index of the target to return next */
+    uint32_t                    target_idx;
+};
+
+/** A next-hash retrieval function for target hash sequence */
+[[nodiscard]]
+extern hdag_res hdag_bundle_targets_hash_seq_next_fn(
+                    const struct hdag_hash_seq *hash_seq,
+                    uint8_t *phash);
+
+/** A reset function for target hash sequence */
+extern void hdag_bundle_targets_hash_seq_reset_fn(
+                    const struct hdag_hash_seq *hash_seq);
+
+/**
+ * Setup a sequence of hashes of targets of a node from a bundle.
+ *
+ * @param pseq      Location for the hash sequence.
+ * @param pseq_data Location for the hash sequence data.
+ * @param bundle    The bundle containing the node.
+ * @param node_idx  The index of the node to return the target hash
+ *                  sequence for.
+ *
+ * @return The setup hash sequence pointer ("pseq").
+ */
+static inline struct hdag_hash_seq *
+hdag_bundle_targets_hash_seq(
+                    struct hdag_hash_seq *pseq,
+                    struct hdag_bundle_targets_hash_seq_state *pseq_data,
+                    const struct hdag_bundle *bundle,
+                    uint32_t node_idx)
+{
+    assert(pseq != NULL);
+    assert(pseq_data != NULL);
+    assert(hdag_bundle_is_valid(bundle));
+    assert(node_idx < bundle->nodes.slots_occupied);
+
+    pseq->hash_len = bundle->hash_len;
+    pseq->reset_fn = hdag_bundle_targets_hash_seq_reset_fn;
+    pseq->next_fn = hdag_bundle_targets_hash_seq_next_fn;
+    pseq_data->bundle = bundle;
+    pseq_data->node_idx = node_idx;
+    pseq_data->target_idx = 0;
+    pseq->data = pseq_data;
+
+    assert(hdag_hash_seq_is_valid(pseq));
+    return pseq;
+}
+
 /**
  * Lookup the index of a node within a bundle, using its hash.
  *
