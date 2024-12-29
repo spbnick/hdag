@@ -412,25 +412,15 @@ extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
                                    bool hashless);
 
 /**
- * Enumerate generations in a bundle: assign generation numbers to every node.
- * Resets component IDs
- *
- * @param bundle    The bundle to enumerate.
- *
- * @return A void universal result.
- */
-[[nodiscard]]
-extern hdag_res hdag_bundle_generations_enumerate(struct hdag_bundle *bundle);
-
-/**
- * Check if all bundle nodes have generations assigned (non-zero).
+ * Check if all bundle's nodes are unenumerated (have no component or
+ * generation assigned, that is both are set to zero).
  *
  * @param bundle    The bundle to check.
  *
- * @return True if generations are assigned.
+ * @return True if at all bundle's node are unenumerated.
  */
 static inline bool
-hdag_bundle_all_nodes_have_generations(const struct hdag_bundle *bundle)
+hdag_bundle_is_unenumerated(const struct hdag_bundle *bundle)
 {
     ssize_t idx;
     const struct hdag_node *node;
@@ -438,7 +428,7 @@ hdag_bundle_all_nodes_have_generations(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
 
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (!node->generation) {
+        if (node->component || node->generation) {
             return false;
         }
     }
@@ -447,48 +437,26 @@ hdag_bundle_all_nodes_have_generations(const struct hdag_bundle *bundle)
 }
 
 /**
- * Check if at least one bundle's node has generation assigned (non-zero).
+ * Enumerate components and generations in a bundle: assign component and
+ * generation numbers to every node.
  *
- * @param bundle    The bundle to check.
- *
- * @return True if at least one node has generation assigned.
- */
-static inline bool
-hdag_bundle_some_nodes_have_generations(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-
-    assert(hdag_bundle_is_valid(bundle));
-
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (node->generation) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Enumerate components in a bundle: assign component numbers to every node.
- *
- * @param bundle    The bundle to enumerate.
+ * @param bundle    The bundle to enumerate. Must be unenumerated.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_components_enumerate(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle);
 
 /**
- * Check if all bundle nodes have components assigned (non-zero).
+ * Check if all bundle nodes are enumerated. That is have both components and
+ * generations assigned (non-zero).
  *
  * @param bundle    The bundle to check.
  *
- * @return True if components are assigned.
+ * @return True if all bundle's nodes are enumerated.
  */
 static inline bool
-hdag_bundle_all_nodes_have_components(const struct hdag_bundle *bundle)
+hdag_bundle_is_enumerated(const struct hdag_bundle *bundle)
 {
     ssize_t idx;
     const struct hdag_node *node;
@@ -496,36 +464,12 @@ hdag_bundle_all_nodes_have_components(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
 
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (!node->component) {
+        if (!(node->component && node->generation)) {
             return false;
         }
     }
 
     return true;
-}
-
-/**
- * Check if at least one bundle's node has component assigned (non-zero).
- *
- * @param bundle    The bundle to check.
- *
- * @return True if at least one node has component assigned.
- */
-static inline bool
-hdag_bundle_some_nodes_have_components(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-
-    assert(hdag_bundle_is_valid(bundle));
-
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (node->component) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 /**

@@ -724,7 +724,6 @@ output:
     assert(hashless ? hdag_bundle_is_hashless(&inverted)
                     : hdag_bundle_is_sorted_and_deduped(&inverted));
     assert(!hdag_bundle_has_hash_targets(&inverted));
-    assert(!hdag_bundle_some_nodes_have_generations(&inverted));
 
     if (pinverted != NULL) {
         *pinverted = inverted;
@@ -737,8 +736,17 @@ cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-hdag_res
-hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
+/**
+ * Enumerate generations in a bundle: assign generation numbers to every node.
+ * Resets component IDs.
+ *
+ * @param bundle    The bundle to enumerate.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+static hdag_res
+hdag_bundle_enumerate_generations(struct hdag_bundle *bundle)
 {
     ssize_t                 idx;
     struct hdag_node       *node;
@@ -751,7 +759,6 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
-    assert(!hdag_bundle_some_nodes_have_generations(bundle));
 
 #define NODE_HAS_PARENT(_node) \
     ((_node)->component >= (uint32_t)INT32_MAX)
@@ -852,13 +859,19 @@ hdag_bundle_generations_enumerate(struct hdag_bundle *bundle)
 #undef NODE_GET_PARENT
 #undef NODE_HAS_PARENT
 
-    assert(hdag_bundle_all_nodes_have_generations(bundle));
-    assert(!hdag_bundle_some_nodes_have_components(bundle));
     return HDAG_RES_OK;
 }
 
-hdag_res
-hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
+/**
+ * Enumerate components in a bundle: assign component numbers to every node.
+ *
+ * @param bundle    The bundle to enumerate.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+static hdag_res
+hdag_bundle_enumerate_components(struct hdag_bundle *bundle)
 {
     hdag_res                res = HDAG_RES_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(bundle->hash_len);
@@ -879,7 +892,6 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
-    assert(!hdag_bundle_some_nodes_have_components(bundle));
 
     /* Invert the graph */
     HDAG_RES_TRY(hdag_bundle_invert(&inverted, bundle, true));
@@ -992,10 +1004,41 @@ hdag_bundle_components_enumerate(struct hdag_bundle *bundle)
 #undef NODE_GET_PARENT
 #undef NODE_HAS_PARENT
 
-    assert(hdag_bundle_all_nodes_have_components(bundle));
     res = HDAG_RES_OK;
 cleanup:
     hdag_bundle_cleanup(&inverted);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_bundle_enumerate(struct hdag_bundle *bundle)
+{
+    hdag_res            res      = HDAG_RES_INVALID;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_unenumerated(bundle));
+
+    /* Disable profiling */
+#undef HDAG_PROFILE_TIME
+#define HDAG_PROFILE_TIME(_action, _statement) _statement
+
+    /* Try to enumerate the generations */
+    HDAG_PROFILE_TIME(
+        "Enumerating the generations",
+        HDAG_RES_TRY(hdag_bundle_enumerate_generations(bundle))
+    );
+
+    /* Try to enumerate the components */
+    HDAG_PROFILE_TIME(
+        "Enumerating the components",
+        HDAG_RES_TRY(hdag_bundle_enumerate_components(bundle))
+    );
+
+#undef HDAG_PROFILE_TIME
+
+    assert(hdag_bundle_is_valid(bundle));
+    res = HDAG_RES_OK;
+cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
@@ -1328,8 +1371,7 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
     assert(!hdag_bundle_has_index_targets(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_fanout_is_empty(bundle));
-    assert(!hdag_bundle_some_nodes_have_generations(bundle));
-    assert(!hdag_bundle_some_nodes_have_components(bundle));
+    assert(hdag_bundle_is_unenumerated(bundle));
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
 
     /* Disable profiling */
@@ -1352,17 +1394,9 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
     HDAG_PROFILE_TIME("Compacting the bundle",
                       HDAG_RES_TRY(hdag_bundle_compact(bundle)));
 
-    /* Try to enumerate the generations */
-    HDAG_PROFILE_TIME(
-        "Enumerating the generations",
-        HDAG_RES_TRY(hdag_bundle_generations_enumerate(bundle))
-    );
-
-    /* Try to enumerate the components */
-    HDAG_PROFILE_TIME(
-        "Enumerating the components",
-        HDAG_RES_TRY(hdag_bundle_components_enumerate(bundle))
-    );
+    /* Try to enumerate the bundle's components and generations */
+    HDAG_PROFILE_TIME("Enumerating the bundle",
+                      HDAG_RES_TRY(hdag_bundle_enumerate(bundle)));
 
     /* Shrink the extra space allocated for the bundle */
     HDAG_RES_TRY(hdag_bundle_deflate(bundle));
