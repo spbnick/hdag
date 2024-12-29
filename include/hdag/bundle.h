@@ -915,4 +915,48 @@ extern hdag_res hdag_bundle_organized_from_txt(
                         const struct hdag_ctx *ctx,
                         FILE *stream, uint16_t hash_len);
 
+/** A next-node retrieval function for bundle's node sequence */
+extern hdag_res hdag_bundle_node_seq_next_fn(
+                            const struct hdag_node_seq *node_seq,
+                            uint8_t *phash,
+                            struct hdag_hash_seq *ptarget_hash_seq);
+
+/** Bundle's node sequence state */
+struct hdag_bundle_node_seq_state {
+    /** The bundle being iterated over */
+    const struct hdag_bundle                   *bundle;
+    /** The index of the next node to return */
+    size_t                                      node_idx;
+    /** The state of iterating over the node's target hashes */
+    struct hdag_bundle_targets_hash_seq_state   targets_hash_seq_state;
+};
+
+/*
+ * Setup a sequence of hashes of targets of a node from a bundle.
+ *
+ * @param pseq      Location for the node sequence.
+ * @param pseq_data Location for the node sequence data.
+ * @param bundle    The bundle to setup the sequence from.
+ *
+ * @return The setup node sequence pointer ("pseq").
+ */
+static inline struct hdag_node_seq *
+hdag_bundle_node_seq(struct hdag_node_seq *pseq,
+                     struct hdag_bundle_node_seq_state *pseq_data,
+                     const struct hdag_bundle *bundle)
+{
+    assert(pseq != NULL);
+    assert(pseq_data != NULL);
+    assert(hdag_bundle_is_valid(bundle));
+
+    pseq->hash_len = bundle->hash_len;
+    pseq->next_fn = hdag_bundle_node_seq_next_fn;
+    pseq->data = pseq_data;
+    pseq_data->bundle = bundle;
+    pseq_data->node_idx = 0;
+
+    return pseq;
+}
+
+
 #endif /* _HDAG_BUNDLE_H */

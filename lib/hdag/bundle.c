@@ -40,6 +40,33 @@ hdag_bundle_targets_hash_seq_reset_fn(const struct hdag_hash_seq *hash_seq)
     data->target_idx = 0;
 }
 
+hdag_res
+hdag_bundle_node_seq_next_fn(const struct hdag_node_seq *node_seq,
+                             uint8_t *phash,
+                             struct hdag_hash_seq *ptarget_hash_seq)
+{
+    assert(hdag_node_seq_is_valid(node_seq));
+    assert(phash != NULL);
+    assert(ptarget_hash_seq != NULL);
+    struct hdag_bundle_node_seq_state *state = node_seq->data;
+    assert(state != NULL);
+    const struct hdag_bundle *bundle = state->bundle;
+    assert(hdag_bundle_is_valid(bundle));
+    assert(node_seq->hash_len == bundle->hash_len);
+
+    if (state->node_idx >= bundle->nodes.slots_occupied) {
+        return 1;
+    }
+    memcpy(phash, HDAG_BUNDLE_NODE(bundle, state->node_idx)->hash,
+           bundle->hash_len);
+    hdag_bundle_targets_hash_seq(ptarget_hash_seq,
+                                 &state->targets_hash_seq_state,
+                                 bundle,
+                                 state->node_idx);
+    state->node_idx++;
+    return 0;
+}
+
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
