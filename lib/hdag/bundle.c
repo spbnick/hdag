@@ -1361,6 +1361,16 @@ cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
+bool
+hdag_bundle_is_unorganized(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
+    return !hdag_bundle_has_index_targets(bundle) &&
+           hdag_bundle_fanout_is_empty(bundle) &&
+           hdag_bundle_is_unenumerated(bundle);
+}
+
 hdag_res
 hdag_bundle_organize(struct hdag_bundle *bundle,
                      const struct hdag_ctx *ctx)
@@ -1368,10 +1378,8 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
     hdag_res            res      = HDAG_RES_INVALID;
 
     assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_has_index_targets(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
-    assert(hdag_bundle_fanout_is_empty(bundle));
-    assert(hdag_bundle_is_unenumerated(bundle));
+    assert(hdag_bundle_is_unorganized(bundle));
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
 
     /* Disable profiling */
@@ -1404,9 +1412,22 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
 #undef HDAG_PROFILE_TIME
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_organized(bundle));
     res = HDAG_RES_OK;
 cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+bool
+hdag_bundle_is_organized(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
+    return !hdag_bundle_has_hash_targets(bundle) &&
+           (bundle->nodes.slots_occupied == 0 ||
+            !hdag_bundle_fanout_is_empty(bundle)) &&
+           hdag_bundle_is_sorted_and_deduped(bundle) &&
+           hdag_bundle_is_enumerated(bundle);
 }
 
 hdag_res

@@ -797,6 +797,16 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
 }
 
 /**
+ * Check if a bundle is completely unorganized, that is no organizing
+ * has been done to it at all.
+ *
+ * @param bundle    The bundle to check. Must be valid and not "hashless".
+ *
+ * @return True if the bundle is completely unorganized, false if not.
+ */
+extern bool hdag_bundle_is_unorganized(const struct hdag_bundle *bundle);
+
+/**
  * Organize a bundle - prepare it for becoming a file - sort, dedup, fill
  * the fanout, compact, enumerate generations and components, and deflate.
  *
@@ -810,6 +820,15 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
 [[nodiscard]]
 extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle,
                                      const struct hdag_ctx *ctx);
+
+/**
+ * Check if a bundle is fully organized, that is ready to become a file.
+ *
+ * @param bundle    The bundle to check. Must be valid and not "hashless".
+ *
+ * @return True if the bundle is fully organized, false if not.
+ */
+extern bool hdag_bundle_is_organized(const struct hdag_bundle *bundle);
 
 /**
  * Create a bundle from a node sequence (adjacency list), and organize it.

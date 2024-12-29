@@ -44,7 +44,7 @@ hdag_file_from_bundle(struct hdag_file *pfile,
     };
 
     assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_enumerated(bundle));
+    assert(hdag_bundle_is_organized(bundle));
 
     if (pathname != NULL) {
         file.pathname = strdup(pathname);
