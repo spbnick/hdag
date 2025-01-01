@@ -10,42 +10,41 @@
 /* The forward declaration of a context */
 struct hdag_ctx;
 
-/** The result of matching a node in a context */
-enum hdag_ctx_node_matched {
-    /** Node not found */
-    HDAG_CTX_NODE_MATCHED_NONE,
-    /** Matched a node with the same hash */
-    HDAG_CTX_NODE_MATCHED_HASH,
+/* A node retrieved from a context */
+struct hdag_ctx_node {
+    /** The node hash with the length specified by the context */
+    const uint8_t              *hash;
     /**
-     * Matched a node fully, hash and targets.
-     * Can be returned only if no hash-only matches are encountered.
+     * The (resettable) sequence of the node's target hashes (ordered
+     * lexicographically), or NULL, if the node is "unknown".
      */
-    HDAG_CTX_NODE_MATCHED_FULL,
+    const struct hdag_hash_seq *target_hash_seq;
+    /** The ID of the graph component the node belongs to */
+    uint32_t                    component;
+    /** The node's generation number */
+    uint32_t                    generation;
 };
 
 /**
- * The prototype for a function a node in a context.
+ * The prototype for a function retrieving a node from a context.
+ * Non-reentrant.
  *
- * @param ctx               The context to match the node in.
- * @param hash              The hash of the node to match.
- * @param target_hash_seq   The (resettable) sequence of the node's target
- *                          hashes to match, or NULL to not match targets.
+ * @param ctx   The context to retrieve the node from.
+ * @param hash  The hash of the node to retrieve.
  *
- * @return The result matching code.
+ * @return The pointer to a node description allocated within the context,
+ *         if found. NULL if the node is not found in the context.
  */
-typedef enum hdag_ctx_node_matched (*hdag_ctx_node_match_fn)(
-                            const struct hdag_ctx *ctx,
-                            const uint8_t *hash,
-                            const struct hdag_hash_seq *target_hash_seq);
+typedef const struct hdag_ctx_node * (*hdag_ctx_get_node_fn)(
+                                            const struct hdag_ctx *ctx,
+                                            const uint8_t *hash);
 
-/** A hash DAG context */
+/** An abstract hash DAG context (a supergraph) */
 struct hdag_ctx {
     /** The length of the DAG hashes, bytes */
     uint16_t                hash_len;
     /** The function finding a node in the context */
-    hdag_ctx_node_match_fn  node_match_fn;
-    /** The context's private data */
-    void                   *data;
+    hdag_ctx_get_node_fn    get_node_fn;
 };
 
 /**
@@ -60,47 +59,30 @@ hdag_ctx_is_valid(const struct hdag_ctx *ctx)
 {
     return ctx != NULL &&
         hdag_hash_len_is_valid(ctx->hash_len) &&
-        ctx->node_match_fn != NULL;
+        ctx->get_node_fn != NULL;
 }
 
 /**
- * Check if a node with specified hash and target hashes can be added to a
- * hash DAG context.
+ * Retrieve the description of a node from a context. Non-reentrant.
  *
- * @param ctx               The context to validate addition to.
- * @param hash              The hash of the node being added.
- * @param target_hash_seq   The (resettable) sequence of the node's target
- *                          hashes.
+ * @param ctx   The context to retrieve the node from.
+ * @param hash  The hash of the node to retrieve.
  *
- * @return A universal result, which is (positive) true if the node can be
- *         added to the context, false if the node should not be added (should
- *         be dropped), or a failure result, including:
- *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes had
- *           different targets.
+ * @return The pointer to a node description allocated within the context,
+ *         if found. NULL if the node is not found in the context.
  */
-static inline hdag_res
-hdag_ctx_can_add_node(const struct hdag_ctx *ctx,
-                      const uint8_t *hash,
-                      const struct hdag_hash_seq *target_hash_seq)
+static inline const struct hdag_ctx_node *
+hdag_ctx_get_node(const struct hdag_ctx *ctx, const uint8_t *hash)
 {
     assert(hdag_ctx_is_valid(ctx));
     assert(hash != NULL);
-    assert(hdag_hash_seq_is_valid(target_hash_seq));
-    assert(hdag_hash_seq_is_resettable(target_hash_seq));
-
-    switch (ctx->node_match_fn(ctx, hash, target_hash_seq)) {
-    case HDAG_CTX_NODE_MATCHED_HASH:
-        return HDAG_RES_NODE_CONFLICT;
-    default:
-        return true;
-    }
+    return ctx->get_node_fn(ctx, hash);
 }
 
-/** Node finding function which never matches anything */
-extern enum hdag_ctx_node_matched hdag_ctx_empty_node_match_fn(
-                            const struct hdag_ctx *ctx,
-                            const uint8_t *hash,
-                            const struct hdag_hash_seq *target_hash_seq);
+/** Node retrieval function for an empty context, never returning nodes */
+extern const struct hdag_ctx_node *hdag_ctx_empty_get_node_fn(
+                                            const struct hdag_ctx *ctx,
+                                            const uint8_t *hash);
 
 /**
  * An initializer for an empty hash DAG context
@@ -109,7 +91,7 @@ extern enum hdag_ctx_node_matched hdag_ctx_empty_node_match_fn(
  */
 #define HDAG_CTX_EMPTY(_hash_len) (struct hdag_ctx){ \
     .hash_len = hdag_hash_len_validate(_hash_len),      \
-    .node_match_fn = hdag_ctx_empty_node_match_fn,      \
+    .get_node_fn = hdag_ctx_empty_get_node_fn,          \
 }
 
 #endif /* _HDAG_CTX_H */
