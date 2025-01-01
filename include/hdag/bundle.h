@@ -369,12 +369,8 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
  *                  interpreted as an empty context.
  *
  * @return A void universal result. Including:
- *         * HDAG_RES_NODE_CONFLICT, if the context's "match_content" is true,
- *           and nodes with matching hashes but different targets were found.
- *         * HDAG_RES_NODE_DUPLICATE, if the context's "reject_dups" is true,
- *           and a duplicate node was detected (according to "match_content").
- *         * HDAG_RES_EDGE_DUPLICATE, if the context's "reject_dups" is true,
- *           and a duplicate edge was detected.
+ *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes but
+ *           different targets were found.
  */
 [[nodiscard]]
 extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle,

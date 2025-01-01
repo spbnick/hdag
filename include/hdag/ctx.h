@@ -44,17 +44,6 @@ struct hdag_ctx {
     uint16_t                hash_len;
     /** The function finding a node in the context */
     hdag_ctx_node_match_fn  node_match_fn;
-    /**
-     * True, if added nodes with the same hash should have the same content.
-     * False, if node content should not be verified.
-     */
-    bool                    match_content;
-    /**
-     * True, if any added duplicate nodes/edges should be rejected with an
-     * HDAG_RES_NODE_DUPLICATE/HDAG_RES_EDGE_DUPLICATE.
-     * False, if they should be silently dropped.
-     */
-    bool                    reject_dups;
     /** The context's private data */
     void                   *data;
 };
@@ -86,10 +75,8 @@ hdag_ctx_is_valid(const struct hdag_ctx *ctx)
  * @return A universal result, which is (positive) true if the node can be
  *         added to the context, false if the node should not be added (should
  *         be dropped), or a failure result, including:
- *         * HDAG_RES_NODE_CONFLICT, if the context's "match_content" is true,
- *           and nodes with matching hashes had different targets.
- *         * HDAG_RES_NODE_DUPLICATE, if the context's "reject_dups" is true,
- *           and a duplicate node was detected (according to "match_content").
+ *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes had
+ *           different targets.
  */
 static inline hdag_res
 hdag_ctx_can_add_node(const struct hdag_ctx *ctx,
@@ -101,18 +88,9 @@ hdag_ctx_can_add_node(const struct hdag_ctx *ctx,
     assert(hdag_hash_seq_is_valid(target_hash_seq));
     assert(hdag_hash_seq_is_resettable(target_hash_seq));
 
-    switch (ctx->node_match_fn(ctx, hash,
-                               ctx->match_content ? target_hash_seq : NULL)) {
+    switch (ctx->node_match_fn(ctx, hash, target_hash_seq)) {
     case HDAG_CTX_NODE_MATCHED_HASH:
-        if (ctx->match_content) {
-            return HDAG_RES_NODE_CONFLICT;
-        }
-        /* Fall through */
-    case HDAG_CTX_NODE_MATCHED_FULL:
-        if (ctx->reject_dups) {
-            return HDAG_RES_NODE_DUPLICATE;
-        }
-        /* Fall through */
+        return HDAG_RES_NODE_CONFLICT;
     default:
         return true;
     }

@@ -30,10 +30,6 @@ hdag_res_str_r(hdag_res res, char *buf, size_t size)
         return "Graph contains a cycle";
     case HDAG_FAULT_NODE_CONFLICT:
         return "A node with matching hash, but different targets detected";
-    case HDAG_FAULT_NODE_DUPLICATE:
-        return "A duplicate node detected and prohibited";
-    case HDAG_FAULT_EDGE_DUPLICATE:
-        return "A duplicate edge detected and prohibited";
     case HDAG_FAULT_INVALID_FORMAT:
         return "Invalid file format";
     default:

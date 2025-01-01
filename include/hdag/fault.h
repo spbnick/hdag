@@ -21,10 +21,6 @@ enum hdag_fault {
     HDAG_FAULT_GRAPH_CYCLE,
     /** The operation failed because conflicting node data was encountered */
     HDAG_FAULT_NODE_CONFLICT,
-    /** The operation failed because a duplicate node has been detected */
-    HDAG_FAULT_NODE_DUPLICATE,
-    /** The operation failed because a duplicate edge has been detected */
-    HDAG_FAULT_EDGE_DUPLICATE,
     /** The input (file) had invalid format (no value) */
     HDAG_FAULT_INVALID_FORMAT,
     /** The number of known faults (not a fault itself) */

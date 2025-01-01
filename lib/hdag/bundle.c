@@ -251,19 +251,15 @@ hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
  * @param bundle    The bundle to find duplicate edges in.
  *                  Must be sorted, and use target_hashes.
  * @param ctx       The context of this bundle (the abstract supergraph).
- *                  Can be NULL, which is interpreted as an empty context,
- *                  which permits duplicates (has "reject_dups" set to false).
+ *                  Can be NULL, which is interpreted as an empty context.
  *
- * @return A void universal result. Including:
- *         * HDAG_RES_EDGE_DUPLICATE, if the context's "reject_dups" is true,
- *           and a duplicate edge was detected.
+ * @return A void universal result.
  */
 [[nodiscard]]
 static hdag_res
 hdag_bundle_dedup_edges(struct hdag_bundle *bundle,
                         const struct hdag_ctx *ctx)
 {
-    hdag_res res = HDAG_RES_INVALID;
     assert(hdag_bundle_is_valid(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
@@ -309,15 +305,8 @@ hdag_bundle_dedup_edges(struct hdag_bundle *bundle,
             hash <= last_hash;
             prev_hash = hash, hash += hash_size
         ) {
-            /* If the current hash is equal to the previous one */
-            if (memcmp(hash, prev_hash, hash_size) == 0) {
-                /* If the context prohibits duplicates */
-                if (ctx->reject_dups) {
-                    res = HDAG_RES_EDGE_DUPLICATE;
-                    goto cleanup;
-                }
-            /* Else the hashes are different */
-            } else {
+            /* If the current hash is different from the previous one */
+            if (memcmp(hash, prev_hash, hash_size) != 0) {
                 /* If the output pointer is less than the current hash */
                 if (out_hash < hash) {
                     /* Copy the current hash to the output pointer */
@@ -334,9 +323,7 @@ hdag_bundle_dedup_edges(struct hdag_bundle *bundle,
         );
     }
     assert(hdag_bundle_is_valid(bundle));
-    res = HDAG_RES_OK;
-cleanup:
-    return HDAG_RES_ERRNO_IF_INVALID(res);
+    return HDAG_RES_OK;
 }
 
 /**
@@ -346,16 +333,11 @@ cleanup:
  * @param bundle    The bundle to find duplicate nodes in.
  *                  Must be sorted, and use target_hashes.
  * @param ctx       The context of this bundle (the abstract supergraph).
- *                  Can be NULL, which is interpreted as an empty context,
- *                  which doesn't require verifying node content (has
- *                  "match_content" set to false), and permits duplicates (has
- *                  "reject_dups" set to false).
+ *                  Can be NULL, which is interpreted as an empty context.
  *
  * @return A void universal result. Including:
- *         * HDAG_RES_NODE_CONFLICT, if the context's "match_content" is true,
- *           and nodes with matching hashes but different targets were found.
- *         * HDAG_RES_NODE_DUPLICATE, if the context's "reject_dups" is true,
- *           and a duplicate node was detected (according to "match_content").
+ *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes but
+ *           different targets were found.
  */
 [[nodiscard]]
 static hdag_res
@@ -423,29 +405,27 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
             /* If this is the first known node in this run */
             if (keep_node == NULL) {
                 keep_node = node;
-            } else {
-                /* If the context requires we check the targets */
-                if (ctx->match_content) {
-                    /* If the targets differ */
-                    if (hdag_targets_count(&node->targets) !=
-                        hdag_targets_count(&keep_node->targets) ||
-                        memcmp(hdag_darr_element(
+            /* Else it's not the first one and if its targets differ */
+            } else if (
+                hdag_targets_count(&node->targets) !=
+                hdag_targets_count(&keep_node->targets) ||
+                (
+                    hdag_targets_count(&node->targets) != 0 &&
+                    memcmp(hdag_darr_element(
                                 &bundle->target_hashes,
-                                hdag_node_get_first_ind_idx(node)),
-                               hdag_darr_element(
+                                hdag_node_get_first_ind_idx(node)
+                           ),
+                           hdag_darr_element(
                                 &bundle->target_hashes,
-                                hdag_node_get_first_ind_idx(keep_node)),
-                                hdag_targets_count(&node->targets) *
-                                bundle->hash_len)) {
-                        res = HDAG_RES_NODE_CONFLICT;
-                        goto cleanup;
-                    }
-                }
-                /* If the context requires we reject duplicates */
-                if (ctx->reject_dups) {
-                    res = HDAG_RES_NODE_DUPLICATE;
-                    goto cleanup;
-                }
+                                hdag_node_get_first_ind_idx(keep_node)
+                           ),
+                           hdag_targets_count(&node->targets) *
+                           bundle->hash_len
+                    ) != 0
+                )
+            ) {
+                res = HDAG_RES_NODE_CONFLICT;
+                goto cleanup;
             }
         }
         prev_node = node;
