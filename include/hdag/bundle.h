@@ -29,9 +29,11 @@ struct hdag_bundle {
     /**
      * Nodes.
      * Before compacting, their targets are either unknown, or are indirect
-     * indices pointing into the target_hashes array. After compacting their
-     * targets are either unknown, direct indices pointing into the same
-     * array, or indirect indices pointing into the extra_edges array.
+     * indices pointing into the target_hashes array. After sorting, they're
+     * ordered lexicographically by their hashes. Same goes for their targets.
+     * After compacting their targets are either unknown, direct indices
+     * pointing into the same array, or indirect indices pointing into the
+     * extra_edges array.
      */
     struct hdag_darr    nodes;
 
