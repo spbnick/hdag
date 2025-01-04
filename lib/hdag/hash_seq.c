@@ -75,26 +75,26 @@ cleanup:
 }
 
 hdag_res
-hdag_hash_seq_array_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
+hdag_hash_seq_array_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
 {
-    struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
-        struct hdag_hash_seq_array, seq, hash_seq
+    struct hdag_hash_seq_array *seq = HDAG_CONTAINER_OF(
+        struct hdag_hash_seq_array, base, base_seq
     );
-    if (array_seq->next_idx >= array_seq->array_len) {
+    if (seq->next_idx >= seq->array_len) {
         return 1;
     }
     memcpy(phash,
-           array_seq->array_ptr + hash_seq->hash_len * array_seq->next_idx,
-           hash_seq->hash_len);
-    array_seq->next_idx++;
+           seq->array_ptr + base_seq->hash_len * seq->next_idx,
+           base_seq->hash_len);
+    seq->next_idx++;
     return 0;
 }
 
 void
-hdag_hash_seq_array_reset(struct hdag_hash_seq *hash_seq)
+hdag_hash_seq_array_reset(struct hdag_hash_seq *base_seq)
 {
-    struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
-        struct hdag_hash_seq_array, seq, hash_seq
+    struct hdag_hash_seq_array *seq = HDAG_CONTAINER_OF(
+        struct hdag_hash_seq_array, base, base_seq
     );
-    array_seq->next_idx = 0;
+    seq->next_idx = 0;
 }

@@ -152,7 +152,7 @@ extern hdag_res hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
 /** Hash array sequence (resettable) */
 struct hdag_hash_seq_array {
     /** The base abstract hash sequence */
-    struct hdag_hash_seq seq;
+    struct hdag_hash_seq base;
     /** The array of hashes */
     const uint8_t *array_ptr;
     /** Number of hashes in the array */
@@ -174,24 +174,24 @@ extern void hdag_hash_seq_array_reset(
 /**
  * Initialize a (resettable) hash array sequence.
  *
- * @param parray_seq    The location of the hash array sequence to initialize.
- * @param hash_len      The length of each hash in the array.
- * @param array_ptr     Pointer to the hash array to iterate over.
- * @param array_len     The number of hashes in the array.
+ * @param pseq      The location of the hash array sequence to initialize.
+ * @param hash_len  The length of each hash in the array.
+ * @param array_ptr Pointer to the hash array to iterate over.
+ * @param array_len The number of hashes in the array.
  *
  * @return The abstract sequence pointer.
  */
 static inline struct hdag_hash_seq *
-hdag_hash_seq_array_init(struct hdag_hash_seq_array *parray_seq,
+hdag_hash_seq_array_init(struct hdag_hash_seq_array *pseq,
                          uint16_t hash_len,
                          const uint8_t *array_ptr,
                          size_t array_len)
 {
-    assert(parray_seq != NULL);
+    assert(pseq != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
     assert(array_ptr != NULL || array_len == 0);
-    *parray_seq = (struct hdag_hash_seq_array){
-        .seq = {
+    *pseq = (struct hdag_hash_seq_array){
+        .base = {
             .hash_len = hash_len,
             .reset_fn = hdag_hash_seq_array_reset,
             .next_fn = hdag_hash_seq_array_next,
@@ -200,7 +200,7 @@ hdag_hash_seq_array_init(struct hdag_hash_seq_array *parray_seq,
         .array_len = array_len,
         .next_idx = 0,
     };
-    return &parray_seq->seq;
+    return &pseq->base;
 }
 
 #endif /* _HDAG_HASH_SEQ_H */
