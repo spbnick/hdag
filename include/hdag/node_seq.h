@@ -14,6 +14,14 @@
 struct hdag_node_seq;
 
 /**
+ * The prototype for a function resetting a node sequence to the start
+ * position.
+ *
+ * @param node_seq  Node sequence to reset.
+ */
+typedef void (*hdag_node_seq_reset_fn)(struct hdag_node_seq *node_seq);
+
+/**
  * The prototype for a function returning the information on the next node in
  * a sequence.
  *
@@ -38,18 +46,13 @@ typedef hdag_res (*hdag_node_seq_next_fn)(
 struct hdag_node_seq {
     /** The length of the node hashes in the sequence, bytes */
     uint16_t                hash_len;
+    /** The function resetting the sequence to the start */
+    hdag_node_seq_reset_fn  reset_fn;
     /** The function retrieving the next node from the sequence */
     hdag_node_seq_next_fn   next_fn;
     /** Sequence state data */
     void                   *data;
 };
-
-/** A next-node retrieval function which never returns nodes */
-[[nodiscard]]
-extern hdag_res hdag_node_seq_empty_next_fn(
-                struct hdag_node_seq *node_seq,
-                uint8_t *phash,
-                struct hdag_hash_seq *ptarget_hash_seq);
 
 /**
  * Check if the node sequence is valid.
@@ -67,6 +70,31 @@ hdag_node_seq_is_valid(const struct hdag_node_seq *node_seq)
 }
 
 /**
+ * Check if a node sequence is resettable (multi-pass).
+ *
+ * @param node_seq  The node sequence to check.
+ *
+ * @return True if the sequence is resettable (can be rewound and reused),
+ *         false if it's single-pass only.
+ */
+static inline bool
+hdag_node_seq_is_resettable(const struct hdag_node_seq *node_seq)
+{
+    assert(hdag_node_seq_is_valid(node_seq));
+    return node_seq->reset_fn != NULL;
+}
+
+/** A node sequence resetting function which does nothing */
+extern void hdag_node_seq_empty_reset_fn(struct hdag_node_seq *node_seq);
+
+/** A next-node retrieval function which never returns nodes */
+[[nodiscard]]
+extern hdag_res hdag_node_seq_empty_next_fn(
+                struct hdag_node_seq *node_seq,
+                uint8_t *phash,
+                struct hdag_hash_seq *ptarget_hash_seq);
+
+/**
  * An empty node sequence initializer.
  *
  * @param _hash_len The length of the (never returned) node hashes in the
@@ -74,7 +102,8 @@ hdag_node_seq_is_valid(const struct hdag_node_seq *node_seq)
  */
 #define HDAG_NODE_SEQ_EMPTY(_hash_len) (struct hdag_node_seq){ \
     .hash_len = hdag_hash_len_validate(_hash_len),              \
-    .next_fn = hdag_node_seq_empty_next_fn                      \
+    .reset_fn = hdag_node_seq_empty_reset_fn,                   \
+    .next_fn = hdag_node_seq_empty_next_fn,                     \
 }
 
 #endif /* _HDAG_NODE_SEQ_H */
