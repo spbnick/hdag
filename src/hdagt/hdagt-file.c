@@ -50,29 +50,28 @@ struct test_graph {
     .nodes = {__VA_ARGS__, TEST_NODE(0)}        \
 })
 
+/** A test node sequence */
 struct test_node_seq {
+    /** The base abstract node sequence */
+    struct hdag_node_seq base;
     /** The graph being traversed, cannot be NULL */
     const struct test_graph *graph;
     /** The index of the next node to return */
     size_t node_idx;
     /** The index of the next node target to return */
     size_t target_idx;
+    /** The returned node's target hash sequence */
+    struct hdag_hash_seq target_hash_seq;
 };
 
-#define TEST_NODE_SEQ(...) &((struct hdag_node_seq){ \
-    .hash_len = TEST_HASH_LEN,                      \
-    .next_fn = test_node_seq_next,                  \
-    .data = &(struct test_node_seq){                \
-        .graph = &TEST_GRAPH(__VA_ARGS__)           \
-    }                                               \
-})
-
 static hdag_res
-test_hash_seq_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
+test_hash_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
 {
-    assert(hdag_hash_seq_is_valid(hash_seq));
+    struct test_node_seq *seq = HDAG_CONTAINER_OF(
+        struct test_node_seq, target_hash_seq, base_seq
+    );
+    assert(hdag_hash_seq_is_valid(base_seq));
     assert(phash != NULL);
-    struct test_node_seq *seq = hash_seq->data;
     const struct test_node *node = &seq->graph->nodes[seq->node_idx];
     const uint8_t *target_hash = node->target_hashes[seq->target_idx];
     assert(seq->graph != NULL);
@@ -91,14 +90,16 @@ test_hash_seq_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
 }
 
 static hdag_res
-test_node_seq_next(struct hdag_node_seq *node_seq,
+test_node_seq_next(struct hdag_node_seq *base_seq,
                    uint8_t *phash,
-                   struct hdag_hash_seq *ptarget_hash_seq)
+                   struct hdag_hash_seq **ptarget_hash_seq)
 {
-    assert(hdag_node_seq_is_valid(node_seq));
+    struct test_node_seq *seq = HDAG_CONTAINER_OF(
+        struct test_node_seq, base, base_seq
+    );
+    assert(hdag_node_seq_is_valid(base_seq));
     assert(phash != NULL);
     assert(ptarget_hash_seq != NULL);
-    struct test_node_seq *seq = node_seq->data;
     const struct test_node *node = &seq->graph->nodes[seq->node_idx];
     assert(seq->graph != NULL);
     assert(seq->node_idx < TEST_OBJ_NUM);
@@ -111,14 +112,22 @@ test_node_seq_next(struct hdag_node_seq *node_seq,
     }
     memcpy(phash, node->hash, TEST_HASH_LEN);
     seq->target_idx = 0;
-    *ptarget_hash_seq = (struct hdag_hash_seq){
-        .hash_len = node_seq->hash_len,
-        .next_fn = test_hash_seq_next,
-        .data = seq
-    };
+    *ptarget_hash_seq = &seq->target_hash_seq;
     /* Node retrieved */
     return HDAG_RES_OK;
 }
+
+#define TEST_NODE_SEQ(...) &((struct test_node_seq){ \
+    .base = {                                           \
+        .hash_len = TEST_HASH_LEN,                      \
+        .next_fn = test_node_seq_next,                  \
+    },                                                  \
+    .graph = &TEST_GRAPH(__VA_ARGS__),                  \
+    .target_hash_seq = {                                \
+        .hash_len = TEST_HASH_LEN,                      \
+        .next_fn = test_hash_seq_next,                  \
+    },                                                  \
+}).base
 
 static size_t
 test_empty(void)

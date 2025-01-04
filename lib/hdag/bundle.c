@@ -12,58 +12,64 @@
 #include <ctype.h>
 
 hdag_res
-hdag_bundle_targets_hash_seq_next_fn(struct hdag_hash_seq *hash_seq,
+hdag_bundle_targets_hash_seq_next_fn(struct hdag_hash_seq *base_seq,
                                      uint8_t *phash)
 {
-    assert(hdag_hash_seq_is_valid(hash_seq));
+    struct hdag_bundle_targets_hash_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_targets_hash_seq, base, base_seq
+    );
+    assert(hdag_hash_seq_is_valid(base_seq));
+    assert(seq->bundle->hash_len == base_seq->hash_len);
     assert(phash != NULL);
-    struct hdag_bundle_targets_hash_seq_state *data = hash_seq->data;
-    assert(data->bundle->hash_len == hash_seq->hash_len);
-    if (data->target_idx <
-        hdag_bundle_targets_count(data->bundle, data->node_idx)) {
+    if (seq->target_idx <
+        hdag_bundle_targets_count(seq->bundle,
+                                  seq->node_idx)) {
         memcpy(phash,
-               hdag_bundle_targets_node_hash(data->bundle, data->node_idx,
-                                             data->target_idx),
-               hash_seq->hash_len);
-        data->target_idx++;
+               hdag_bundle_targets_node_hash(seq->bundle,
+                                             seq->node_idx,
+                                             seq->target_idx),
+               base_seq->hash_len);
+        seq->target_idx++;
         return HDAG_RES_OK;
     }
     return 1;
 }
 
 void
-hdag_bundle_targets_hash_seq_reset_fn(struct hdag_hash_seq *hash_seq)
+hdag_bundle_targets_hash_seq_reset_fn(struct hdag_hash_seq *base_seq)
 {
-    assert(hdag_hash_seq_is_valid(hash_seq));
-    struct hdag_bundle_targets_hash_seq_state *data = hash_seq->data;
-    assert(data->bundle->hash_len == hash_seq->hash_len);
-    data->target_idx = 0;
+    struct hdag_bundle_targets_hash_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_targets_hash_seq, base, base_seq
+    );
+    assert(hdag_hash_seq_is_valid(base_seq));
+    assert(base_seq->hash_len == seq->bundle->hash_len);
+    seq->target_idx = 0;
 }
 
 hdag_res
-hdag_bundle_node_seq_next_fn(struct hdag_node_seq *node_seq,
+hdag_bundle_node_seq_next_fn(struct hdag_node_seq *base_seq,
                              uint8_t *phash,
-                             struct hdag_hash_seq *ptarget_hash_seq)
+                             struct hdag_hash_seq **ptarget_hash_seq)
 {
-    assert(hdag_node_seq_is_valid(node_seq));
+    assert(hdag_node_seq_is_valid(base_seq));
     assert(phash != NULL);
     assert(ptarget_hash_seq != NULL);
-    struct hdag_bundle_node_seq_state *state = node_seq->data;
-    assert(state != NULL);
-    const struct hdag_bundle *bundle = state->bundle;
+    struct hdag_bundle_node_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_node_seq, base, base_seq
+    );
+    const struct hdag_bundle *bundle = seq->bundle;
     assert(hdag_bundle_is_valid(bundle));
-    assert(node_seq->hash_len == bundle->hash_len);
+    assert(base_seq->hash_len == bundle->hash_len);
 
-    if (state->node_idx >= bundle->nodes.slots_occupied) {
+    if (seq->node_idx >= bundle->nodes.slots_occupied) {
         return 1;
     }
-    memcpy(phash, HDAG_BUNDLE_NODE(bundle, state->node_idx)->hash,
+    memcpy(phash, HDAG_BUNDLE_NODE(bundle, seq->node_idx)->hash,
            bundle->hash_len);
-    hdag_bundle_targets_hash_seq(ptarget_hash_seq,
-                                 &state->targets_hash_seq_state,
-                                 bundle,
-                                 state->node_idx);
-    state->node_idx++;
+    *ptarget_hash_seq = hdag_bundle_targets_hash_seq_init(
+        &seq->targets_hash_seq, bundle, seq->node_idx
+    );
+    seq->node_idx++;
     return 0;
 }
 
@@ -1030,7 +1036,7 @@ hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
     struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
-    struct hdag_hash_seq    target_hash_seq;
+    struct hdag_hash_seq   *target_hash_seq;
     size_t                  first_target_hash_idx;
 
     assert(hdag_node_seq_is_valid(node_seq));
@@ -1058,13 +1064,13 @@ hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
 
     /* Collect each node (and its targets) in the sequence */
     while (!HDAG_RES_TRY(
-        node_seq->next_fn(node_seq, node_hash, &target_hash_seq)
+        hdag_node_seq_next(node_seq, node_hash, &target_hash_seq)
     )) {
         first_target_hash_idx = bundle.target_hashes.slots_occupied;
 
         /* Collect each target hash */
         while (!HDAG_RES_TRY(
-            target_hash_seq.next_fn(&target_hash_seq, target_hash)
+            hdag_hash_seq_next(target_hash_seq, target_hash)
         )) {
             /* Add a new target hash (and the corresponding node) */
             if (hdag_darr_append_one(
@@ -1106,10 +1112,14 @@ cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
-/** The state of loading node/target sequence from a text file */
-struct hdag_bundle_txt_seq {
+/** A text file node sequence */
+struct hdag_bundle_txt_node_seq {
+    /** The base abstract node sequence */
+    struct hdag_node_seq    base;
     /** The FILE stream containing the text to parse and load */
-    FILE       *stream;
+    FILE                   *stream;
+    /** The returned node's target hash sequence */
+    struct hdag_hash_seq    target_hash_seq;
 };
 
 /**
@@ -1210,17 +1220,18 @@ output:
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_txt_hash_seq_next(struct hdag_hash_seq *hash_seq,
-                              uint8_t *phash)
+hdag_bundle_txt_hash_seq_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
     hdag_res                    res;
     uint16_t                    hash_len = hash_seq->hash_len;
-    struct hdag_bundle_txt_seq *txt_seq = hash_seq->data;
-    FILE                       *stream = txt_seq->stream;
+    struct hdag_bundle_txt_node_seq    *txt_node_seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_txt_node_seq, target_hash_seq, hash_seq
+    );
+    FILE                       *stream = txt_node_seq->stream;
 
-    assert(hdag_hash_len_is_valid(hash_seq->hash_len));
-    assert(txt_seq != NULL);
-    assert(txt_seq->stream != NULL);
+    assert(hdag_hash_seq_is_valid(hash_seq));
+    assert(phash != NULL);
+    assert(stream != NULL);
 
     /* Skip whitespace (excluding newlines) and read a hash */
     res = hdag_bundle_txt_read_hash(stream, phash, hash_len, false);
@@ -1237,18 +1248,21 @@ hdag_bundle_txt_hash_seq_next(struct hdag_hash_seq *hash_seq,
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_txt_node_seq_next(struct hdag_node_seq *node_seq,
-                              uint8_t                    *phash,
-                              struct hdag_hash_seq       *ptarget_hash_seq)
+hdag_bundle_txt_node_seq_next(struct hdag_node_seq     *base_seq,
+                              uint8_t                  *phash,
+                              struct hdag_hash_seq    **ptarget_hash_seq)
 {
-    hdag_res                    res;
-    uint16_t                    hash_len = node_seq->hash_len;
-    struct hdag_bundle_txt_seq *txt_seq = node_seq->data;
-    FILE                       *stream = txt_seq->stream;
+    hdag_res                            res;
+    uint16_t                            hash_len = base_seq->hash_len;
+    struct hdag_bundle_txt_node_seq    *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_txt_node_seq, base, base_seq
+    );
+    FILE                               *stream = seq->stream;
 
-    assert(hdag_hash_len_is_valid(node_seq->hash_len));
-    assert(txt_seq != NULL);
-    assert(txt_seq->stream != NULL);
+    assert(hdag_node_seq_is_valid(base_seq));
+    assert(stream != NULL);
+    assert(phash != NULL);
+    assert(ptarget_hash_seq != NULL);
 
     /* Skip whitespace (including newlines) and read a hash */
     res = hdag_bundle_txt_read_hash(stream, phash, hash_len, true);
@@ -1257,11 +1271,7 @@ hdag_bundle_txt_node_seq_next(struct hdag_node_seq *node_seq,
         return res;
     }
     /* Return the stream's target hash sequence */
-    *ptarget_hash_seq = (struct hdag_hash_seq){
-        .hash_len = hash_len,
-        .next_fn = hdag_bundle_txt_hash_seq_next,
-        .data = txt_seq,
-    };
+    *ptarget_hash_seq = &seq->target_hash_seq;
     /* Return OK if we got a hash */
     return res >= hash_len ? 1 : HDAG_RES_OK;
 }
@@ -1270,16 +1280,24 @@ hdag_res
 hdag_bundle_from_txt(struct hdag_bundle *pbundle,
                      FILE *stream, uint16_t hash_len)
 {
-    struct hdag_bundle_txt_seq txt_seq = {.stream = stream};
+    struct hdag_bundle_txt_node_seq seq = {
+        .base = {
+            .hash_len = hash_len,
+            .next_fn = hdag_bundle_txt_node_seq_next,
+        },
+        .stream = stream,
+        .target_hash_seq = {
+            .hash_len = hash_len,
+            .next_fn = hdag_bundle_txt_hash_seq_next,
+        },
+    };
 
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
+    assert(hdag_node_seq_is_valid(&seq.base));
+    assert(hdag_hash_seq_is_valid(&seq.target_hash_seq));
 
-    return hdag_bundle_from_node_seq(pbundle, &(struct hdag_node_seq){
-        .hash_len = hash_len,
-        .next_fn = hdag_bundle_txt_node_seq_next,
-        .data = &txt_seq,
-    });
+    return hdag_bundle_from_node_seq(pbundle, &seq.base);
 }
 
 hdag_res
@@ -1415,21 +1433,26 @@ hdag_bundle_organized_from_txt(struct hdag_bundle *pbundle,
                                const struct hdag_ctx *ctx,
                                FILE *stream, uint16_t hash_len)
 {
-    struct hdag_bundle_txt_seq txt_seq = {.stream = stream};
+    hdag_res            res     = HDAG_RES_INVALID;
+    struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(hash_len);
 
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
-    return hdag_bundle_organized_from_node_seq(
-        pbundle,
-        ctx,
-        &(struct hdag_node_seq){
-            .hash_len = hash_len,
-            .next_fn = hdag_bundle_txt_node_seq_next,
-            .data = &txt_seq,
-        }
-    );
+    HDAG_RES_TRY(hdag_bundle_from_txt(&bundle, stream, hash_len));
+    HDAG_RES_TRY(hdag_bundle_organize(&bundle, ctx));
+
+    assert(hdag_bundle_is_valid(&bundle));
+    assert(hdag_bundle_is_organized(&bundle));
+    if (pbundle != NULL) {
+        *pbundle = bundle;
+        bundle = HDAG_BUNDLE_EMPTY(hash_len);
+    }
+    res = HDAG_RES_OK;
+cleanup:
+    hdag_bundle_cleanup(&bundle);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
 hdag_res
