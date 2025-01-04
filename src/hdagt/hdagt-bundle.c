@@ -747,7 +747,7 @@ test_enumerating(uint16_t hash_len)
     } while (0)
 
     /* Enumerate empty bundle */
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 0);
     TEST(hdag_darr_occupied_slots(&bundle.target_hashes) == 0);
     TEST(hdag_darr_occupied_slots(&bundle.extra_edges) == 0);
@@ -755,7 +755,7 @@ test_enumerating(uint16_t hash_len)
 
     /* Enumerate single-node bundle */
     ADD_NODES(1);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -765,7 +765,7 @@ test_enumerating(uint16_t hash_len)
 
     /* Enumerate two disconnected nodes */
     ADD_NODES(2);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -778,7 +778,7 @@ test_enumerating(uint16_t hash_len)
     /* Enumerate N0 -> N1 */
     ADD_NODES(2);
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -791,7 +791,7 @@ test_enumerating(uint16_t hash_len)
     /* Enumerate N0 <- N1 */
     ADD_NODES(2);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -805,7 +805,7 @@ test_enumerating(uint16_t hash_len)
     ADD_NODES(3);
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 3);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -820,7 +820,7 @@ test_enumerating(uint16_t hash_len)
     /* Enumerate N0 <- N1 -> N2 */
     ADD_NODES(3);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_two(0, 2);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 3);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -837,7 +837,7 @@ test_enumerating(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
     HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 3)->targets = hdag_targets_direct_one(1);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 1);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -856,7 +856,7 @@ test_enumerating(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(2);
     HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 3)->targets = hdag_targets_direct_one(2);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 3);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -874,7 +874,7 @@ test_enumerating(uint16_t hash_len)
     ADD_NODES(2);
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(0);
-    TEST(hdag_bundle_enumerate(&bundle) == HDAG_RES_GRAPH_CYCLE);
+    TEST(hdag_bundle_enumerate(&bundle, NULL) == HDAG_RES_GRAPH_CYCLE);
     hdag_bundle_cleanup(&bundle);
 
     /* Enumerate cyclic bundle: N0 -> N1 -> N2 -> (N0) */
@@ -882,7 +882,7 @@ test_enumerating(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = hdag_targets_direct_one(2);
     HDAG_BUNDLE_NODE(&bundle, 2)->targets = hdag_targets_direct_one(0);
-    TEST(hdag_bundle_enumerate(&bundle) == HDAG_RES_GRAPH_CYCLE);
+    TEST(hdag_bundle_enumerate(&bundle, NULL) == HDAG_RES_GRAPH_CYCLE);
     hdag_bundle_cleanup(&bundle);
 
     /*
@@ -895,7 +895,7 @@ test_enumerating(uint16_t hash_len)
     HDAG_BUNDLE_NODE(&bundle, 4)->targets = hdag_targets_direct_one(7);
     HDAG_BUNDLE_NODE(&bundle, 5)->targets = hdag_targets_direct_one(7);
     HDAG_BUNDLE_NODE(&bundle, 6)->targets = hdag_targets_direct_one(7);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 8);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -925,7 +925,7 @@ test_enumerating(uint16_t hash_len)
     edge++->node_idx = 2;
     edge++->node_idx = 3;
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_indirect(0, 2);
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 4);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);
@@ -943,7 +943,7 @@ test_enumerating(uint16_t hash_len)
     ADD_NODES(2);
     HDAG_BUNDLE_NODE(&bundle, 0)->targets = hdag_targets_direct_one(1);
     HDAG_BUNDLE_NODE(&bundle, 1)->targets = HDAG_TARGETS_UNKNOWN;
-    TEST(!hdag_bundle_enumerate(&bundle));
+    TEST(!hdag_bundle_enumerate(&bundle, NULL));
     TEST(hdag_darr_occupied_slots(&bundle.nodes) == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->generation == 2);
     TEST(HDAG_BUNDLE_NODE(&bundle, 0)->component == 1);

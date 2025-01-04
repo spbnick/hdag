@@ -439,11 +439,15 @@ hdag_bundle_is_unenumerated(const struct hdag_bundle *bundle)
  * generation numbers to every node.
  *
  * @param bundle    The bundle to enumerate. Must be unenumerated.
+ * @param ctx       The context of this bundle (the abstract supergraph) to
+ *                  retrieve connected component and generation numbers. Can
+ *                  be NULL, which is interpreted as an empty context.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle,
+                                      const struct hdag_ctx *ctx);
 
 /**
  * Check if all bundle nodes are enumerated. That is have both components and
