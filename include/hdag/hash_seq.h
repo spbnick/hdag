@@ -192,12 +192,16 @@ hdag_hash_seq_array_init(struct hdag_hash_seq_array *parray_seq,
     assert(parray_seq != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
     assert(array_ptr != NULL || array_len == 0);
-    parray_seq->seq.hash_len = hash_len;
-    parray_seq->seq.reset_fn = hdag_hash_seq_array_reset_fn;
-    parray_seq->seq.next_fn = hdag_hash_seq_array_next_fn;
-    parray_seq->array_ptr = array_ptr;
-    parray_seq->array_len = array_len;
-    parray_seq->next_idx = 0;
+    *parray_seq = (struct hdag_hash_seq_array){
+        .seq = {
+            .hash_len = hash_len,
+            .reset_fn = hdag_hash_seq_array_reset_fn,
+            .next_fn = hdag_hash_seq_array_next_fn,
+        },
+        .array_ptr = array_ptr,
+        .array_len = array_len,
+        .next_idx = 0,
+    };
     return &parray_seq->seq;
 }
 

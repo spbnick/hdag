@@ -757,12 +757,16 @@ hdag_bundle_targets_hash_seq_init(
     assert(hdag_bundle_is_valid(bundle));
     assert(node_idx < bundle->nodes.slots_occupied);
 
-    pseq->base.hash_len = bundle->hash_len;
-    pseq->base.reset_fn = hdag_bundle_targets_hash_seq_reset_fn;
-    pseq->base.next_fn = hdag_bundle_targets_hash_seq_next_fn;
-    pseq->bundle = bundle;
-    pseq->node_idx = node_idx;
-    pseq->target_idx = 0;
+    *pseq = (struct hdag_bundle_targets_hash_seq){
+        .base = {
+            .hash_len = bundle->hash_len,
+            .reset_fn = hdag_bundle_targets_hash_seq_reset_fn,
+            .next_fn = hdag_bundle_targets_hash_seq_next_fn,
+        },
+        .bundle = bundle,
+        .node_idx = node_idx,
+        .target_idx = 0,
+    };
 
     assert(hdag_hash_seq_is_valid(&pseq->base));
     assert(hdag_hash_seq_is_resettable(&pseq->base));
@@ -916,11 +920,15 @@ hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
     assert(pseq != NULL);
     assert(hdag_bundle_is_valid(bundle));
 
-    pseq->base.hash_len = bundle->hash_len;
-    pseq->base.reset_fn = hdag_bundle_node_seq_reset_fn;
-    pseq->base.next_fn = hdag_bundle_node_seq_next_fn;
-    pseq->bundle = bundle;
-    pseq->node_idx = 0;
+    *pseq = (struct hdag_bundle_node_seq){
+        .base = {
+            .hash_len = bundle->hash_len,
+            .reset_fn = hdag_bundle_node_seq_reset_fn,
+            .next_fn = hdag_bundle_node_seq_next_fn,
+        },
+        .bundle = bundle,
+        .node_idx = 0,
+    };
 
     assert(hdag_node_seq_is_valid(&pseq->base));
     assert(hdag_node_seq_is_resettable(&pseq->base));
