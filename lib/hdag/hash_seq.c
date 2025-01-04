@@ -3,6 +3,7 @@
  */
 
 #include <hdag/hash_seq.h>
+#include <hdag/misc.h>
 #include <sys/param.h>
 #include <string.h>
 
@@ -72,4 +73,30 @@ hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
 
 cleanup:
     return res;
+}
+
+hdag_res
+hdag_hash_seq_array_next_fn(struct hdag_hash_seq *hash_seq,
+                            uint8_t *phash)
+{
+    struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
+        struct hdag_hash_seq_array, seq, hash_seq
+    );
+    if (array_seq->next_idx >= array_seq->array_len) {
+        return 1;
+    }
+    memcpy(phash,
+           array_seq->array_ptr + hash_seq->hash_len * array_seq->next_idx,
+           hash_seq->hash_len);
+    array_seq->next_idx++;
+    return 0;
+}
+
+void
+hdag_hash_seq_array_reset_fn(struct hdag_hash_seq *hash_seq)
+{
+    struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
+        struct hdag_hash_seq_array, seq, hash_seq
+    );
+    array_seq->next_idx = 0;
 }
