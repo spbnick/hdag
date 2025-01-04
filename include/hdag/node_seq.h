@@ -28,9 +28,9 @@ typedef void (*hdag_node_seq_reset_fn)(struct hdag_node_seq *node_seq);
  * @param node_seq          The node sequence being traversed.
  * @param phash             Location for the node's hash. The length of the
  *                          hash is specified in the sequence.
- *                          Can be modified even in case of failure.
+ *                          Can be modified on failure as well.
  * @param ptarget_hash_seq  Location for the node's sequence of target node
- *                          hashes. Can be modified even in case of failure.
+ *                          hashes. Can be modified on failure as well.
  *
  * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.
@@ -55,7 +55,7 @@ struct hdag_node_seq {
 };
 
 /**
- * Check if the node sequence is valid.
+ * Check if a node sequence is valid.
  *
  * @param node_seq  The node sequence to check.
  *
@@ -103,9 +103,9 @@ hdag_node_seq_reset(struct hdag_node_seq *node_seq)
  * @param node_seq          The node sequence to retrieve the next node from.
  * @param phash             Location for the node's hash. The length of the
  *                          hash is specified in the sequence.
- *                          Can be modified even in case of failure.
+ *                          Can be modified on failure as well.
  * @param ptarget_hash_seq  Location for the node's sequence of target node
- *                          hashes. Can be modified even in case of failure.
+ *                          hashes. Can be modified on failure as well.
  *
  * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.

@@ -13,7 +13,8 @@
 struct hdag_hash_seq;
 
 /**
- * The prototype for a function resetting hash sequence to the start position.
+ * The prototype for a function resetting a hash sequence to the start
+ * position.
  *
  * @param hash_seq  Hash sequence to reset.
  */
@@ -25,7 +26,7 @@ typedef void (*hdag_hash_seq_reset_fn)(struct hdag_hash_seq *hash_seq);
  * @param hash_seq  Hash sequence being traversed.
  * @param phash     Location for the retrieved hash.
  *                  The length of the hash is defined in hash_seq.
- *                  Can be modified even in case of failure.
+ *                  Can be modified on failure as well.
  *
  * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.
@@ -50,7 +51,7 @@ struct hdag_hash_seq {
 };
 
 /**
- * Check if the hash sequence is valid.
+ * Check if a hash sequence is valid.
  *
  * @param hash_seq  The hash sequence to check.
  *
@@ -69,7 +70,7 @@ hdag_hash_seq_is_valid(const struct hdag_hash_seq *hash_seq)
  *
  * @param hash_seq  The hash sequence to check.
  *
- * @return True if the sequence is resettable (can be rewinded and reused),
+ * @return True if the sequence is resettable (can be rewound and reused),
  *         false if it's single-pass only.
  */
 static inline bool
@@ -98,7 +99,7 @@ hdag_hash_seq_reset(struct hdag_hash_seq *hash_seq)
  * @param hash_seq  The sequence to retrieve the next hash from.
  * @param phash     Location for the retrieved hash.
  *                  The length of the hash is defined in hash_seq.
- *                  Can be modified even in case of failure.
+ *                  Can be modified on failure as well.
  *
  * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.
