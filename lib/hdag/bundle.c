@@ -74,6 +74,18 @@ hdag_bundle_node_seq_next_fn(struct hdag_node_seq *base_seq,
 }
 
 void
+hdag_bundle_node_seq_reset_fn(struct hdag_node_seq *base_seq)
+{
+    assert(hdag_node_seq_is_valid(base_seq));
+    struct hdag_bundle_node_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_node_seq, base, base_seq
+    );
+    assert(hdag_bundle_is_valid(seq->bundle));
+    assert(base_seq->hash_len == seq->bundle->hash_len);
+    seq->node_idx = 0;
+}
+
+void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));

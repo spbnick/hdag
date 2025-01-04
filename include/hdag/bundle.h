@@ -880,7 +880,11 @@ extern hdag_res hdag_bundle_node_seq_next_fn(
                             uint8_t *phash,
                             struct hdag_hash_seq **ptarget_hash_seq);
 
-/** Bundle's node sequence */
+/** A reset function for bundle's node sequence */
+extern void hdag_bundle_node_seq_reset_fn(
+                            struct hdag_node_seq *base_seq);
+
+/** Bundle's (resettable) node sequence */
 struct hdag_bundle_node_seq {
     /** The base abstract node sequence */
     struct hdag_node_seq                    base;
@@ -909,6 +913,7 @@ hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
     assert(hdag_bundle_is_valid(bundle));
 
     pseq->base.hash_len = bundle->hash_len;
+    pseq->base.reset_fn = hdag_bundle_node_seq_reset_fn;
     pseq->base.next_fn = hdag_bundle_node_seq_next_fn;
     pseq->bundle = bundle;
     pseq->node_idx = 0;
