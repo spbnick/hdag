@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <time.h>
 
 /** Get the 11th argument passed */
@@ -221,5 +222,30 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
  * @return The array length (number of elements).
  */
 #define HDAG_ARR_LEN(_arr) (sizeof(_arr) / sizeof((_arr)[0]))
+
+/**
+ * Cast a member pointer to the containing type.
+ *
+ * @param _container_type       The specifier of container type to cast to.
+ * @param _member_identifier    The identifier (name) of the container's
+ *                              member being cast.
+ * @param _member               The pointer to a member to cast.
+ *
+ * @return The cast pointer. Const, if _member is const.
+ */
+#define HDAG_CONTAINER_OF(_container_type, _member_identifier, _member) \
+    _Generic(                                                           \
+        _member,                                                        \
+        const typeof(*(_member)) *:                                     \
+            (const _container_type *)(                                  \
+                (const void *)(_member) -                               \
+                offsetof(_container_type, _member_identifier)           \
+            ),                                                          \
+        default:                                                        \
+            (_container_type *)(                                        \
+                (void *)(_member) -                                     \
+                offsetof(_container_type, _member_identifier)           \
+            )                                                           \
+    )
 
 #endif /* _HDAG_MISC_H */

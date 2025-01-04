@@ -62,6 +62,41 @@ test(void)
         TEST(hdag_darr_uappend(&darr, 0) == NULL);
     }
 
+    {
+        struct member {
+            int b;
+        };
+        struct container {
+            int a;
+            struct member member;
+            int c;
+        };
+        struct container container = {
+            .a = 'a',
+            .member = {.b = 'b'},
+            .c = 'c',
+        };
+        struct member *pmember = &container.member;
+        const struct member *const_pmember = &container.member;
+        struct container *pcontainer;
+        const struct container *const_pcontainer;
+
+        pcontainer = HDAG_CONTAINER_OF(
+            struct container, member, pmember
+        );
+        const_pcontainer = HDAG_CONTAINER_OF(
+            struct container, member, const_pmember
+        );
+        TEST(pcontainer == &container);
+        TEST(const_pcontainer == &container);
+#ifdef HDAG_COMPILE_TEST
+        /* This should fail */
+        pcontainer = HDAG_CONTAINER_OF(
+            struct container, member, const_pmember
+        );
+#endif
+    }
+
     return failed;
 }
 
