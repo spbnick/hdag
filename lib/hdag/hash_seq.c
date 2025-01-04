@@ -7,7 +7,7 @@
 #include <string.h>
 
 hdag_res
-hdag_hash_seq_empty_next_fn(const struct hdag_hash_seq *hash_seq,
+hdag_hash_seq_empty_next_fn(struct hdag_hash_seq *hash_seq,
                             uint8_t *phash)
 {
     (void)hash_seq;
@@ -16,14 +16,14 @@ hdag_hash_seq_empty_next_fn(const struct hdag_hash_seq *hash_seq,
 }
 
 void
-hdag_hash_seq_empty_reset_fn(const struct hdag_hash_seq *hash_seq)
+hdag_hash_seq_empty_reset_fn(struct hdag_hash_seq *hash_seq)
 {
     (void)hash_seq;
 }
 
 hdag_res
-hdag_hash_seq_cmp(const struct hdag_hash_seq *hash_seq_a,
-                  const struct hdag_hash_seq *hash_seq_b)
+hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
+                  struct hdag_hash_seq *hash_seq_b)
 {
     hdag_res res;
     hdag_res res_a;

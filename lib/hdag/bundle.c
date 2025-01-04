@@ -12,7 +12,7 @@
 #include <ctype.h>
 
 hdag_res
-hdag_bundle_targets_hash_seq_next_fn(const struct hdag_hash_seq *hash_seq,
+hdag_bundle_targets_hash_seq_next_fn(struct hdag_hash_seq *hash_seq,
                                      uint8_t *phash)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
@@ -32,7 +32,7 @@ hdag_bundle_targets_hash_seq_next_fn(const struct hdag_hash_seq *hash_seq,
 }
 
 void
-hdag_bundle_targets_hash_seq_reset_fn(const struct hdag_hash_seq *hash_seq)
+hdag_bundle_targets_hash_seq_reset_fn(struct hdag_hash_seq *hash_seq)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
     struct hdag_bundle_targets_hash_seq_state *data = hash_seq->data;
@@ -41,7 +41,7 @@ hdag_bundle_targets_hash_seq_reset_fn(const struct hdag_hash_seq *hash_seq)
 }
 
 hdag_res
-hdag_bundle_node_seq_next_fn(const struct hdag_node_seq *node_seq,
+hdag_bundle_node_seq_next_fn(struct hdag_node_seq *node_seq,
                              uint8_t *phash,
                              struct hdag_hash_seq *ptarget_hash_seq)
 {
@@ -1210,7 +1210,7 @@ output:
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_txt_hash_seq_next(const struct hdag_hash_seq *hash_seq,
+hdag_bundle_txt_hash_seq_next(struct hdag_hash_seq *hash_seq,
                               uint8_t *phash)
 {
     hdag_res                    res;
@@ -1237,7 +1237,7 @@ hdag_bundle_txt_hash_seq_next(const struct hdag_hash_seq *hash_seq,
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_txt_node_seq_next(const struct hdag_node_seq *node_seq,
+hdag_bundle_txt_node_seq_next(struct hdag_node_seq *node_seq,
                               uint8_t                    *phash,
                               struct hdag_hash_seq       *ptarget_hash_seq)
 {

@@ -68,7 +68,7 @@ struct test_node_seq {
 })
 
 static hdag_res
-test_hash_seq_next(const struct hdag_hash_seq *hash_seq, uint8_t *phash)
+test_hash_seq_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
     assert(phash != NULL);
@@ -91,7 +91,7 @@ test_hash_seq_next(const struct hdag_hash_seq *hash_seq, uint8_t *phash)
 }
 
 static hdag_res
-test_node_seq_next(const struct hdag_node_seq *node_seq,
+test_node_seq_next(struct hdag_node_seq *node_seq,
                    uint8_t *phash,
                    struct hdag_hash_seq *ptarget_hash_seq)
 {

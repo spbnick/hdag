@@ -725,12 +725,12 @@ struct hdag_bundle_targets_hash_seq_state {
 /** A next-hash retrieval function for target hash sequence */
 [[nodiscard]]
 extern hdag_res hdag_bundle_targets_hash_seq_next_fn(
-                    const struct hdag_hash_seq *hash_seq,
+                    struct hdag_hash_seq *hash_seq,
                     uint8_t *phash);
 
 /** A reset function for target hash sequence */
 extern void hdag_bundle_targets_hash_seq_reset_fn(
-                    const struct hdag_hash_seq *hash_seq);
+                    struct hdag_hash_seq *hash_seq);
 
 /**
  * Setup a sequence of hashes of targets of a node from a bundle.
@@ -878,7 +878,7 @@ extern hdag_res hdag_bundle_organized_from_txt(
 
 /** A next-node retrieval function for bundle's node sequence */
 extern hdag_res hdag_bundle_node_seq_next_fn(
-                            const struct hdag_node_seq *node_seq,
+                            struct hdag_node_seq *node_seq,
                             uint8_t *phash,
                             struct hdag_hash_seq *ptarget_hash_seq);
 

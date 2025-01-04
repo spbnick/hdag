@@ -29,9 +29,9 @@ struct hdag_node_seq;
  *          A negative number (a failure result) if node retrieval has failed.
  */
 typedef hdag_res (*hdag_node_seq_next_fn)(
-    const struct hdag_node_seq *node_seq,
-    uint8_t                    *phash,
-    struct hdag_hash_seq       *ptarget_hash_seq
+    struct hdag_node_seq   *node_seq,
+    uint8_t                *phash,
+    struct hdag_hash_seq   *ptarget_hash_seq
 );
 
 /** A node sequence */
@@ -47,7 +47,7 @@ struct hdag_node_seq {
 /** A next-node retrieval function which never returns nodes */
 [[nodiscard]]
 extern hdag_res hdag_node_seq_empty_next_fn(
-                const struct hdag_node_seq *node_seq,
+                struct hdag_node_seq *node_seq,
                 uint8_t *phash,
                 struct hdag_hash_seq *ptarget_hash_seq);
 

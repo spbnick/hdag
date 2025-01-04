@@ -17,9 +17,7 @@ struct hdag_hash_seq;
  *
  * @param hash_seq  Hash sequence to reset.
  */
-typedef void (*hdag_hash_seq_reset_fn)(
-    const struct hdag_hash_seq *hash_seq
-);
+typedef void (*hdag_hash_seq_reset_fn)(struct hdag_hash_seq *hash_seq);
 
 /**
  * The prototype for a function returning the next hash from a sequence.
@@ -33,7 +31,7 @@ typedef void (*hdag_hash_seq_reset_fn)(
  *          A positive number if there were no more hashes.
  *          A negative number (a failure result) if hash retrieval has failed.
  */
-typedef hdag_res (*hdag_hash_seq_next_fn)(const struct hdag_hash_seq *hash_seq,
+typedef hdag_res (*hdag_hash_seq_next_fn)(struct hdag_hash_seq *hash_seq,
                                           uint8_t *phash);
 
 /** A hash sequence */
@@ -87,7 +85,7 @@ hdag_hash_seq_is_resettable(const struct hdag_hash_seq *hash_seq)
  * @param hash_seq  Hash sequence to reset. Must be resettable.
  */
 static inline void
-hdag_hash_seq_reset(const struct hdag_hash_seq *hash_seq)
+hdag_hash_seq_reset(struct hdag_hash_seq *hash_seq)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
     assert(hdag_hash_seq_is_resettable(hash_seq));
@@ -107,7 +105,7 @@ hdag_hash_seq_reset(const struct hdag_hash_seq *hash_seq)
  *          A negative number (a failure result) if hash retrieval has failed.
  */
 static inline hdag_res
-hdag_hash_seq_next(const struct hdag_hash_seq *hash_seq,
+hdag_hash_seq_next(struct hdag_hash_seq *hash_seq,
                    uint8_t *phash)
 {
     assert(hdag_hash_seq_is_valid(hash_seq));
@@ -118,12 +116,12 @@ hdag_hash_seq_next(const struct hdag_hash_seq *hash_seq,
 /** A next-hash retrieval function which never returns hashes */
 [[nodiscard]]
 extern hdag_res hdag_hash_seq_empty_next_fn(
-                    const struct hdag_hash_seq *hash_seq,
+                    struct hdag_hash_seq *hash_seq,
                     uint8_t *phash);
 
 /** A reset function which does nothing */
 extern void hdag_hash_seq_empty_reset_fn(
-                    const struct hdag_hash_seq *hash_seq);
+                    struct hdag_hash_seq *hash_seq);
 
 /**
  * An initializer for an empty hash sequence
@@ -149,7 +147,7 @@ extern void hdag_hash_seq_empty_reset_fn(
  *         3 - hash_seq_a > hash_seq_b,
  *         or a hash retrieval fault.
  */
-extern hdag_res hdag_hash_seq_cmp(const struct hdag_hash_seq *hash_seq_a,
-                                  const struct hdag_hash_seq *hash_seq_b);
+extern hdag_res hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
+                                  struct hdag_hash_seq *hash_seq_b);
 
 #endif /* _HDAG_HASH_SEQ_H */
