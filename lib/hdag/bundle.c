@@ -12,7 +12,7 @@
 #include <ctype.h>
 
 hdag_res
-hdag_bundle_targets_hash_seq_next_fn(struct hdag_hash_seq *base_seq,
+hdag_bundle_targets_hash_seq_next(struct hdag_hash_seq *base_seq,
                                      uint8_t *phash)
 {
     struct hdag_bundle_targets_hash_seq *seq = HDAG_CONTAINER_OF(
@@ -36,7 +36,7 @@ hdag_bundle_targets_hash_seq_next_fn(struct hdag_hash_seq *base_seq,
 }
 
 void
-hdag_bundle_targets_hash_seq_reset_fn(struct hdag_hash_seq *base_seq)
+hdag_bundle_targets_hash_seq_reset(struct hdag_hash_seq *base_seq)
 {
     struct hdag_bundle_targets_hash_seq *seq = HDAG_CONTAINER_OF(
         struct hdag_bundle_targets_hash_seq, base, base_seq
@@ -47,7 +47,7 @@ hdag_bundle_targets_hash_seq_reset_fn(struct hdag_hash_seq *base_seq)
 }
 
 hdag_res
-hdag_bundle_node_seq_next_fn(struct hdag_node_seq *base_seq,
+hdag_bundle_node_seq_next(struct hdag_node_seq *base_seq,
                              uint8_t *phash,
                              struct hdag_hash_seq **ptarget_hash_seq)
 {
@@ -74,7 +74,7 @@ hdag_bundle_node_seq_next_fn(struct hdag_node_seq *base_seq,
 }
 
 void
-hdag_bundle_node_seq_reset_fn(struct hdag_node_seq *base_seq)
+hdag_bundle_node_seq_reset(struct hdag_node_seq *base_seq)
 {
     assert(hdag_node_seq_is_valid(base_seq));
     struct hdag_bundle_node_seq *seq = HDAG_CONTAINER_OF(

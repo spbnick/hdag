@@ -80,7 +80,7 @@ hdag_ctx_get_node(const struct hdag_ctx *ctx, const uint8_t *hash)
 }
 
 /** Node retrieval function for an empty context, never returning nodes */
-extern const struct hdag_ctx_node *hdag_ctx_empty_get_node_fn(
+extern const struct hdag_ctx_node *hdag_ctx_empty_get_node(
                                             const struct hdag_ctx *ctx,
                                             const uint8_t *hash);
 
@@ -91,7 +91,7 @@ extern const struct hdag_ctx_node *hdag_ctx_empty_get_node_fn(
  */
 #define HDAG_CTX_EMPTY(_hash_len) (struct hdag_ctx){ \
     .hash_len = hdag_hash_len_validate(_hash_len),      \
-    .get_node_fn = hdag_ctx_empty_get_node_fn,          \
+    .get_node_fn = hdag_ctx_empty_get_node,             \
 }
 
 #endif /* _HDAG_CTX_H */

@@ -5,7 +5,7 @@
 #include <hdag/ctx.h>
 
 const struct hdag_ctx_node *
-hdag_ctx_empty_get_node_fn(const struct hdag_ctx *ctx, const uint8_t *hash)
+hdag_ctx_empty_get_node(const struct hdag_ctx *ctx, const uint8_t *hash)
 {
     (void)ctx;
     (void)hash;

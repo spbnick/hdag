@@ -116,12 +116,12 @@ hdag_hash_seq_next(struct hdag_hash_seq *hash_seq,
 
 /** A next-hash retrieval function which never returns hashes */
 [[nodiscard]]
-extern hdag_res hdag_hash_seq_empty_next_fn(
+extern hdag_res hdag_hash_seq_empty_next(
                     struct hdag_hash_seq *hash_seq,
                     uint8_t *phash);
 
 /** A reset function which does nothing */
-extern void hdag_hash_seq_empty_reset_fn(
+extern void hdag_hash_seq_empty_reset(
                     struct hdag_hash_seq *hash_seq);
 
 /**
@@ -132,8 +132,8 @@ extern void hdag_hash_seq_empty_reset_fn(
  */
 #define HDAG_HASH_SEQ_EMPTY(_hash_len) (struct hdag_hash_seq){ \
     .hash_len = hdag_hash_len_validate(_hash_len),              \
-    .reset_fn = hdag_hash_seq_empty_reset_fn,                   \
-    .next_fn = hdag_hash_seq_empty_next_fn                      \
+    .reset_fn = hdag_hash_seq_empty_reset,                      \
+    .next_fn = hdag_hash_seq_empty_next                         \
 }
 
 /**
@@ -165,12 +165,12 @@ struct hdag_hash_seq_array {
 
 /** The next-hash retrieval function of a hash array sequence */
 [[nodiscard]]
-extern hdag_res hdag_hash_seq_array_next_fn(
+extern hdag_res hdag_hash_seq_array_next(
                     struct hdag_hash_seq *hash_seq,
                     uint8_t *phash);
 
 /** The reset function of a hash array sequence */
-extern void hdag_hash_seq_array_reset_fn(
+extern void hdag_hash_seq_array_reset(
                     struct hdag_hash_seq *hash_seq);
 
 /**
@@ -195,8 +195,8 @@ hdag_hash_seq_array_init(struct hdag_hash_seq_array *parray_seq,
     *parray_seq = (struct hdag_hash_seq_array){
         .seq = {
             .hash_len = hash_len,
-            .reset_fn = hdag_hash_seq_array_reset_fn,
-            .next_fn = hdag_hash_seq_array_next_fn,
+            .reset_fn = hdag_hash_seq_array_reset,
+            .next_fn = hdag_hash_seq_array_next,
         },
         .array_ptr = array_ptr,
         .array_len = array_len,

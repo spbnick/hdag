@@ -8,8 +8,7 @@
 #include <string.h>
 
 hdag_res
-hdag_hash_seq_empty_next_fn(struct hdag_hash_seq *hash_seq,
-                            uint8_t *phash)
+hdag_hash_seq_empty_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
     (void)hash_seq;
     (void)phash;
@@ -17,7 +16,7 @@ hdag_hash_seq_empty_next_fn(struct hdag_hash_seq *hash_seq,
 }
 
 void
-hdag_hash_seq_empty_reset_fn(struct hdag_hash_seq *hash_seq)
+hdag_hash_seq_empty_reset(struct hdag_hash_seq *hash_seq)
 {
     (void)hash_seq;
 }
@@ -76,8 +75,7 @@ cleanup:
 }
 
 hdag_res
-hdag_hash_seq_array_next_fn(struct hdag_hash_seq *hash_seq,
-                            uint8_t *phash)
+hdag_hash_seq_array_next(struct hdag_hash_seq *hash_seq, uint8_t *phash)
 {
     struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
         struct hdag_hash_seq_array, seq, hash_seq
@@ -93,7 +91,7 @@ hdag_hash_seq_array_next_fn(struct hdag_hash_seq *hash_seq,
 }
 
 void
-hdag_hash_seq_array_reset_fn(struct hdag_hash_seq *hash_seq)
+hdag_hash_seq_array_reset(struct hdag_hash_seq *hash_seq)
 {
     struct hdag_hash_seq_array *array_seq = HDAG_CONTAINER_OF(
         struct hdag_hash_seq_array, seq, hash_seq

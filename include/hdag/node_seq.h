@@ -125,11 +125,11 @@ hdag_node_seq_next(struct hdag_node_seq *node_seq,
 }
 
 /** A node sequence resetting function which does nothing */
-extern void hdag_node_seq_empty_reset_fn(struct hdag_node_seq *node_seq);
+extern void hdag_node_seq_empty_reset(struct hdag_node_seq *node_seq);
 
 /** A next-node retrieval function which never returns nodes */
 [[nodiscard]]
-extern hdag_res hdag_node_seq_empty_next_fn(
+extern hdag_res hdag_node_seq_empty_next(
                 struct hdag_node_seq *node_seq,
                 uint8_t *phash,
                 struct hdag_hash_seq **ptarget_hash_seq);
@@ -142,8 +142,8 @@ extern hdag_res hdag_node_seq_empty_next_fn(
  */
 #define HDAG_NODE_SEQ_EMPTY(_hash_len) (struct hdag_node_seq){ \
     .hash_len = hdag_hash_len_validate(_hash_len),              \
-    .reset_fn = hdag_node_seq_empty_reset_fn,                   \
-    .next_fn = hdag_node_seq_empty_next_fn,                     \
+    .reset_fn = hdag_node_seq_empty_reset,                      \
+    .next_fn = hdag_node_seq_empty_next,                        \
 }
 
 #endif /* _HDAG_NODE_SEQ_H */

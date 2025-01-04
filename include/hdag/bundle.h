@@ -730,12 +730,12 @@ struct hdag_bundle_targets_hash_seq {
 
 /** A next-hash retrieval function for target hash sequence */
 [[nodiscard]]
-extern hdag_res hdag_bundle_targets_hash_seq_next_fn(
+extern hdag_res hdag_bundle_targets_hash_seq_next(
                     struct hdag_hash_seq *base_seq,
                     uint8_t *phash);
 
 /** A reset function for target hash sequence */
-extern void hdag_bundle_targets_hash_seq_reset_fn(
+extern void hdag_bundle_targets_hash_seq_reset(
                     struct hdag_hash_seq *base_seq);
 
 /**
@@ -760,8 +760,8 @@ hdag_bundle_targets_hash_seq_init(
     *pseq = (struct hdag_bundle_targets_hash_seq){
         .base = {
             .hash_len = bundle->hash_len,
-            .reset_fn = hdag_bundle_targets_hash_seq_reset_fn,
-            .next_fn = hdag_bundle_targets_hash_seq_next_fn,
+            .reset_fn = hdag_bundle_targets_hash_seq_reset,
+            .next_fn = hdag_bundle_targets_hash_seq_next,
         },
         .bundle = bundle,
         .node_idx = node_idx,
@@ -883,13 +883,13 @@ extern hdag_res hdag_bundle_organized_from_txt(
                         FILE *stream, uint16_t hash_len);
 
 /** A next-node retrieval function for bundle's node sequence */
-extern hdag_res hdag_bundle_node_seq_next_fn(
+extern hdag_res hdag_bundle_node_seq_next(
                             struct hdag_node_seq *base_seq,
                             uint8_t *phash,
                             struct hdag_hash_seq **ptarget_hash_seq);
 
 /** A reset function for bundle's node sequence */
-extern void hdag_bundle_node_seq_reset_fn(
+extern void hdag_bundle_node_seq_reset(
                             struct hdag_node_seq *base_seq);
 
 /** Bundle's (resettable) node sequence */
@@ -923,8 +923,8 @@ hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
     *pseq = (struct hdag_bundle_node_seq){
         .base = {
             .hash_len = bundle->hash_len,
-            .reset_fn = hdag_bundle_node_seq_reset_fn,
-            .next_fn = hdag_bundle_node_seq_next_fn,
+            .reset_fn = hdag_bundle_node_seq_reset,
+            .next_fn = hdag_bundle_node_seq_next,
         },
         .bundle = bundle,
         .node_idx = 0,
