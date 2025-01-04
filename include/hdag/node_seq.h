@@ -84,6 +84,44 @@ hdag_node_seq_is_resettable(const struct hdag_node_seq *node_seq)
     return node_seq->reset_fn != NULL;
 }
 
+/**
+ * Reset a node sequence to the start position.
+ *
+ * @param node_seq  The (resettable) node sequence to reset.
+ */
+static inline void
+hdag_node_seq_reset(struct hdag_node_seq *node_seq)
+{
+    assert(hdag_node_seq_is_valid(node_seq));
+    assert(hdag_node_seq_is_resettable(node_seq));
+    node_seq->reset_fn(node_seq);
+}
+
+/**
+ * Retrieve the next node from a node sequence.
+ *
+ * @param node_seq          The node sequence to retrieve the next node from.
+ * @param phash             Location for the node's hash. The length of the
+ *                          hash is specified in the sequence.
+ *                          Can be modified even in case of failure.
+ * @param ptarget_hash_seq  Location for the node's sequence of target node
+ *                          hashes. Can be modified even in case of failure.
+ *
+ * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
+ *          A positive number if there were no more nodes.
+ *          A negative number (a failure result) if node retrieval has failed.
+ */
+static inline hdag_res
+hdag_node_seq_next(struct hdag_node_seq *node_seq,
+                   uint8_t *phash,
+                   struct hdag_hash_seq *ptarget_hash_seq)
+{
+    assert(hdag_node_seq_is_valid(node_seq));
+    assert(phash != NULL);
+    assert(ptarget_hash_seq != NULL);
+    return node_seq->next_fn(node_seq, phash, ptarget_hash_seq);
+}
+
 /** A node sequence resetting function which does nothing */
 extern void hdag_node_seq_empty_reset_fn(struct hdag_node_seq *node_seq);
 
