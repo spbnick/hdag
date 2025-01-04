@@ -678,7 +678,7 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
  * @param node_idx      The index of the node to get the target for.
  * @param target_idx    The index of the target to get node index for.
  *
- * @return The specified target's node index.
+ * @return The specified target node's hash.
  */
 static inline const uint8_t *
 hdag_bundle_targets_node_hash(const struct hdag_bundle *bundle,
