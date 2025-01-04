@@ -51,8 +51,6 @@ struct hdag_node_seq {
     hdag_node_seq_reset_fn  reset_fn;
     /** The function retrieving the next node from the sequence */
     hdag_node_seq_next_fn   next_fn;
-    /** Sequence state data */
-    void                   *data;
 };
 
 /**

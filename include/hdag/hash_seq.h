@@ -46,8 +46,6 @@ struct hdag_hash_seq {
     hdag_hash_seq_reset_fn  reset_fn;
     /** The function retrieving the next hash from the sequence */
     hdag_hash_seq_next_fn   next_fn;
-    /** The sequence state data */
-    void                   *data;
 };
 
 /**
