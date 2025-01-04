@@ -1024,16 +1024,16 @@ cleanup:
 
 hdag_res
 hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
-                          struct hdag_node_seq node_seq)
+                          struct hdag_node_seq *node_seq)
 {
     hdag_res                res = HDAG_RES_INVALID;
-    struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+    struct hdag_bundle      bundle = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
     uint8_t                *node_hash = NULL;
     uint8_t                *target_hash = NULL;
     struct hdag_hash_seq    target_hash_seq;
     size_t                  first_target_hash_idx;
 
-    assert(hdag_node_seq_is_valid(&node_seq));
+    assert(hdag_node_seq_is_valid(node_seq));
 
     node_hash = malloc(bundle.hash_len);
     if (node_hash == NULL) {
@@ -1058,7 +1058,7 @@ hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
 
     /* Collect each node (and its targets) in the sequence */
     while (!HDAG_RES_TRY(
-        node_seq.next_fn(&node_seq, node_hash, &target_hash_seq)
+        node_seq->next_fn(node_seq, node_hash, &target_hash_seq)
     )) {
         first_target_hash_idx = bundle.target_hashes.slots_occupied;
 
@@ -1094,7 +1094,7 @@ hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
 
     if (pbundle != NULL) {
         *pbundle = bundle;
-        bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+        bundle = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
     }
 
     res = HDAG_RES_OK;
@@ -1275,7 +1275,7 @@ hdag_bundle_from_txt(struct hdag_bundle *pbundle,
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
-    return hdag_bundle_from_node_seq(pbundle, (struct hdag_node_seq){
+    return hdag_bundle_from_node_seq(pbundle, &(struct hdag_node_seq){
         .hash_len = hash_len,
         .next_fn = hdag_bundle_txt_node_seq_next,
         .data = &txt_seq,
@@ -1424,7 +1424,7 @@ hdag_bundle_organized_from_txt(struct hdag_bundle *pbundle,
     return hdag_bundle_organized_from_node_seq(
         pbundle,
         ctx,
-        (struct hdag_node_seq){
+        &(struct hdag_node_seq){
             .hash_len = hash_len,
             .next_fn = hdag_bundle_txt_node_seq_next,
             .data = &txt_seq,
@@ -1435,13 +1435,13 @@ hdag_bundle_organized_from_txt(struct hdag_bundle *pbundle,
 hdag_res
 hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
                                     const struct hdag_ctx *ctx,
-                                    struct hdag_node_seq node_seq)
+                                    struct hdag_node_seq *node_seq)
 {
     hdag_res            res      = HDAG_RES_INVALID;
-    struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+    struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
 
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-    assert(hdag_node_seq_is_valid(&node_seq));
+    assert(hdag_node_seq_is_valid(node_seq));
 
     /* Disable profiling */
 #undef HDAG_PROFILE_TIME
@@ -1462,7 +1462,7 @@ hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
     assert(hdag_bundle_is_valid(&bundle));
     if (pbundle != NULL) {
         *pbundle = bundle;
-        bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+        bundle = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
     }
     res = HDAG_RES_OK;
 cleanup:

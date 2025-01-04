@@ -286,7 +286,7 @@ extern void hdag_bundle_cleanup(struct hdag_bundle *bundle);
  */
 [[nodiscard]]
 extern hdag_res hdag_bundle_from_node_seq(struct hdag_bundle *pbundle,
-                                          struct hdag_node_seq node_seq);
+                                          struct hdag_node_seq *node_seq);
 
 /**
  * Create a bundle from an adjacency list text file, but don't do any
@@ -846,7 +846,7 @@ extern bool hdag_bundle_is_organized(const struct hdag_bundle *bundle);
 extern hdag_res hdag_bundle_organized_from_node_seq(
                         struct hdag_bundle *pbundle,
                         const struct hdag_ctx *ctx,
-                        struct hdag_node_seq node_seq);
+                        struct hdag_node_seq *node_seq);
 
 /**
  * Create a bundle from an adjacency list text file, optimize and validate.

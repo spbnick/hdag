@@ -194,12 +194,12 @@ hdag_file_from_node_seq(struct hdag_file *pfile,
                         const char *pathname,
                         int template_sfxlen,
                         mode_t open_mode,
-                        struct hdag_node_seq node_seq)
+                        struct hdag_node_seq *node_seq)
 {
     hdag_res res = HDAG_RES_INVALID;
-    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq.hash_len);
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
 
-    assert(hdag_node_seq_is_valid(&node_seq));
+    assert(hdag_node_seq_is_valid(node_seq));
 
     /* Ingest the nodes and their targets into the bundle */
     HDAG_RES_TRY(hdag_bundle_organized_from_node_seq(&bundle, NULL,

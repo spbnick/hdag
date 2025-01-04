@@ -207,7 +207,7 @@ extern hdag_res hdag_file_from_node_seq(struct hdag_file *pfile,
                                         const char *pathname,
                                         int template_sfxlen,
                                         mode_t open_mode,
-                                        struct hdag_node_seq node_seq);
+                                        struct hdag_node_seq *node_seq);
 
 /**
  * Create and open a hash DAG file with specified parameters and a text

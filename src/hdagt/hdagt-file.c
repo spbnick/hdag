@@ -59,7 +59,7 @@ struct test_node_seq {
     size_t target_idx;
 };
 
-#define TEST_NODE_SEQ(...) ((struct hdag_node_seq){ \
+#define TEST_NODE_SEQ(...) &((struct hdag_node_seq){ \
     .hash_len = TEST_HASH_LEN,                      \
     .next_fn = test_node_seq_next,                  \
     .data = &(struct test_node_seq){                \
@@ -272,7 +272,7 @@ test_empty(void)
      * Empty in-memory file.
      */
     TEST(!hdag_file_from_node_seq(&file, NULL, -1, 0,
-                                  HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
+                                  &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
     TEST(file.size == sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
@@ -282,7 +282,7 @@ test_empty(void)
      */
     TEST(!hdag_file_from_node_seq(&file, "test.XXXXXX.hdag", 5,
                                   S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                                  HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
+                                  &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
     TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
     assert(strlen(file.pathname) < sizeof(pathname));
