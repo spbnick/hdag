@@ -82,33 +82,7 @@ struct hdag_bundle {
  *
  * @return True if the bundle is valid, false otherwise.
  */
-static inline bool
-hdag_bundle_is_valid(const struct hdag_bundle *bundle)
-{
-    return bundle != NULL &&
-        (bundle->hash_len == 0 || hdag_hash_len_is_valid(bundle->hash_len)) &&
-        hdag_darr_is_valid(&bundle->nodes) &&
-        bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
-        hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
-        hdag_fanout_is_valid(bundle->nodes_fanout,
-                             HDAG_ARR_LEN(bundle->nodes_fanout)) &&
-        (hdag_fanout_is_empty(bundle->nodes_fanout,
-                              HDAG_ARR_LEN(bundle->nodes_fanout)) ||
-         bundle->nodes_fanout[255] ==
-            hdag_darr_occupied_slots(&bundle->nodes)) &&
-        (bundle->hash_len != 0 ||
-         hdag_fanout_is_empty(bundle->nodes_fanout,
-                              HDAG_ARR_LEN(bundle->nodes_fanout))) &&
-        hdag_darr_is_valid(&bundle->target_hashes) &&
-        bundle->target_hashes.slot_size == bundle->hash_len &&
-        hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
-        hdag_darr_is_valid(&bundle->extra_edges) &&
-        bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
-        hdag_darr_occupied_slots(&bundle->extra_edges) < INT32_MAX &&
-        (bundle->hash_len != 0 || hdag_darr_is_empty(&bundle->target_hashes)) &&
-        (hdag_darr_is_empty(&bundle->target_hashes) ||
-         hdag_darr_is_empty(&bundle->extra_edges));
-}
+extern bool hdag_bundle_is_valid(const struct hdag_bundle *bundle);
 
 /**
  * Check if a bundle is "hashless" (has zero-length hashes).
@@ -154,21 +128,7 @@ extern bool hdag_bundle_is_sorted_and_deduped(
  *         nodes by their indices, false if all of them are referencing them
  *         by hashes.
  */
-static inline bool
-hdag_bundle_has_index_targets(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-    assert(hdag_bundle_is_valid(bundle));
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (hdag_targets_are_direct(&node->targets) ||
-            (hdag_targets_are_indirect(&node->targets) &&
-             hdag_darr_occupied_slots(&bundle->extra_edges) != 0)) {
-            return true;
-        }
-    }
-    return false;
-}
+extern bool hdag_bundle_has_index_targets(const struct hdag_bundle *bundle);
 
 /**
  * Check if a bundle is using hashes to refer to targets.
@@ -193,25 +153,7 @@ hdag_bundle_has_hash_targets(const struct hdag_bundle *bundle)
  *
  * @return True if the bundle is fully-indexed and compacted, false otherwise.
  */
-static inline bool
-hdag_bundle_is_compacted(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-    assert(hdag_bundle_is_valid(bundle));
-    if (hdag_darr_occupied_slots(&bundle->target_hashes) != 0) {
-        return false;
-    }
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (hdag_targets_are_indirect(&node->targets)) {
-            if (hdag_node_get_last_ind_idx(node) -
-                hdag_node_get_first_ind_idx(node) <= 1) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
+extern bool hdag_bundle_is_compacted(const struct hdag_bundle *bundle);
 
 /**
  * Check if a bundle is empty.
@@ -417,22 +359,7 @@ extern hdag_res hdag_bundle_invert(struct hdag_bundle *pinverted,
  *
  * @return True if at all bundle's node are unenumerated.
  */
-static inline bool
-hdag_bundle_is_unenumerated(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-
-    assert(hdag_bundle_is_valid(bundle));
-
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (node->component || node->generation) {
-            return false;
-        }
-    }
-
-    return true;
-}
+extern bool hdag_bundle_is_unenumerated(const struct hdag_bundle *bundle);
 
 /**
  * Enumerate components and generations in a bundle: assign component and
@@ -457,22 +384,7 @@ extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle,
  *
  * @return True if all bundle's nodes are enumerated.
  */
-static inline bool
-hdag_bundle_is_enumerated(const struct hdag_bundle *bundle)
-{
-    ssize_t idx;
-    const struct hdag_node *node;
-
-    assert(hdag_bundle_is_valid(bundle));
-
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (!(node->component && node->generation)) {
-            return false;
-        }
-    }
-
-    return true;
-}
+extern bool hdag_bundle_is_enumerated(const struct hdag_bundle *bundle);
 
 /**
  * Given a bundle and a node index return the node's targets structure.
@@ -555,44 +467,9 @@ hdag_bundle_targets_count(const struct hdag_bundle *bundle, uint32_t node_idx)
  *
  * @return The specified target's node index.
  */
-static inline uint32_t
-hdag_bundle_targets_node_idx(const struct hdag_bundle *bundle,
-                             uint32_t node_idx, uint32_t target_idx)
-{
-    const struct hdag_targets *targets;
-    assert(hdag_bundle_is_valid(bundle));
-    targets = HDAG_BUNDLE_TARGETS(bundle, node_idx);
-    assert(target_idx < hdag_targets_count(targets));
-
-    if (hdag_target_is_ind_idx(targets->first)) {
-        if (hdag_darr_is_empty(&bundle->extra_edges)) {
-            uint32_t target_node_idx = hdag_nodes_find(
-                bundle->nodes.slots,
-                bundle->nodes.slots_occupied,
-                bundle->hash_len,
-                HDAG_DARR_ELEMENT_UNSIZED(
-                    &bundle->target_hashes, uint8_t,
-                    hdag_target_to_ind_idx(targets->first) +
-                    target_idx
-                )
-            );
-            assert(target_node_idx < INT32_MAX);
-            return target_node_idx;
-        } else {
-            return HDAG_DARR_ELEMENT(
-                &bundle->extra_edges, struct hdag_edge,
-                hdag_target_to_ind_idx(targets->first) +
-                target_idx
-            )->node_idx;
-        }
-    }
-
-    if (target_idx == 0 && hdag_target_is_dir_idx(targets->first)) {
-        return hdag_target_to_dir_idx(targets->first);
-    }
-
-    return hdag_target_to_dir_idx(targets->last);
-}
+extern uint32_t hdag_bundle_targets_node_idx(const struct hdag_bundle *bundle,
+                                             uint32_t node_idx,
+                                             uint32_t target_idx);
 
 /**
  * Return a bundle's node at specified index.
@@ -684,37 +561,9 @@ hdag_bundle_targets_node(struct hdag_bundle *bundle,
  *
  * @return The specified target node's hash.
  */
-static inline const uint8_t *
-hdag_bundle_targets_node_hash(const struct hdag_bundle *bundle,
-                              uint32_t node_idx, uint32_t target_idx)
-{
-    const struct hdag_targets *targets;
-    uint32_t target_node_idx;
-    assert(hdag_bundle_is_valid(bundle));
-    targets = HDAG_BUNDLE_TARGETS(bundle, node_idx);
-    assert(target_idx < hdag_targets_count(targets));
-
-    if (hdag_target_is_ind_idx(targets->first)) {
-        if (hdag_darr_is_empty(&bundle->extra_edges)) {
-            return HDAG_DARR_ELEMENT_UNSIZED(
-                &bundle->target_hashes, uint8_t,
-                hdag_target_to_ind_idx(targets->first) +
-                target_idx
-            );
-        } else {
-            target_node_idx = HDAG_DARR_ELEMENT(
-                &bundle->extra_edges, struct hdag_edge,
-                hdag_target_to_ind_idx(targets->first) +
-                target_idx
-            )->node_idx;
-        }
-    } else if (target_idx == 0 && hdag_target_is_dir_idx(targets->first)) {
-        target_node_idx = hdag_target_to_dir_idx(targets->first);
-    } else {
-        target_node_idx = hdag_target_to_dir_idx(targets->last);
-    }
-    return HDAG_BUNDLE_NODE(bundle, target_node_idx)->hash;
-}
+extern const uint8_t *hdag_bundle_targets_node_hash(
+                                const struct hdag_bundle *bundle,
+                                uint32_t node_idx, uint32_t target_idx);
 
 /** The (resettable) node target hash sequence */
 struct hdag_bundle_targets_hash_seq {
@@ -747,31 +596,10 @@ extern void hdag_bundle_targets_hash_seq_reset(
  *
  * @return The base abstract sequence pointer.
  */
-static inline struct hdag_hash_seq *
-hdag_bundle_targets_hash_seq_init(
-                    struct hdag_bundle_targets_hash_seq *pseq,
-                    const struct hdag_bundle *bundle,
-                    uint32_t node_idx)
-{
-    assert(pseq != NULL);
-    assert(hdag_bundle_is_valid(bundle));
-    assert(node_idx < bundle->nodes.slots_occupied);
-
-    *pseq = (struct hdag_bundle_targets_hash_seq){
-        .base = {
-            .hash_len = bundle->hash_len,
-            .reset_fn = hdag_bundle_targets_hash_seq_reset,
-            .next_fn = hdag_bundle_targets_hash_seq_next,
-        },
-        .bundle = bundle,
-        .node_idx = node_idx,
-        .target_idx = 0,
-    };
-
-    assert(hdag_hash_seq_is_valid(&pseq->base));
-    assert(hdag_hash_seq_is_resettable(&pseq->base));
-    return &pseq->base;
-}
+extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
+                                struct hdag_bundle_targets_hash_seq *pseq,
+                                const struct hdag_bundle *bundle,
+                                uint32_t node_idx);
 
 /**
  * Lookup the index of a node within a bundle, using its hash.
@@ -913,27 +741,8 @@ struct hdag_bundle_node_seq {
  *
  * @return The setup node sequence pointer ("pseq").
  */
-static inline struct hdag_node_seq *
-hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
-                          const struct hdag_bundle *bundle)
-{
-    assert(pseq != NULL);
-    assert(hdag_bundle_is_valid(bundle));
-
-    *pseq = (struct hdag_bundle_node_seq){
-        .base = {
-            .hash_len = bundle->hash_len,
-            .reset_fn = hdag_bundle_node_seq_reset,
-            .next_fn = hdag_bundle_node_seq_next,
-        },
-        .bundle = bundle,
-        .node_idx = 0,
-    };
-
-    assert(hdag_node_seq_is_valid(&pseq->base));
-    assert(hdag_node_seq_is_resettable(&pseq->base));
-    return &pseq->base;
-}
-
+extern struct hdag_node_seq *hdag_bundle_node_seq_init(
+                                struct hdag_bundle_node_seq *pseq,
+                                const struct hdag_bundle *bundle);
 
 #endif /* _HDAG_BUNDLE_H */
