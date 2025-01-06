@@ -173,6 +173,9 @@ hdag_file_to_bundle(struct hdag_bundle *pbundle,
         goto cleanup;
     }
 
+    memcpy(bundle.nodes_fanout, file->header->node_fanout,
+           sizeof(bundle.nodes_fanout));
+
     if (pbundle != NULL) {
         *pbundle = bundle;
         bundle = HDAG_BUNDLE_EMPTY(bundle.hash_len);
