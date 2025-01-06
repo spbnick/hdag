@@ -105,6 +105,12 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
+        hdag_darr_is_valid(&bundle->unknown_hashes) &&
+        bundle->unknown_hashes.slot_size == bundle->hash_len &&
+        /* A bundle cannot contain only unknown nodes */
+        (hdag_darr_is_empty(&bundle->nodes) ||
+         hdag_darr_occupied_slots(&bundle->unknown_hashes) <
+            hdag_darr_occupied_slots(&bundle->nodes)) &&
         hdag_darr_is_valid(&bundle->extra_edges) &&
         bundle->extra_edges.slot_size == sizeof(struct hdag_edge) &&
         hdag_darr_occupied_slots(&bundle->extra_edges) < INT32_MAX &&
@@ -310,6 +316,7 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
     hdag_fanout_empty(bundle->nodes_fanout,
                       HDAG_ARR_LEN(bundle->nodes_fanout));
     hdag_darr_cleanup(&bundle->target_hashes);
+    hdag_darr_cleanup(&bundle->unknown_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_clean(bundle));
@@ -323,6 +330,7 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
     hdag_fanout_empty(bundle->nodes_fanout,
                       HDAG_ARR_LEN(bundle->nodes_fanout));
     hdag_darr_empty(&bundle->target_hashes);
+    hdag_darr_empty(&bundle->unknown_hashes);
     hdag_darr_empty(&bundle->extra_edges);
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_empty(bundle));
@@ -476,7 +484,22 @@ hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
 bool
 hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
 {
-    return hdag_bundle_is_sorted_as(bundle, -1, -1);
+    ssize_t idx;
+    uint8_t *hash;
+    uint8_t *prev_hash;
+
+    if (!hdag_bundle_is_sorted_as(bundle, -1, -1)) {
+        return false;
+    }
+    HDAG_DARR_ITER_FORWARD(&bundle->unknown_hashes, idx, hash,
+                           prev_hash = NULL, prev_hash = hash) {
+        if (prev_hash != NULL &&
+            memcmp(prev_hash, hash, bundle->unknown_hashes.slot_size) >= 0) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
@@ -624,6 +647,11 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
             if (keep_node == NULL) {
                 /* Keep the last unknown node */
                 keep_node = prev_node;
+                /* Add the node hash to unknown hashes */
+                if (hdag_darr_append_one(&bundle->unknown_hashes,
+                                         keep_node->hash) == NULL) {
+                    goto cleanup;
+                }
             }
             if (out_node < keep_node) {
                 memcpy(out_node, keep_node, node_size);

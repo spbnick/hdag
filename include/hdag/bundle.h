@@ -54,6 +54,13 @@ struct hdag_bundle {
      */
     struct hdag_darr    target_hashes;
 
+    /**
+     * Hashes of "unknown nodes".
+     * Ordered lexicographically. Filled in when deduping.
+     * Duplicates "nodes" somewhat for faster reference checks.
+     */
+    struct hdag_darr    unknown_hashes;
+
     /*
      * The array of extra edges, which didn't fit into nodes themselves.
      * Must be empty if target_hashes is not.
@@ -72,6 +79,7 @@ struct hdag_bundle {
     .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),            \
     .nodes_fanout = HDAG_FANOUT_EMPTY,                                  \
     .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                    \
+    .unknown_hashes = HDAG_DARR_EMPTY(_hash_len, 16),                   \
     .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),       \
 }
 
@@ -108,7 +116,8 @@ hdag_bundle_is_hashless(const struct hdag_bundle *bundle)
 extern bool hdag_bundle_is_sorted(const struct hdag_bundle *bundle);
 
 /**
- * Check if a bundle's nodes and targets are all sorted and deduplicated.
+ * Check if a bundle's nodes, targets, and unknown hashes are all sorted and
+ * deduplicated.
  *
  * @param bundle    The bundle to check. Must be valid.
  *
@@ -169,6 +178,7 @@ hdag_bundle_is_empty(const struct hdag_bundle *bundle)
     return
         hdag_darr_is_empty(&bundle->nodes) &&
         hdag_darr_is_empty(&bundle->target_hashes) &&
+        hdag_darr_is_empty(&bundle->unknown_hashes) &&
         hdag_darr_is_empty(&bundle->extra_edges);
 }
 
@@ -186,6 +196,7 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
     return
         hdag_darr_is_clean(&bundle->nodes) &&
         hdag_darr_is_clean(&bundle->target_hashes) &&
+        hdag_darr_is_clean(&bundle->unknown_hashes) &&
         hdag_darr_is_clean(&bundle->extra_edges);
 }
 
@@ -301,8 +312,8 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
 
 /**
  * Remove duplicate node entries from a bundle, preferring known ones, as well
- * as duplicate edges. Assume nodes are sorted by hash, and are not using
- * direct-index targets.
+ * as duplicate edges. Fill in "unknown_hashes". Assume nodes are sorted by
+ * hash, and are not using direct-index targets.
  *
  * @param bundle    The bundle to deduplicate nodes in.
  *                  Must be valid, and have hashes.

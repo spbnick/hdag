@@ -47,6 +47,8 @@ struct hdag_file_header {
     };
     /** Number of extra edges */
     uint32_t    extra_edge_num;
+    /** Number of hashes of unknown nodes */
+    uint32_t    unknown_hash_num;
 };
 
 HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
@@ -56,7 +58,8 @@ HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
     version.minor,
     hash_len,
     node_fanout,
-    extra_edge_num
+    extra_edge_num,
+    unknown_hash_num
 );
 
 /**
@@ -76,7 +79,10 @@ hdag_file_header_is_valid(const struct hdag_file_header *header)
         hdag_hash_len_is_valid(header->hash_len) &&
         hdag_fanout_is_valid(header->node_fanout,
                              HDAG_ARR_LEN(header->node_fanout)) &&
-        ffs(header->node_num) <= header->hash_len * 8;
+        ffs(header->node_num) <= header->hash_len * 8 &&
+        /* A file cannot contain only unknown nodes */
+        (header->node_num == 0 ||
+         header->unknown_hash_num < header->node_num);
 }
 
 /**
@@ -106,6 +112,9 @@ struct hdag_file {
 
     /** The edge array */
     struct hdag_edge           *extra_edges;
+
+    /** The array of hashes of unknown nodes (duplicating "nodes" info) */
+    uint8_t                    *unknown_hashes;
 };
 
 /** An initializer for a closed file */
@@ -119,18 +128,23 @@ struct hdag_file {
  * @param extra_edge_num    Number of extra edges (the sum of number of
  *                          outgoing edges of all nodes, which have more than
  *                          two of them).
+ * @param unknown_hash_num  Number of hashes of unknown nodes (must be less
+ *                          than number of nodes, if there are any).
  *
  * @return The size of the file, in bytes.
  */
 static size_t
 hdag_file_size(uint16_t hash_len,
                uint32_t node_num,
-               uint32_t extra_edge_num)
+               uint32_t extra_edge_num,
+               uint32_t unknown_hash_num)
 {
     assert(hdag_hash_len_is_valid(hash_len));
+    assert(node_num == 0 || unknown_hash_num < node_num);
     return sizeof(struct hdag_file_header) +
            hdag_node_size(hash_len) * node_num +
-           sizeof(struct hdag_edge) * extra_edge_num;
+           sizeof(struct hdag_edge) * extra_edge_num +
+           hash_len * unknown_hash_num;
 }
 
 /**
@@ -151,8 +165,7 @@ hdag_file_size(uint16_t hash_len,
  * @param open_mode         The mode bitmap to supply to open(2).
  *                          Ignored, if pathname is NULL.
  * @param bundle            The bundle to get the file contents from.
- *                          Must be fully optimized (have generations and
- *                          components enumerated).
+ *                          Must be fully organized.
  *
  * @return A void universal result.
  */
@@ -287,6 +300,7 @@ hdag_file_is_valid(const struct hdag_file *file)
         file->contents == file->header &&
         (file->contents == NULL) == (file->nodes == NULL) &&
         (file->contents == NULL) == (file->extra_edges == NULL) &&
+        (file->contents == NULL) == (file->unknown_hashes == NULL) &&
         (
             file->contents == NULL ||
             (
@@ -294,7 +308,8 @@ hdag_file_is_valid(const struct hdag_file *file)
                 file->size == hdag_file_size(
                     file->header->hash_len,
                     file->header->node_num,
-                    file->header->extra_edge_num
+                    file->header->extra_edge_num,
+                    file->header->unknown_hash_num
                 )
             )
         );

@@ -274,7 +274,9 @@ test_empty(void)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         /* Extra edge number */
-        0x00, 0x00, 0x00, 0x00
+        0x00, 0x00, 0x00, 0x00,
+        /* Unknown hash number */
+        0x00, 0x00, 0x00, 0x00,
     };
 
     /*
@@ -311,7 +313,7 @@ test_empty(void)
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
     TEST(unlink(pathname) == 0);
-    TEST(sizeof(struct hdag_file_header) == 4 + 2 + 2 + 4 * 256 + 4);
+    TEST(sizeof(struct hdag_file_header) == 4 + 2 + 2 + 4 * 256 + 4 + 4);
 
     return failed;
 }

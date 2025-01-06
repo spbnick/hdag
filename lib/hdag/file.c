@@ -41,6 +41,7 @@ hdag_file_from_bundle(struct hdag_file *pfile,
         .version = {0, 0},
         .hash_len = bundle->hash_len,
         .extra_edge_num = bundle->extra_edges.slots_occupied,
+        .unknown_hash_num = bundle->unknown_hashes.slots_occupied,
     };
 
     assert(hdag_bundle_is_valid(bundle));
@@ -58,9 +59,10 @@ hdag_file_from_bundle(struct hdag_file *pfile,
            sizeof(header.node_fanout));
 
     /* Calculate the file size */
-    file.size = hdag_file_size(bundle->hash_len,
-                               bundle->nodes.slots_occupied,
-                               bundle->extra_edges.slots_occupied);
+    file.size = hdag_file_size(header.hash_len,
+                               header.node_num,
+                               header.extra_edge_num,
+                               header.unknown_hash_num);
 
     /* If creating an anonymous mapping */
     if (file.pathname == NULL) {
@@ -118,16 +120,20 @@ hdag_file_from_bundle(struct hdag_file *pfile,
     *(file.header = file.contents) = header;
     file.nodes = (struct hdag_node *)(file.header + 1);
     file.extra_edges = (struct hdag_edge *)(
-            (uint8_t *)file.nodes +
-            hdag_node_size(file.header->hash_len) *
-            file.header->node_num
+        (uint8_t *)file.nodes +
+        hdag_node_size(file.header->hash_len) * file.header->node_num
     );
+    file.unknown_hashes =
+        (uint8_t *)file.extra_edges +
+        sizeof(struct hdag_edge) * file.header->extra_edge_num;
 
     /* Copy the bundle data */
     memcpy(file.nodes, bundle->nodes.slots,
            hdag_darr_occupied_size(&bundle->nodes));
     memcpy(file.extra_edges, bundle->extra_edges.slots,
            hdag_darr_occupied_size(&bundle->extra_edges));
+    memcpy(file.unknown_hashes, bundle->unknown_hashes.slots,
+           hdag_darr_occupied_size(&bundle->unknown_hashes));
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
@@ -162,12 +168,17 @@ hdag_file_to_bundle(struct hdag_bundle *pbundle,
 
     hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
+
     if (hdag_darr_append(
             &bundle.nodes, file->nodes, file->header->node_num
         ) == NULL ||
         hdag_darr_append(
             &bundle.extra_edges, file->extra_edges,
             file->header->extra_edge_num
+        ) == NULL ||
+        hdag_darr_append(
+            &bundle.unknown_hashes, file->unknown_hashes,
+            file->header->unknown_hash_num
         ) == NULL
     ) {
         goto cleanup;
@@ -313,7 +324,8 @@ hdag_file_open(struct hdag_file *pfile,
         file.size != hdag_file_size(
             file.header->hash_len,
             file.header->node_num,
-            file.header->extra_edge_num
+            file.header->extra_edge_num,
+            file.header->unknown_hash_num
         )
     ) {
         errno = EINVAL;
@@ -321,10 +333,12 @@ hdag_file_open(struct hdag_file *pfile,
     }
     file.nodes = (struct hdag_node *)(file.header + 1);
     file.extra_edges = (struct hdag_edge *)(
-            (uint8_t *)file.nodes +
-            hdag_node_size(file.header->hash_len) *
-            file.header->node_num
+        (uint8_t *)file.nodes +
+        hdag_node_size(file.header->hash_len) * file.header->node_num
     );
+    file.unknown_hashes =
+        (uint8_t *)file.extra_edges +
+        sizeof(struct hdag_edge) * file.header->extra_edge_num;
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));

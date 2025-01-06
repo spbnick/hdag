@@ -42,6 +42,7 @@ test_deduplicating(uint16_t hash_len)
     TEST(!hdag_bundle_is_sorted_and_deduped(&bundle));
     TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 8);
+    TEST(bundle.unknown_hashes.slots_occupied == 0);
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
         TEST(hdag_node_hash_is_filled(node, hash_len, idx));
     }
@@ -53,6 +54,7 @@ test_deduplicating(uint16_t hash_len)
     TEST(bundle.nodes.slots_occupied == 1);
     TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 1);
+    TEST(bundle.unknown_hashes.slots_occupied == 0);
     hdag_node_hash_is_filled(hdag_darr_element(&bundle.nodes, 0),
                              hash_len, 0);
     TEST(hdag_bundle_is_sorted(&bundle));
@@ -66,6 +68,7 @@ test_deduplicating(uint16_t hash_len)
     TEST(bundle.nodes.slots_occupied == 64);
     TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 1);
+    TEST(bundle.unknown_hashes.slots_occupied == 0);
     hdag_node_hash_is_filled(hdag_darr_element(&bundle.nodes, 0),
                              hash_len, 0);
     TEST(hdag_bundle_is_sorted(&bundle));
@@ -138,6 +141,10 @@ test_deduplicating(uint16_t hash_len)
     assert(bundle.nodes.slots_occupied == 26);
     TEST(hdag_bundle_dedup(&bundle, NULL) == HDAG_RES_OK);
     TEST(bundle.nodes.slots_occupied == 10);
+    TEST(bundle.unknown_hashes.slots_occupied == 1);
+    TEST(hdag_hash_is_filled(hdag_darr_element(&bundle.unknown_hashes, 0),
+                             bundle.unknown_hashes.slot_size,
+                             0));
 
 #define GET_NODE_COMPONENT(_idx) \
     ((struct hdag_node *)hdag_darr_element(&bundle.nodes, (_idx)))->component
@@ -275,6 +282,7 @@ test_deduplicating(uint16_t hash_len)
      *      `--> 3
      */
     TEST(bundle.nodes.slots_occupied == 9);
+    TEST(bundle.unknown_hashes.slots_occupied == 0);
     TEST(bundle.target_hashes.slots_occupied == 14);
     TEST(hdag_bundle_is_sorted_and_deduped(&bundle));
     HDAG_DARR_ITER_FORWARD(&bundle.nodes, idx, node, (void)0, (void)0) {
