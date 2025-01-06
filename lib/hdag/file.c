@@ -161,12 +161,7 @@ hdag_file_to_bundle(struct hdag_bundle *pbundle,
     assert(hdag_file_is_valid(file));
 
     hdag_res res = HDAG_RES_INVALID;
-    struct hdag_bundle bundle = {
-        .hash_len = file->header->hash_len,
-        .nodes = HDAG_DARR_EMPTY(hdag_node_size(file->header->hash_len), 64),
-        .target_hashes = HDAG_DARR_EMPTY(file->header->hash_len, 64),
-        .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),
-    };
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
     if (hdag_darr_append(
             &bundle.nodes, file->nodes, file->header->node_num
         ) == NULL ||
