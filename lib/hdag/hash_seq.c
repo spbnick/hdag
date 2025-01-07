@@ -73,28 +73,3 @@ hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
 cleanup:
     return res;
 }
-
-hdag_res
-hdag_hash_seq_array_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
-{
-    struct hdag_hash_seq_array *seq = HDAG_CONTAINER_OF(
-        struct hdag_hash_seq_array, base, base_seq
-    );
-    if (seq->next_idx >= seq->array_len) {
-        return 1;
-    }
-    memcpy(phash,
-           seq->array_ptr + base_seq->hash_len * seq->next_idx,
-           base_seq->hash_len);
-    seq->next_idx++;
-    return 0;
-}
-
-void
-hdag_hash_seq_array_reset(struct hdag_hash_seq *base_seq)
-{
-    struct hdag_hash_seq_array *seq = HDAG_CONTAINER_OF(
-        struct hdag_hash_seq_array, base, base_seq
-    );
-    seq->next_idx = 0;
-}
