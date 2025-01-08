@@ -5,6 +5,7 @@
 #ifndef _HDAG_DARR_H
 #define _HDAG_DARR_H
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -25,7 +26,10 @@ struct hdag_darr {
     void *slots;
     /** Number of slots to preallocate initially */
     size_t slots_preallocate;
-    /** Number of allocated element slots */
+    /**
+     * Number of allocated element slots,
+     * or SIZE_MAX if the array is immutable (not really dynamic).
+     */
     size_t slots_allocated;
     /** Number of occupied element slots */
     size_t slots_occupied;
@@ -42,6 +46,22 @@ struct hdag_darr {
     .slot_size = (_slot_size),                                              \
     .slots_preallocate = (_slots_preallocate),                              \
 }
+
+/**
+ * An initializer for an immutable (not really dynamic) array.
+ *
+ * @param _slots            The pointer to the array slots.
+ * @param _slot_size        The size of each element slot.
+ *                          The array is considered "void", if zero.
+ * @param _slots_occupied   Number of occupied slots (number of elements).
+ */
+#define HDAG_DARR_IMMUTABLE(_slots, _slot_size, _slots_occupied) \
+    (struct hdag_darr){                                             \
+        .slots = (_slots),                                          \
+        .slot_size = (_slot_size),                                  \
+        .slots_occupied = (_slots_occupied),                        \
+        .slots_allocated = SIZE_MAX,                                \
+    }
 
 /** An initializer for a void dynamic array */
 #define HDAG_DARR_VOID  HDAG_DARR_EMPTY(0, 0)
@@ -60,7 +80,36 @@ hdag_darr_is_valid(const struct hdag_darr *darr)
         darr->slots_occupied <= darr->slots_allocated &&
         (darr->slots != NULL ||
          darr->slots_allocated == 0 ||
+         (darr->slots_allocated == SIZE_MAX && darr->slots_occupied == 0) ||
          darr->slot_size == 0);
+}
+
+/**
+ * Check if a dynamic array is immutable.
+ *
+ * @param darr  The dynamic array to check.
+ *
+ * @return True if the dynamic array is immutable, false otherwise.
+ */
+static inline bool
+hdag_darr_is_immutable(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return darr->slots_allocated == SIZE_MAX;
+}
+
+/**
+ * Check if a dynamic array is mutable.
+ *
+ * @param darr  The dynamic array to check.
+ *
+ * @return True if the dynamic array is mutable, false otherwise.
+ */
+static inline bool
+hdag_darr_is_mutable(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    return darr->slots_allocated != SIZE_MAX;
 }
 
 /**
@@ -107,31 +156,33 @@ hdag_darr_occupied_size(const struct hdag_darr *darr)
 }
 
 /**
- * Get the number of allocated slots.
+ * Get the number of allocated (occupied, if immutable) slots.
  *
  * @param darr  The dynamic array to get the number of allocated slots for.
  *
- * @return The number of allocated slots, bytes.
+ * @return The number of allocated (occupied, if immutable) slots.
  */
 static inline size_t
 hdag_darr_allocated_slots(const struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
-    return darr->slots_allocated;
+    return darr->slots_allocated == SIZE_MAX
+        ? darr->slots_occupied
+        : darr->slots_allocated;
 }
 
 /**
- * Get the size of allocated slots, in bytes.
+ * Get the size of allocated (occupied, if immutable) slots, in bytes.
  *
  * @param darr  The dynamic array to get the size of allocated slots.
  *
- * @return The size of allocated slots, bytes.
+ * @return The size of allocated (occupied, if immutable) slots, bytes.
  */
 static inline size_t
 hdag_darr_allocated_size(const struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
-    return darr->slot_size * darr->slots_allocated;
+    return darr->slot_size * hdag_darr_allocated_slots(darr);
 }
 
 /**
@@ -172,6 +223,7 @@ hdag_darr_slot(struct hdag_darr *darr, size_t idx)
     assert(hdag_darr_is_valid(darr));
     assert(!hdag_darr_is_void(darr));
     assert(idx <= darr->slots_allocated);
+    assert(hdag_darr_is_mutable(darr));
     return (char *)darr->slots + darr->slot_size * idx;
 }
 
@@ -191,6 +243,7 @@ hdag_darr_element(struct hdag_darr *darr, size_t idx)
     assert(hdag_darr_is_valid(darr));
     assert(!hdag_darr_is_void(darr));
     assert(idx < darr->slots_occupied);
+    assert(hdag_darr_is_mutable(darr));
     return (char *)darr->slots + darr->slot_size * idx;
 }
 
@@ -213,6 +266,7 @@ hdag_darr_element_sized(struct hdag_darr *darr, size_t size, size_t idx)
     assert(!hdag_darr_is_void(darr));
     assert(size == darr->slot_size);
     assert(idx < darr->slots_occupied);
+    assert(hdag_darr_is_mutable(darr));
     (void)size;
     return (char *)darr->slots + darr->slot_size * idx;
 }
@@ -281,14 +335,14 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  *         NULL if the array was void.
  */
 #define HDAG_DARR_ELEMENT(_darr, _type, _idx) \
-    _Generic(                                                               \
-        _darr,                                                              \
-        struct hdag_darr *: (_type *)hdag_darr_element_sized(               \
-            (struct hdag_darr *)_darr, sizeof(_type), _idx                  \
-        ),                                                                  \
-        const struct hdag_darr *: (const _type *)hdag_darr_element_sized(   \
-            (struct hdag_darr *)_darr, sizeof(_type), _idx                  \
-        )                                                                   \
+    _Generic(                                                                   \
+        _darr,                                                                  \
+        struct hdag_darr *: (_type *)hdag_darr_element_sized(                   \
+            (struct hdag_darr *)_darr, sizeof(_type), _idx                      \
+        ),                                                                      \
+        const struct hdag_darr *: (const _type *)hdag_darr_element_sized_const( \
+            _darr, sizeof(_type), _idx                                          \
+        )                                                                       \
     )
 
 /**
@@ -311,14 +365,14 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
  *         NULL if the array was void.
  */
 #define HDAG_DARR_ELEMENT_UNSIZED(_darr, _type, _idx) \
-    _Generic(                                                       \
-        _darr,                                                      \
-        struct hdag_darr *: (_type *)hdag_darr_element(             \
-            (struct hdag_darr *)_darr, _idx                         \
-        ),                                                          \
-        const struct hdag_darr *: (const _type *)hdag_darr_element( \
-            (struct hdag_darr *)_darr, _idx                         \
-        )                                                           \
+    _Generic(                                                               \
+        _darr,                                                              \
+        struct hdag_darr *: (_type *)hdag_darr_element(                     \
+            (struct hdag_darr *)_darr, _idx                                 \
+        ),                                                                  \
+        const struct hdag_darr *: (const _type *)hdag_darr_element_const(   \
+            _darr, _idx                                                     \
+        )                                                                   \
     )
 
 /**
@@ -353,6 +407,7 @@ static inline void *
 hdag_darr_calloc(struct hdag_darr *darr, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     void *slots = hdag_darr_alloc(darr, num);
     if (slots != NULL) {
         memset(slots, 0, darr->slot_size * num);
@@ -374,6 +429,7 @@ static inline void *
 hdag_darr_alloc_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(!hdag_darr_is_void(darr));
     return hdag_darr_alloc(darr, 1);
 }
@@ -394,6 +450,7 @@ static inline void *
 hdag_darr_calloc_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(!hdag_darr_is_void(darr));
     return hdag_darr_calloc(darr, 1);
 }
@@ -415,6 +472,7 @@ static inline void *
 hdag_darr_uinsert(struct hdag_darr *darr, size_t start, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(start <= darr->slots_occupied);
     size_t new_slots_occupied = darr->slots_occupied + num;
     if (num == 0 || hdag_darr_alloc(darr, new_slots_occupied) == NULL) {
@@ -446,6 +504,7 @@ static inline void *
 hdag_darr_cinsert(struct hdag_darr *darr, size_t start, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(start <= darr->slots_occupied);
     void *start_slot = hdag_darr_uinsert(darr, start, num);
     if (start_slot != NULL) {
@@ -473,6 +532,7 @@ hdag_darr_insert(struct hdag_darr *darr, size_t start,
                  const void *elements, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(start <= darr->slots_occupied);
     assert(elements != NULL || num == 0);
     void *start_slot = hdag_darr_uinsert(darr, start, num);
@@ -498,6 +558,7 @@ static inline void *
 hdag_darr_insert_one(struct hdag_darr *darr, size_t idx, const void *element)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(idx <= darr->slots_occupied);
     assert(element != NULL);
     return hdag_darr_insert(darr, idx, element, 1);
@@ -519,6 +580,7 @@ static inline void *
 hdag_darr_uappend(struct hdag_darr *darr, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     return hdag_darr_uinsert(darr, darr->slots_occupied, num);
 }
 
@@ -539,6 +601,7 @@ static void *
 hdag_darr_append(struct hdag_darr *darr, const void *elements, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(elements != NULL || num == 0);
     return hdag_darr_insert(darr, darr->slots_occupied, elements, num);
 }
@@ -558,6 +621,7 @@ static inline void *
 hdag_darr_append_one(struct hdag_darr *darr, const void *element)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(!hdag_darr_is_void(darr));
     return hdag_darr_append(darr, element, 1);
 }
@@ -578,6 +642,7 @@ static inline void *
 hdag_darr_cappend(struct hdag_darr *darr, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     return hdag_darr_cinsert(darr, darr->slots_occupied, num);
 }
 
@@ -596,6 +661,7 @@ static inline void *
 hdag_darr_cappend_one(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(!hdag_darr_is_void(darr));
     return hdag_darr_cappend(darr, 1);
 }
@@ -620,6 +686,7 @@ static inline void
 hdag_darr_empty(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     darr->slots_occupied = 0;
 }
 
@@ -639,7 +706,8 @@ hdag_darr_is_empty(const struct hdag_darr *darr)
 
 /**
  * Remove all element slots from a dynamic array, empty or not.
- * This deallocates all referenced memory.
+ * This deallocates all referenced memory for mutable arrays, and makes
+ * immutable array mutable.
  *
  * @param darr  The dynamic array to cleanup.
  */
@@ -647,7 +715,9 @@ static inline void
 hdag_darr_cleanup(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
-    free(darr->slots);
+    if (hdag_darr_is_mutable(darr)) {
+        free(darr->slots);
+    }
     darr->slots = NULL;
     darr->slots_occupied = 0;
     darr->slots_allocated = 0;
@@ -682,6 +752,7 @@ static inline void
 hdag_darr_remove(struct hdag_darr *darr, size_t start, size_t end)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(start <= end);
     assert(end <= darr->slots_occupied);
     if (start != end) {
@@ -703,6 +774,7 @@ static inline void
 hdag_darr_remove_one(struct hdag_darr *darr, size_t idx)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(!hdag_darr_is_void(darr));
     assert(idx < darr->slots_occupied);
     hdag_darr_remove(darr, idx, idx + 1);
@@ -780,6 +852,7 @@ hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
                 hdag_darr_cmp_fn cmp, void *data)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(start <= end);
     assert(end <= darr->slots_occupied);
     assert(cmp != NULL);
@@ -801,6 +874,7 @@ static inline void
 hdag_darr_qsort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     assert(cmp != NULL);
     hdag_darr_qsort(darr, 0, darr->slots_occupied, cmp, data);
 }

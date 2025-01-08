@@ -8,6 +8,7 @@ void *
 hdag_darr_alloc(struct hdag_darr *darr, size_t num)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
 
     if (num == 0) {
         return NULL;
@@ -54,6 +55,7 @@ bool
 hdag_darr_deflate(struct hdag_darr *darr)
 {
     assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
     const size_t new_slots_allocated = darr->slots_occupied;
 
     if (new_slots_allocated != darr->slots_allocated) {
