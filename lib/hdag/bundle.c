@@ -616,6 +616,9 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
     const struct hdag_node *end_node =
         hdag_darr_slot(&bundle->nodes, node_num);
 
+    /* Empty the unknown hashes, as we'll refill them */
+    hdag_darr_empty(&bundle->unknown_hashes);
+
     prev_node = NULL;
     node = bundle->nodes.slots;
     out_node = node;
@@ -1747,4 +1750,33 @@ hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
 cleanup:
     hdag_bundle_cleanup(&bundle);
     return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_bundle_node_forget(struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    struct hdag_node *node;
+    size_t hash_idx;
+    bool found;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(node_idx < hdag_darr_occupied_slots(&bundle->nodes));
+
+    node = hdag_darr_element(&bundle->nodes, node_idx);
+    if (hdag_node_is_known(node)) {
+        /* Add the node hash to unknown hashes */
+        found = hdag_hashes_darr_find(&bundle->unknown_hashes,
+                                      node->hash, &hash_idx);
+        assert(!found);
+        if (!found) {
+            if (hdag_darr_insert_one(&bundle->unknown_hashes,
+                                     hash_idx, node->hash) == NULL) {
+                return HDAG_RES_ERRNO;
+            }
+        }
+        /* Mark the node unknown */
+        node->targets = HDAG_TARGETS_UNKNOWN;
+    }
+
+    return HDAG_RES_OK;
 }

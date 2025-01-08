@@ -756,4 +756,16 @@ extern struct hdag_node_seq *hdag_bundle_node_seq_init(
                                 struct hdag_bundle_node_seq *pseq,
                                 const struct hdag_bundle *bundle);
 
+/* "Forget" a node at the specified index. Marks the node unknown and adds its
+ * hash to "unknown_hashes", while keeping it sorted. Do nothing if the node
+ * is already unknown.
+ *
+ * @param bundle    The bundle to "forget" the node in.
+ * @param node_idx  The index of the node to "forget".
+ *
+ * @return A void universal result.
+ */
+extern hdag_res hdag_bundle_node_forget(struct hdag_bundle *bundle,
+                                        uint32_t node_idx);
+
 #endif /* _HDAG_BUNDLE_H */
