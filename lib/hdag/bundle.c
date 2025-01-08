@@ -4,7 +4,7 @@
 
 #include <hdag/bundle.h>
 #include <hdag/nodes.h>
-#include <hdag/hash.h>
+#include <hdag/hashes.h>
 #include <hdag/misc.h>
 #include <hdag/res.h>
 #include <cgraph.h>
@@ -484,22 +484,9 @@ hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
 bool
 hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
 {
-    ssize_t idx;
-    uint8_t *hash;
-    uint8_t *prev_hash;
-
-    if (!hdag_bundle_is_sorted_as(bundle, -1, -1)) {
-        return false;
-    }
-    HDAG_DARR_ITER_FORWARD(&bundle->unknown_hashes, idx, hash,
-                           prev_hash = NULL, prev_hash = hash) {
-        if (prev_hash != NULL &&
-            memcmp(prev_hash, hash, bundle->unknown_hashes.slot_size) >= 0) {
-            return false;
-        }
-    }
-
-    return true;
+    return
+        hdag_bundle_is_sorted_as(bundle, -1, -1) &&
+        hdag_hashes_darr_is_valid(&bundle->unknown_hashes);
 }
 
 /**
