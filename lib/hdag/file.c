@@ -166,36 +166,37 @@ hdag_file_to_bundle(struct hdag_bundle *pbundle,
 {
     assert(hdag_file_is_valid(file));
 
-    hdag_res res = HDAG_RES_INVALID;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
 
-    if (hdag_darr_append(
-            &bundle.nodes, file->nodes, file->header->node_num
-        ) == NULL ||
-        hdag_darr_append(
-            &bundle.extra_edges, file->extra_edges,
-            file->header->extra_edge_num
-        ) == NULL ||
-        hdag_darr_append(
-            &bundle.unknown_hashes, file->unknown_hashes,
-            file->header->unknown_hash_num
-        ) == NULL
-    ) {
-        goto cleanup;
-    }
+    bundle.nodes = HDAG_DARR_IMMUTABLE(
+        file->nodes,
+        hdag_node_size(file->header->hash_len),
+        file->header->node_num
+    );
 
     memcpy(bundle.nodes_fanout, file->header->node_fanout,
            sizeof(bundle.nodes_fanout));
 
+    bundle.unknown_hashes = HDAG_DARR_IMMUTABLE(
+        file->unknown_hashes,
+        file->header->hash_len,
+        file->header->unknown_hash_num
+    );
+
+    bundle.extra_edges = HDAG_DARR_IMMUTABLE(
+        file->extra_edges,
+        sizeof(struct hdag_edge),
+        file->header->extra_edge_num
+    );
+
+    assert(hdag_bundle_is_valid(&bundle));
     if (pbundle != NULL) {
         *pbundle = bundle;
         bundle = HDAG_BUNDLE_EMPTY(bundle.hash_len);
     }
-    res = HDAG_RES_OK;
 
-cleanup:
     hdag_bundle_cleanup(&bundle);
-    return HDAG_RES_ERRNO_IF_INVALID(res);
+    return HDAG_RES_OK;
 }
 
 hdag_res

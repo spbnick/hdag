@@ -120,6 +120,26 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 }
 
 bool
+hdag_bundle_is_mutable(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_darr_is_mutable(&bundle->nodes) &&
+        hdag_darr_is_mutable(&bundle->target_hashes) &&
+        hdag_darr_is_mutable(&bundle->unknown_hashes) &&
+        hdag_darr_is_mutable(&bundle->extra_edges);
+}
+
+bool
+hdag_bundle_is_immutable(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_darr_is_immutable(&bundle->nodes) ||
+        hdag_darr_is_immutable(&bundle->target_hashes) ||
+        hdag_darr_is_immutable(&bundle->unknown_hashes) ||
+        hdag_darr_is_immutable(&bundle->extra_edges);
+}
+
+bool
 hdag_bundle_has_index_targets(const struct hdag_bundle *bundle)
 {
     ssize_t idx;
@@ -358,6 +378,7 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_is_valid(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     /* Sort the nodes by hash lexicographically */
     hdag_darr_qsort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
     /* Sort the target hashes for each node lexicographically */
@@ -385,6 +406,7 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     ssize_t idx;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(hdag_bundle_fanout_is_empty(bundle));
@@ -506,6 +528,7 @@ hdag_bundle_dedup_edges(struct hdag_bundle *bundle,
                         const struct hdag_ctx *ctx)
 {
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
@@ -591,6 +614,7 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
 {
     hdag_res res = HDAG_RES_INVALID;
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
@@ -702,6 +726,7 @@ hdag_bundle_dedup(struct hdag_bundle *bundle,
 {
     hdag_res res = HDAG_RES_INVALID;
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
@@ -737,6 +762,7 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     struct hdag_edge *edge;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
@@ -991,6 +1017,7 @@ hdag_bundle_enumerate_generations(struct hdag_bundle *bundle,
     uint32_t                target_idx;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
@@ -1130,6 +1157,7 @@ hdag_bundle_enumerate_components(struct hdag_bundle *bundle,
     uint32_t                component = 0;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
@@ -1261,6 +1289,7 @@ hdag_bundle_enumerate(struct hdag_bundle *bundle, const struct hdag_ctx *ctx)
     hdag_res            res      = HDAG_RES_INVALID;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(hdag_bundle_is_unenumerated(bundle));
 
     /* Disable profiling */
@@ -1635,6 +1664,7 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
     hdag_res            res      = HDAG_RES_INVALID;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_unorganized(bundle));
     assert(ctx == NULL || hdag_ctx_is_valid(ctx));
@@ -1760,6 +1790,7 @@ hdag_bundle_node_forget(struct hdag_bundle *bundle, uint32_t node_idx)
     bool found;
 
     assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
     assert(node_idx < hdag_darr_occupied_slots(&bundle->nodes));
 
     node = hdag_darr_element(&bundle->nodes, node_idx);

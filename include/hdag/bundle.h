@@ -93,6 +93,24 @@ struct hdag_bundle {
 extern bool hdag_bundle_is_valid(const struct hdag_bundle *bundle);
 
 /**
+ * Check if a bundle is mutable.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bundle is mutable, false otherwise.
+ */
+extern bool hdag_bundle_is_mutable(const struct hdag_bundle *bundle);
+
+/**
+ * Check if a bundle is immutable.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bundle is immutable, false otherwise.
+ */
+extern bool hdag_bundle_is_immutable(const struct hdag_bundle *bundle);
+
+/**
  * Check if a bundle is "hashless" (has zero-length hashes).
  *
  * @param bundle    The bundle to check.
@@ -440,16 +458,12 @@ hdag_bundle_targets_const(const struct hdag_bundle *bundle, uint32_t node_idx)
  * @return The targets pointer (const, if the bundle was const).
  */
 #define HDAG_BUNDLE_TARGETS(_bundle, _node_idx) \
-    _Generic(                                                   \
-        _bundle,                                                \
-        struct hdag_bundle *:                                   \
-            (struct hdag_targets *)hdag_bundle_targets(         \
-                (struct hdag_bundle *)_bundle, _node_idx        \
-            ),                                                  \
-        const struct hdag_bundle *:                             \
-            (const struct hdag_targets *)hdag_bundle_targets(   \
-                (struct hdag_bundle *)_bundle, _node_idx        \
-            )                                                   \
+    _Generic(                                                               \
+        _bundle,                                                            \
+        struct hdag_bundle *:                                               \
+            hdag_bundle_targets((struct hdag_bundle *)_bundle, _node_idx),  \
+        const struct hdag_bundle *:                                         \
+            hdag_bundle_targets_const(_bundle, _node_idx)                   \
     )
 
 /**
@@ -498,6 +512,21 @@ hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
 }
 
 /**
+ * Return a const bundle's const node at specified index.
+ *
+ * @param bundle    The bundle to get the node from.
+ * @param node_idx  The index of the node to get.
+ *
+ * @return The specified node.
+ */
+static inline const struct hdag_node *
+hdag_bundle_node_const(const struct hdag_bundle *bundle, uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_darr_element_const(&bundle->nodes, node_idx);
+}
+
+/**
  * Return a (possibly const) bundle's node at specified index.
  *
  * @param _bundle   The bundle to get the node from.
@@ -509,13 +538,11 @@ hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
     _Generic(                                               \
         _bundle,                                            \
         struct hdag_bundle *:                               \
-            (struct hdag_node *)hdag_bundle_node(           \
+            hdag_bundle_node(                               \
                 (struct hdag_bundle *)_bundle, _node_idx    \
             ),                                              \
         const struct hdag_bundle *:                         \
-            (const struct hdag_node *)hdag_bundle_node(     \
-                (struct hdag_bundle *)_bundle, _node_idx    \
-            )                                               \
+            hdag_bundle_node_const(_bundle, _node_idx)      \
     )
 
 /**
