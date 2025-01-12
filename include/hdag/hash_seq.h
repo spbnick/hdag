@@ -149,4 +149,19 @@ extern void hdag_hash_seq_empty_reset(
 extern hdag_res hdag_hash_seq_cmp(struct hdag_hash_seq *seq_a,
                                   struct hdag_hash_seq *seq_b);
 
+/**
+ * Check if two lexicographically-ordered hash sequences have any hashes in
+ * common. Both must have the same hash length.
+ *
+ * @param seq_a The first sequence to check.
+ * @param seq_b The second sequence to check.
+ *
+ * @return A universal result code:
+ *         0 - the sequences have no common hashes,
+ *         1 - the sequences *do* have common hashes,
+ *         or a hash retrieval fault.
+ */
+extern hdag_res hdag_hash_seq_are_intersecting(struct hdag_hash_seq *seq_a,
+                                               struct hdag_hash_seq *seq_b);
+
 #endif /* _HDAG_HASH_SEQ_H */
