@@ -181,4 +181,22 @@ hdag_hashes_seq_init(struct hdag_hashes_seq *pseq,
     return &pseq->base;
 }
 
+/**
+ * Initialize a (resettable) dynamic hash array sequence.
+ *
+ * @param pseq      The location of the hash array sequence to initialize.
+ * @param hashes    The dynamic hash array to iterate over.
+ *
+ * @return The abstract sequence pointer.
+ */
+static inline struct hdag_hash_seq *
+hdag_hashes_darr_seq_init(struct hdag_hashes_seq *pseq,
+                          const struct hdag_darr *hashes)
+{
+    assert(pseq != NULL);
+    assert(hdag_hashes_darr_is_valid(hashes));
+    return hdag_hashes_seq_init(pseq, hashes->slot_size,
+                                hashes->slots, hashes->slots_occupied);
+}
+
 #endif /* _HDAG_HASHES_H */
