@@ -667,6 +667,69 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
 }
 
 /**
+ * Lookup a node within a bundle, using its hash.
+ *
+ * @param bundle    The bundle to look up the node in.
+ *                  Must have the nodes fanout filled in.
+ * @param hash_ptr  The hash the node must have.
+ *                  The hash length must match the bundle hash length.
+ *
+ * @return The pointer to the found node, or NULL, if not found.
+ */
+static inline struct hdag_node *
+hdag_bundle_find_node(struct hdag_bundle *bundle,
+                      const uint8_t *hash_ptr)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
+    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash_ptr);
+    return node_idx >= INT32_MAX ? NULL
+        : hdag_darr_element(&bundle->nodes, node_idx);
+}
+
+/**
+ * Lookup a constant node within a constant bundle, using its hash.
+ *
+ * @param bundle    The bundle to look up the node in.
+ *                  Must have the nodes fanout filled in.
+ * @param hash_ptr  The hash the node must have.
+ *                  The hash length must match the bundle hash length.
+ *
+ * @return The pointer to the found node, or NULL, if not found.
+ */
+static inline const struct hdag_node *
+hdag_bundle_find_node_const(const struct hdag_bundle *bundle,
+                            const uint8_t *hash_ptr)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash_ptr);
+    return node_idx >= INT32_MAX ? NULL
+        : hdag_darr_element_const(&bundle->nodes, node_idx);
+}
+
+/**
+ * Find a (possibly const) node in a (possibly const) bundle, using its hash.
+ *
+ * @param _bundle   The bundle to look up the node in.
+ *                  Must have the nodes fanout filled in.
+ * @param _hash_ptr The hash the node must have.
+ *                  The hash length must match the bundle hash length.
+ *
+ * @return The node pointer (const, if the bundle was const).
+ */
+#define HDAG_BUNDLE_FIND_NODE(_bundle, _hash_ptr) \
+    _Generic(                                               \
+        _bundle,                                            \
+        struct hdag_bundle *:                               \
+            hdag_bundle_find_node(                          \
+                (struct hdag_bundle *)_bundle, _node_idx    \
+            ),                                              \
+        const struct hdag_bundle *:                         \
+            hdag_bundle_find_node_const(_bundle, _node_idx) \
+    )
+
+
+/**
  * Check if a bundle is completely unorganized, that is no organizing
  * has been done to it at all.
  *
