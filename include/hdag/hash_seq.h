@@ -24,16 +24,15 @@ typedef void (*hdag_hash_seq_reset_fn)(struct hdag_hash_seq *hash_seq);
  * The prototype for a function returning the next hash from a sequence.
  *
  * @param hash_seq  Hash sequence being traversed.
- * @param phash     Location for the retrieved hash.
- *                  The length of the hash is defined in hash_seq.
- *                  Can be modified on failure as well.
+ * @param phash     Location for the pointer to the retrieved hash.
+ *                  Only valid until the next call.
  *
  * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.
  *          A negative number (a failure result) if hash retrieval has failed.
  */
 typedef hdag_res (*hdag_hash_seq_next_fn)(struct hdag_hash_seq *hash_seq,
-                                          uint8_t *phash);
+                                          const uint8_t **phash);
 
 /** A hash sequence */
 struct hdag_hash_seq {
@@ -95,9 +94,9 @@ hdag_hash_seq_reset(struct hdag_hash_seq *hash_seq)
  * Get the next hash out of a sequence, if possible.
  *
  * @param hash_seq  The sequence to retrieve the next hash from.
- * @param phash     Location for the retrieved hash.
- *                  The length of the hash is defined in hash_seq.
- *                  Can be modified on failure as well.
+ * @param phash     Location for the pointer to the retrieved hash.
+ *                  Could be NULL to not have the pointer output.
+ *                  Only valid until the next call.
  *
  * @return  Zero (HDAG_RES_OK) if the hash was retrieved successfully.
  *          A positive number if there were no more hashes.
@@ -105,18 +104,18 @@ hdag_hash_seq_reset(struct hdag_hash_seq *hash_seq)
  */
 static inline hdag_res
 hdag_hash_seq_next(struct hdag_hash_seq *hash_seq,
-                   uint8_t *phash)
+                   const uint8_t **phash)
 {
+    const uint8_t *hash;
     assert(hdag_hash_seq_is_valid(hash_seq));
-    assert(phash != NULL);
-    return hash_seq->next_fn(hash_seq, phash);
+    return hash_seq->next_fn(hash_seq, phash ? phash : &hash);
 }
 
 /** A next-hash retrieval function which never returns hashes */
 [[nodiscard]]
 extern hdag_res hdag_hash_seq_empty_next(
                     struct hdag_hash_seq *hash_seq,
-                    uint8_t *phash);
+                    const uint8_t **phash);
 
 /** A reset function which does nothing */
 extern void hdag_hash_seq_empty_reset(

@@ -65,7 +65,7 @@ struct test_node_seq {
 };
 
 static hdag_res
-test_hash_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
+test_hash_seq_next(struct hdag_hash_seq *base_seq, const uint8_t **phash)
 {
     struct test_node_seq *seq = HDAG_CONTAINER_OF(
         struct test_node_seq, target_hash_seq, base_seq
@@ -83,7 +83,7 @@ test_hash_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
         seq->node_idx++;
         return 1;
     }
-    memcpy(phash, target_hash, TEST_HASH_LEN);
+    *phash = target_hash;
     seq->target_idx++;
     /* Hash retrieved */
     return HDAG_RES_OK;
@@ -91,7 +91,7 @@ test_hash_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
 
 static hdag_res
 test_node_seq_next(struct hdag_node_seq *base_seq,
-                   uint8_t *phash,
+                   const uint8_t **phash,
                    struct hdag_hash_seq **ptarget_hash_seq)
 {
     struct test_node_seq *seq = HDAG_CONTAINER_OF(
@@ -110,7 +110,7 @@ test_node_seq_next(struct hdag_node_seq *base_seq,
         /* No more nodes */
         return 1;
     }
-    memcpy(phash, node->hash, TEST_HASH_LEN);
+    *phash = node->hash;
     seq->target_idx = 0;
     *ptarget_hash_seq = &seq->target_hash_seq;
     /* Node retrieved */

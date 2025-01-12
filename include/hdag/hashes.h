@@ -143,7 +143,7 @@ struct hdag_hashes_seq {
 [[nodiscard]]
 extern hdag_res hdag_hashes_seq_next(
                     struct hdag_hash_seq *hash_seq,
-                    uint8_t *phash);
+                    const uint8_t **phash);
 
 /** The reset function of a hash array sequence */
 extern void hdag_hashes_seq_reset(

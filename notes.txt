@@ -660,3 +660,194 @@ TODO: Rename match_targets to something more general, like "match_contents".
 TODO: Rename "drop_dups" to something else which would mean "ignore
       duplicates" when set to the default false.
       - done
+---
+So, we need to deal with duplicates in the added data, and between the
+existing and added data. We also need to link up the edges, and update
+components and generation numbers.
+
+So we've added "contexts". But perhaps we shouldn't have. How about we filter
+the node sequence we're feeding to the bundle, and then map the component
+names? Hmmm, no, we won't be able to calculate the generation numbers properly
+without referring to the nodes outside.
+
+For that matter we should recount generations and components of all upstream
+files too.
+
+And that means we should be able to find all linked files quickly.
+
+Given that we can have completely independent components in each file, two
+files can be simultaneously upstream and downstream from each other, leading
+to a dependency loop. That also means that we cannot represent connections
+between them via an HDAG file in turn.
+
+Perhaps we need to restrict files to one component only?
+
+Or perhaps we could simply mark each affected file, avoid marking them twice,
+and append them to the sequence being consumed?
+
+To be able to quickly decide whether a particular file refers to our
+file-in-the-making, we would need a separate index of "unknown nodes".
+So we can quickly find them. Perhaps just a sorted list of hashes?
+
+For now, just to verify how everything works, and move ahead, we could simply
+search the main node list for all unknown nodes, and check which ones exist in
+the node sequence. Ah, that's gonna be pretty slow, though. Maybe we should
+add a sorted list then.
+
+So, for each node we're feeding to the bundle being created, we search all
+unknown nodes in all the files. We mark files for addition to the bundle once
+we find they have an unknown node that the bundle has. We don't look at the
+files again after they're marked. Once we processed all the original nodes to
+be put into the ... wait.
+
+How about we first put the incoming nodes into a bundle within our context, so we
+could look up its nodes faster? Then we go over all unknown nodes, and if we
+don't find any of them in the new bundle, we just add it to the database as a
+file. We add the files with unknown nodes referring to the files we already
+added as well as the new bundle.
+
+Perhaps we can do half of the processing there, like only up to filling the
+fanout array, and not assigning components/generations? To just make it easier
+to find unknown nodes there?
+
+Then we can put this bundle and the marked files into a node sequence, and
+load them into the final bundle, with generations and components enumerated.
+
+Actually, the bundle asks the context if it can add *every* node, but *only*
+after the node sequence is finished and it's deduplicating them. So we need to
+decide what to do when giving it the nodes instead.
+
+The problem is that we would be deduplicating twice. First the new bundle
+alone (or in context), and then again together with the affected files.
+Perhaps we should do it only once. Say, when feeding the nodes we could be
+scanning if each node is unknown somewhere. And then adding that file to the
+end.
+
+Or perhaps we should just make that bundle. And actually add generations and
+components, because that checks for cycles.
+
+We would also need to do that in context.
+
+Redoing the context: it could just give us abstract info on a particular node.
+
+Where would we put the match_content and reject_dups flags, though? It kinda
+makes sense to keep it in the context too, as the context, being a container
+of the nodes has to maintain certain integrity requirements. Well, that only
+concerns the "match_content" option. Reject dups is an ingestion option, and
+mostly concerns input data. Also, ideally we want to compare contents
+normally, and disabling that is an optimization.
+
+So, how about we enable checking contents forever, and quietly drop all the
+dups all the time? This way we would have nothing to configure for now, and
+would make things simpler until we actually have a need for it.
+---
+we cannot return a hash sequence, because we don't known the size of the
+private sequence data.
+
+what if we just copy targets to a (sorted) dynamic array that the user
+provides us with?
+
+---
+ok, we can say that each context type has its own structure, which includes
+the original, abstract context structure. this way we can have fixed extra
+data for the context. however, we still would need to return an arbitrary
+number of hashes. perhaps we can embed the state of target hash sequence in
+there as well.
+---
+Removing 'const' from sequence parameters.
+    - DONE!
+Switch to passing sequence pointers around
+    - DONE!
+Add HDAG_CONTAINER_OF (test it!)
+    - DONE!
+Support resetting node sequences
+    - DONE!
+Add next/reset accessors to node sequence
+    - DONE!
+Fix some misspelling in the docs
+    - DONE!
+Use HDAG_CONTAINER_OF
+    - DONE!
+Add resetting to bundle's node sequence
+    - DONE!
+DO NOT remove context from deduplication
+    - DONE!
+Add hash array sequence
+    - DONE!
+Add context to enumeration
+    - DONE!
+TODO: Use designated initializers in *_seq_init() functions
+    - DONE!
+TODO: Remove _fn from function defs
+    - DONE!
+TODO: Remove the *data member from all sequences, and use HDAG_CONTAINER_OF() instead
+    - DONE!
+TODO: Make sure we're using sequence accessors everywhere, and not member functions directly
+    - DONE! None uses were found!
+TODO: Use "base" not "seq" in hash array sequence
+    - DONE!
+TODO: Return pointer to a hash from sequences, do not copy it.
+---
+We need to remove duplicates in the added bundle itself.
+We need to remove bundle nodes which already exist in the database
+We need to calculate generation numbers in the added nodes
+We need to calculate component numbers in the added nodes
+We need to recalculate component and generation numbers in files with children
+nodes (and their children files).
+
+OK, here's the plan:
+
+    Create a bundle from the node sequence without a context
+    Lock the database for writing
+    Create a list of indices of database files (file_idx_list)
+    Set number of recalculated files (recalc_num) to zero
+    For each known node in the created bundle:
+        Remember recalc_num
+        For each file indexed by file_idx_list
+            If a node with the same hash exists in the file:
+                If it's unknown:
+                    If the current index is at recalc_num:
+                        Increment recalc_num
+                    If the current index is above recalc_num:
+                        Swap the current index with the one at recalc_num
+                        Increment recalc_num
+                Else it's known:
+                    If the node contents mismatch:
+                        Raise an error
+                    Mark the node unknown in the bundle
+                    Restore recalc_num
+                    Break out of the inner loop
+
+    Do:
+        Remember recalc_num
+        For each file indexed by file_idx_list at or above recalc_num:
+            If any of its unknown nodes are known by files under recalc_num:
+                If the current index is at recalc_num:
+                    Increment recalc_num
+                If the current index is above recalc_num:
+                    Swap the current index with the one at recalc_num
+                    Increment recalc_num
+    while recalc_num is changed from the remembered one
+
+    Create a sequence returning the bundle nodes, followed by the nodes from
+        the files under recalc_num
+    Create a bundle from that sequence with the database as the context
+    Create a file from that node
+    Lock the database for reading
+    Add the new file
+    Remove the old files
+    Notify other processes of database change
+    Unlock database for reading
+    Unlock database for writing
+---
+TODO: Consider using 'len' and 'space' instead of 'occupied_slots' and
+      'allocated_slots' in darr
+TODO: Get rid of the need to use ssize_t in darr loops
+TODO: Make separate macros for darr loops with init and incr expressions
+TODO: Make nodes.h use size_t instead of uint32_t.
+---
+We gotta consider implementing support for presenting a file as an
+unresizeable bundle to avoid reimplementing operations.
+    - DONE, implemented!
+---
+Actually, perhaps we could make bundles serve files as well...hmm...

@@ -26,12 +26,12 @@ typedef void (*hdag_node_seq_reset_fn)(struct hdag_node_seq *node_seq);
  * a sequence.
  *
  * @param node_seq          The node sequence being traversed.
- * @param phash             Location for the node's hash. The length of the
- *                          hash is specified in the sequence.
- *                          Can be modified on failure as well.
+ * @param phash             Location for the pointer to the retrieved node's
+ *                          hash. Only valid until the next call to this
+ *                          function.
  * @param ptarget_hash_seq  Location for the pointer to the sequence of the node's
- *                          target hashes. Can be modified on failure as well.
- *                          Valid until the next call of this function.
+ *                          target hashes. Valid until the next call of this
+ *                          function.
  *
  * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.
@@ -39,7 +39,7 @@ typedef void (*hdag_node_seq_reset_fn)(struct hdag_node_seq *node_seq);
  */
 typedef hdag_res (*hdag_node_seq_next_fn)(
     struct hdag_node_seq   *node_seq,
-    uint8_t                *phash,
+    const uint8_t         **phash,
     struct hdag_hash_seq  **ptarget_hash_seq
 );
 
@@ -100,12 +100,14 @@ hdag_node_seq_reset(struct hdag_node_seq *node_seq)
  * Retrieve the next node from a node sequence.
  *
  * @param node_seq          The node sequence to retrieve the next node from.
- * @param phash             Location for the node's hash. The length of the
- *                          hash is specified in the sequence.
- *                          Can be modified on failure as well.
+ * @param phash             Location for the pointer to the retrieved node's
+ *                          hash. Only valid until the next call to this
+ *                          function. Can be NULL to have the hash pointer not
+ *                          output.
  * @param ptarget_hash_seq  Location for the pointer to the sequence of the node's
- *                          target hashes. Can be modified on failure as well.
- *                          Valid until the next call of this function.
+ *                          target hashes. Valid until the next call of this
+ *                          function. Can be NULL to have the sequence pointer
+ *                          not output.
  *
  * @return  Zero (HDAG_RES_OK) if the node was retrieved successfully.
  *          A positive number if there were no more nodes.
@@ -113,13 +115,17 @@ hdag_node_seq_reset(struct hdag_node_seq *node_seq)
  */
 static inline hdag_res
 hdag_node_seq_next(struct hdag_node_seq *node_seq,
-                   uint8_t *phash,
+                   const uint8_t **phash,
                    struct hdag_hash_seq **ptarget_hash_seq)
 {
+    const uint8_t *hash;
+    struct hdag_hash_seq *target_hash_seq;
     assert(hdag_node_seq_is_valid(node_seq));
-    assert(phash != NULL);
-    assert(ptarget_hash_seq != NULL);
-    return node_seq->next_fn(node_seq, phash, ptarget_hash_seq);
+    return node_seq->next_fn(
+        node_seq,
+        phash ? phash : &hash,
+        ptarget_hash_seq ? ptarget_hash_seq : &target_hash_seq
+    );
 }
 
 /** A node sequence resetting function which does nothing */
@@ -129,7 +135,7 @@ extern void hdag_node_seq_empty_reset(struct hdag_node_seq *node_seq);
 [[nodiscard]]
 extern hdag_res hdag_node_seq_empty_next(
                 struct hdag_node_seq *node_seq,
-                uint8_t *phash,
+                const uint8_t **phash,
                 struct hdag_hash_seq **ptarget_hash_seq);
 
 /**

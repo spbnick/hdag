@@ -68,7 +68,7 @@ hdag_hashes_slice_find(const uint8_t *hashes,
 }
 
 hdag_res
-hdag_hashes_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
+hdag_hashes_seq_next(struct hdag_hash_seq *base_seq, const uint8_t **phash)
 {
     struct hdag_hashes_seq *seq = HDAG_CONTAINER_OF(
         struct hdag_hashes_seq, base, base_seq
@@ -76,9 +76,7 @@ hdag_hashes_seq_next(struct hdag_hash_seq *base_seq, uint8_t *phash)
     if (seq->next_idx >= seq->hash_num) {
         return 1;
     }
-    memcpy(phash,
-           seq->hashes + base_seq->hash_len * seq->next_idx,
-           base_seq->hash_len);
+    *phash = seq->hashes + base_seq->hash_len * seq->next_idx;
     seq->next_idx++;
     return 0;
 }
