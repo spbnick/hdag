@@ -632,7 +632,7 @@ extern void hdag_bundle_targets_hash_seq_reset(
  * @param bundle    The bundle containing the node.
  * @param node_idx  The index of the node to return the target hashes for.
  *
- * @return The base abstract sequence pointer.
+ * @return The pointer to the abstract hash sequence ("&pseq->base").
  */
 extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
                                 struct hdag_bundle_targets_hash_seq *pseq,
@@ -774,10 +774,9 @@ struct hdag_bundle_node_seq {
  * Initialize a sequence of hashes of targets of a node from a bundle.
  *
  * @param pseq      Location for the node sequence.
- * @param pseq_data Location for the node sequence data.
- * @param bundle    The bundle to setup the sequence from.
+ * @param bundle    The bundle to initialize the sequence for.
  *
- * @return The setup node sequence pointer ("pseq").
+ * @return The pointer to the abstract node sequence ("&pseq->base").
  */
 extern struct hdag_node_seq *hdag_bundle_node_seq_init(
                                 struct hdag_bundle_node_seq *pseq,
