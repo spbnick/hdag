@@ -845,6 +845,35 @@ extern struct hdag_node_seq *hdag_bundle_node_seq_init(
                                 struct hdag_bundle_node_seq *pseq,
                                 const struct hdag_bundle *bundle);
 
+/** Bundle's (resettable) node hash sequence */
+struct hdag_bundle_node_hash_seq {
+    /** The base abstract hash sequence */
+    struct hdag_hash_seq                    base;
+    /** The bundle being iterated over */
+    const struct hdag_bundle               *bundle;
+    /** The index of the next node which hash to return */
+    size_t                                  node_idx;
+};
+
+/** A next-hash retrieval function for node hash sequence */
+extern hdag_res hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *base_seq,
+                                               uint8_t *phash);
+
+/** A reset function for node hash sequence */
+extern void hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq);
+
+/*
+ * Initialize a sequence of node hashes from a bundle.
+ *
+ * @param pseq      Location for the node sequence.
+ * @param bundle    The bundle to initialize the sequence for.
+ *
+ * @return The pointer to the abstract hash sequence ("&pseq->base").
+ */
+extern struct hdag_hash_seq *hdag_bundle_node_hash_seq_init(
+                                struct hdag_bundle_node_hash_seq *pseq,
+                                const struct hdag_bundle *bundle);
+
 /* "Forget" a node at the specified index. Marks the node unknown and adds its
  * hash to "unknown_hashes", while keeping it sorted. Do nothing if the node
  * is already unknown.

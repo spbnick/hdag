@@ -328,6 +328,63 @@ hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
     return &pseq->base;
 }
 
+hdag_res
+hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *base_seq,
+                               uint8_t *phash)
+{
+    assert(hdag_hash_seq_is_valid(base_seq));
+    assert(phash != NULL);
+    struct hdag_bundle_node_hash_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_node_hash_seq, base, base_seq
+    );
+    const struct hdag_bundle *bundle = seq->bundle;
+    assert(hdag_bundle_is_valid(bundle));
+    assert(base_seq->hash_len == bundle->hash_len);
+
+    if (seq->node_idx >= bundle->nodes.slots_occupied) {
+        return 1;
+    }
+    memcpy(phash, HDAG_BUNDLE_NODE(bundle, seq->node_idx)->hash,
+           bundle->hash_len);
+    seq->node_idx++;
+    return 0;
+}
+
+void
+hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq)
+{
+    assert(hdag_hash_seq_is_valid(base_seq));
+    struct hdag_bundle_node_hash_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_bundle_node_hash_seq, base, base_seq
+    );
+    const struct hdag_bundle *bundle = seq->bundle;
+    assert(hdag_bundle_is_valid(bundle));
+    assert(base_seq->hash_len == bundle->hash_len);
+    seq->node_idx = 0;
+}
+
+struct hdag_hash_seq *
+hdag_bundle_node_hash_seq_init(struct hdag_bundle_node_hash_seq *pseq,
+                               const struct hdag_bundle *bundle)
+{
+    assert(pseq != NULL);
+    assert(hdag_bundle_is_valid(bundle));
+
+    *pseq = (struct hdag_bundle_node_hash_seq){
+        .base = {
+            .hash_len = bundle->hash_len,
+            .reset_fn = hdag_bundle_node_hash_seq_reset,
+            .next_fn = hdag_bundle_node_hash_seq_next,
+        },
+        .bundle = bundle,
+        .node_idx = 0,
+    };
+
+    assert(hdag_hash_seq_is_valid(&pseq->base));
+    assert(hdag_hash_seq_is_resettable(&pseq->base));
+    return &pseq->base;
+}
+
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
