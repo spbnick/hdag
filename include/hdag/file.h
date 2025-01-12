@@ -380,7 +380,7 @@ extern hdag_res hdag_file_close(struct hdag_file *pfile);
 /**
  * Lookup the index of a node within a file, using its hash.
  *
- * @param file      The bundle to look up the node in.
+ * @param file      The file to look up the node in.
  * @param hash_ptr  The hash the node must have.
  *                  The hash length must match the file's hash length.
  *
