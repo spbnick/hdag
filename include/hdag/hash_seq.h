@@ -137,16 +137,16 @@ extern void hdag_hash_seq_empty_reset(
 /**
  * Compare two hash sequences, with the same hash len.
  *
- * @param hash_seq_a    The first sequence to compare.
- * @param hash_seq_b    The second sequence to compare.
+ * @param seq_a    The first sequence to compare.
+ * @param seq_b    The second sequence to compare.
  *
  * @return A universal result code:
- *         1 - hash_seq_a < hash_seq_b,
- *         2 - hash_seq_a == hash_seq_b,
- *         3 - hash_seq_a > hash_seq_b,
+ *         1 - seq_a < seq_b,
+ *         2 - seq_a == seq_b,
+ *         3 - seq_a > seq_b,
  *         or a hash retrieval fault.
  */
-extern hdag_res hdag_hash_seq_cmp(struct hdag_hash_seq *hash_seq_a,
-                                  struct hdag_hash_seq *hash_seq_b);
+extern hdag_res hdag_hash_seq_cmp(struct hdag_hash_seq *seq_a,
+                                  struct hdag_hash_seq *seq_b);
 
 #endif /* _HDAG_HASH_SEQ_H */
