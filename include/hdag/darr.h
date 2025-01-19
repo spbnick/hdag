@@ -930,4 +930,29 @@ hdag_darr_copy(struct hdag_darr *pdst, const struct hdag_darr *src)
     return true;
 }
 
+/**
+ * Resize a dynamic array to the specified number of elements, without
+ * initializing the new elements.
+ *
+ * @param darr  The dynamic array to resize. Cannot be void.
+ * @param num   The number of elements to resize the array to.
+ *              Any existing elements above this number will be discarded.
+ *              Any new elements below this number will be uninitialized.
+ *
+ * @return True if resizing succeeded, false if memory reallocation failed,
+ *         and errno was set.
+ */
+static inline bool
+hdag_darr_uresize(struct hdag_darr *darr, size_t num)
+{
+    assert(hdag_darr_is_valid(darr));
+    if (num > darr->slots_allocated) {
+        if (hdag_darr_alloc(darr, num - darr->slots_allocated) == NULL) {
+            return false;
+        }
+    }
+    darr->slots_occupied = num;
+    return true;
+}
+
 #endif /* _HDAG_DARR_H */
