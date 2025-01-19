@@ -55,7 +55,9 @@ hdag_file_from_bundle(struct hdag_file *pfile,
     }
 
     /* Copy the fanout (and thus node number) from the bundle */
-    memcpy(header.node_fanout, bundle->nodes_fanout,
+    assert(hdag_darr_occupied_size(&bundle->nodes_fanout) >=
+           sizeof(header.node_fanout));
+    memcpy(header.node_fanout, bundle->nodes_fanout.slots,
            sizeof(header.node_fanout));
 
     /* Calculate the file size */
@@ -174,8 +176,11 @@ hdag_file_to_bundle(struct hdag_bundle *pbundle,
         file->header->node_num
     );
 
-    memcpy(bundle.nodes_fanout, file->header->node_fanout,
-           sizeof(bundle.nodes_fanout));
+    bundle.nodes_fanout = HDAG_DARR_IMMUTABLE(
+        file->header->node_fanout,
+        sizeof(*file->header->node_fanout),
+        HDAG_ARR_LEN(file->header->node_fanout)
+    );
 
     bundle.unknown_hashes = HDAG_DARR_IMMUTABLE(
         file->unknown_hashes,

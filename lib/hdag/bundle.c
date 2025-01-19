@@ -90,19 +90,16 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_is_valid(&bundle->nodes) &&
         bundle->nodes.slot_size == hdag_node_size(bundle->hash_len) &&
         hdag_darr_occupied_slots(&bundle->nodes) < INT32_MAX &&
-        hdag_fanout_is_valid(bundle->nodes_fanout,
-                             HDAG_ARR_LEN(bundle->nodes_fanout)) &&
-        (hdag_fanout_is_empty(bundle->nodes_fanout,
-                              HDAG_ARR_LEN(bundle->nodes_fanout)) ||
-         bundle->nodes_fanout[255] ==
-            hdag_darr_occupied_slots(&bundle->nodes)) &&
-        (bundle->hash_len != 0 ||
-         hdag_fanout_is_empty(bundle->nodes_fanout,
-                              HDAG_ARR_LEN(bundle->nodes_fanout))) &&
+        hdag_fanout_darr_is_valid(&bundle->nodes_fanout) &&
+        (hdag_fanout_darr_is_empty(&bundle->nodes_fanout) ||
+         (bundle->hash_len != 0 &&
+          hdag_darr_occupied_slots(&bundle->nodes_fanout) == UINT8_MAX + 1 &&
+          hdag_fanout_darr_get(&bundle->nodes_fanout, UINT8_MAX) ==
+            hdag_darr_occupied_slots(&bundle->nodes))) &&
         hdag_darr_is_valid(&bundle->target_hashes) &&
         bundle->target_hashes.slot_size == bundle->hash_len &&
         hdag_darr_occupied_slots(&bundle->target_hashes) < INT32_MAX &&
-        hdag_darr_is_valid(&bundle->unknown_hashes) &&
+        hdag_hashes_darr_is_valid(&bundle->unknown_hashes) &&
         bundle->unknown_hashes.slot_size == bundle->hash_len &&
         /* A bundle cannot contain only unknown nodes */
         (hdag_darr_is_empty(&bundle->nodes) ||
@@ -386,8 +383,7 @@ hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     hdag_darr_cleanup(&bundle->nodes);
-    hdag_fanout_empty(bundle->nodes_fanout,
-                      HDAG_ARR_LEN(bundle->nodes_fanout));
+    hdag_darr_cleanup(&bundle->nodes_fanout);
     hdag_darr_cleanup(&bundle->target_hashes);
     hdag_darr_cleanup(&bundle->unknown_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
@@ -400,8 +396,7 @@ hdag_bundle_empty(struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     hdag_darr_empty(&bundle->nodes);
-    hdag_fanout_empty(bundle->nodes_fanout,
-                      HDAG_ARR_LEN(bundle->nodes_fanout));
+    hdag_fanout_darr_empty(&bundle->nodes_fanout);
     hdag_darr_empty(&bundle->target_hashes);
     hdag_darr_empty(&bundle->unknown_hashes);
     hdag_darr_empty(&bundle->extra_edges);
@@ -448,7 +443,7 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_sorted(bundle));
 }
 
-void
+hdag_res
 hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
 {
     /* Position in the fanout array == first byte of node hash */
@@ -462,20 +457,25 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted(bundle));
-    assert(hdag_bundle_fanout_is_empty(bundle));
+
+    if (!hdag_darr_uresize(&bundle->nodes_fanout, UINT8_MAX + 1)) {
+        return HDAG_RES_ERRNO;
+    }
+    hdag_fanout_darr_zero(&bundle->nodes_fanout);
 
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, pos = 0, (void)0) {
         for (; pos < node->hash[0]; pos++) {
-            bundle->nodes_fanout[pos] = idx;
+            hdag_fanout_darr_set(&bundle->nodes_fanout, pos, idx);
         }
     }
-    for (; pos < HDAG_ARR_LEN(bundle->nodes_fanout); pos++) {
-        bundle->nodes_fanout[pos] = idx;
+    for (; pos < hdag_darr_occupied_slots(&bundle->nodes_fanout); pos++) {
+        hdag_fanout_darr_set(&bundle->nodes_fanout, pos, idx);
     }
 
-    assert(hdag_fanout_is_valid(bundle->nodes_fanout,
-                                HDAG_ARR_LEN(bundle->nodes_fanout)));
-    assert(idx == 0 || !hdag_bundle_fanout_is_empty(bundle));
+    assert(hdag_fanout_darr_is_valid(&bundle->nodes_fanout));
+    assert(hdag_fanout_darr_get(&bundle->nodes_fanout, UINT8_MAX) == idx);
+
+    return HDAG_RES_OK;
 }
 
 /*
@@ -818,8 +818,6 @@ hdag_bundle_compact(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
-    assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
-           !hdag_bundle_fanout_is_empty(bundle));
     assert(!hdag_bundle_has_index_targets(bundle));
     assert(hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
 
@@ -1762,7 +1760,7 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
 
     /* Fill in the fanout array */
     HDAG_PROFILE_TIME("Filling in fanout array",
-                      hdag_bundle_fanout_fill(bundle));
+                      HDAG_RES_TRY(hdag_bundle_fanout_fill(bundle)));
 
     /* Compact the edges */
     HDAG_PROFILE_TIME("Compacting the bundle",

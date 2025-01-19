@@ -45,7 +45,7 @@ struct hdag_bundle {
      * in the bundle. No elements can be greater than INT32_MAX.
      * Otherwise the array is considered invalid.
      */
-    uint32_t            nodes_fanout[256];
+    struct hdag_darr    nodes_fanout;
 
     /**
      * Target hashes.
@@ -77,7 +77,7 @@ struct hdag_bundle {
 #define HDAG_BUNDLE_EMPTY(_hash_len) (struct hdag_bundle){ \
     .hash_len = (_hash_len) ? hdag_hash_len_validate(_hash_len) : 0,    \
     .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),            \
-    .nodes_fanout = HDAG_FANOUT_EMPTY,                                  \
+    .nodes_fanout = HDAG_DARR_EMPTY(sizeof(uint32_t), 256),             \
     .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                    \
     .unknown_hashes = HDAG_DARR_EMPTY(_hash_len, 16),                   \
     .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),       \
@@ -195,6 +195,7 @@ hdag_bundle_is_empty(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     return
         hdag_darr_is_empty(&bundle->nodes) &&
+        hdag_darr_is_empty(&bundle->nodes_fanout) &&
         hdag_darr_is_empty(&bundle->target_hashes) &&
         hdag_darr_is_empty(&bundle->unknown_hashes) &&
         hdag_darr_is_empty(&bundle->extra_edges);
@@ -213,6 +214,7 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     return
         hdag_darr_is_clean(&bundle->nodes) &&
+        hdag_darr_is_clean(&bundle->nodes_fanout) &&
         hdag_darr_is_clean(&bundle->target_hashes) &&
         hdag_darr_is_clean(&bundle->unknown_hashes) &&
         hdag_darr_is_clean(&bundle->extra_edges);
@@ -308,10 +310,11 @@ extern void hdag_bundle_sort(struct hdag_bundle *bundle);
  * Fill in the nodes fanout array for a bundle.
  *
  * @param bundle    The bundle to fill in the nodes fanout array for.
- *                  Must be valid, have hashes, be sorted, and have nodes
- *                  fanout empty.
+ *                  Must be valid, have hashes, and be sorted.
+ *
+ * @return A void universal result.
  */
-extern void hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
+extern hdag_res hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
 
 /**
  * Check if the nodes_fanout array is empty in a bundle.
@@ -324,8 +327,7 @@ static inline bool
 hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_fanout_is_empty(bundle->nodes_fanout,
-                                HDAG_ARR_LEN(bundle->nodes_fanout));
+    return hdag_fanout_darr_is_empty(&bundle->nodes_fanout);
 }
 
 /**
@@ -643,7 +645,6 @@ extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
  * Lookup the index of a node within a bundle, using its hash.
  *
  * @param bundle    The bundle to look up the node in.
- *                  Must have the nodes fanout filled in.
  * @param hash_ptr  The hash the node must have.
  *                  The hash length must match the bundle hash length.
  *
@@ -655,12 +656,13 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
                           const uint8_t *hash_ptr)
 {
     assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_darr_occupied_slots(&bundle->nodes) == 0 ||
-           !hdag_bundle_fanout_is_empty(bundle));
     return hdag_nodes_slice_find(
         bundle->nodes.slots,
-        (*hash_ptr == 0 ? 0 : bundle->nodes_fanout[*hash_ptr - 1]),
-        bundle->nodes_fanout[*hash_ptr],
+        ((*hash_ptr == 0 || hdag_bundle_fanout_is_empty(bundle)) ? 0 :
+         hdag_fanout_darr_get(&bundle->nodes_fanout, *hash_ptr - 1)),
+        (hdag_bundle_fanout_is_empty(bundle) ?
+            hdag_darr_occupied_slots(&bundle->nodes) :
+            hdag_fanout_darr_get(&bundle->nodes_fanout, *hash_ptr)),
         bundle->hash_len,
         hash_ptr
     );

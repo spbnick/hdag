@@ -1282,16 +1282,17 @@ test_fanout(uint16_t hash_len)
 {
     size_t failed = 0;
     struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(hash_len);
-    size_t i;
     ssize_t idx;
+    uint32_t *pcount;
     struct hdag_node *node;
 
     TEST(hdag_fanout_is_valid(NULL, 0));
     TEST(hdag_fanout_is_empty(NULL, 0));
     TEST(hdag_fanout_is_valid((uint32_t []){0}, 1));
-    TEST(hdag_fanout_is_empty((uint32_t []){0}, 1));
+    TEST(!hdag_fanout_is_empty((uint32_t []){0}, 1));
+    TEST(hdag_fanout_is_zero((uint32_t []){0}, 1));
     TEST(hdag_fanout_is_valid((uint32_t []){UINT32_MAX}, 1));
-    TEST(!hdag_fanout_is_empty((uint32_t []){UINT32_MAX}, 1));
+    TEST(!hdag_fanout_is_zero((uint32_t []){UINT32_MAX}, 1));
     TEST(hdag_fanout_is_valid((uint32_t []){0, 0}, 2));
     TEST(hdag_fanout_is_valid((uint32_t []){0, 1}, 2));
     TEST(!hdag_fanout_is_valid((uint32_t []){1, 0}, 2));
@@ -1306,8 +1307,10 @@ test_fanout(uint16_t hash_len)
     TEST(hdag_darr_cappend(&bundle.nodes, 1));
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
     hdag_bundle_fanout_fill(&bundle);
-    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
-        TEST(bundle.nodes_fanout[i] == 1);
+
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes_fanout, idx, pcount,
+                           (void)0, (void)0) {
+        TEST(*pcount == 1);
     }
     hdag_bundle_cleanup(&bundle);
 
@@ -1316,8 +1319,9 @@ test_fanout(uint16_t hash_len)
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 0), hash_len, 0);
     hdag_node_hash_fill(HDAG_BUNDLE_NODE(&bundle, 1), hash_len, 0);
     hdag_bundle_fanout_fill(&bundle);
-    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
-        TEST(bundle.nodes_fanout[i] == 2);
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes_fanout, idx, pcount,
+                           (void)0, (void)0) {
+        TEST(*pcount == 2);
     }
     hdag_bundle_cleanup(&bundle);
 
@@ -1328,8 +1332,9 @@ test_fanout(uint16_t hash_len)
         memset(node->hash, idx, bundle.hash_len);
     }
     hdag_bundle_fanout_fill(&bundle);
-    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
-        TEST(bundle.nodes_fanout[i] == (i + 1));
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes_fanout, idx, pcount,
+                           (void)0, (void)0) {
+        TEST(*pcount == idx + 1);
     }
     hdag_bundle_cleanup(&bundle);
 
@@ -1340,8 +1345,9 @@ test_fanout(uint16_t hash_len)
         memset(node->hash, idx * 16, bundle.hash_len);
     }
     hdag_bundle_fanout_fill(&bundle);
-    for (i = 0; i < HDAG_ARR_LEN(bundle.nodes_fanout); i++) {
-        TEST(bundle.nodes_fanout[i] == (i / 16 + 1));
+    HDAG_DARR_ITER_FORWARD(&bundle.nodes_fanout, idx, pcount,
+                           (void)0, (void)0) {
+        TEST(*pcount == (idx / 16 + 1));
     }
     hdag_bundle_cleanup(&bundle);
 
