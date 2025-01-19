@@ -377,7 +377,7 @@ hdag_darr_element_sized_const(const struct hdag_darr *darr,
 
 /**
  * Make sure a dynamic array has slots allocated for specified number of
- * elements.
+ * extra elements.
  *
  * @param darr  The dynamic array to allocate slots in.
  *              Cannot be void unless num is zero.
@@ -392,7 +392,7 @@ extern void *hdag_darr_alloc(struct hdag_darr *darr, size_t num);
 
 /**
  * Make sure a dynamic array has slots allocated and zeroed for specified
- * number of elements.
+ * number of extra elements.
  *
  * @param darr  The dynamic array to allocate and zero slots in.
  *              Cannot be void unless num is zero.
@@ -416,7 +416,7 @@ hdag_darr_calloc(struct hdag_darr *darr, size_t num)
 }
 
 /**
- * Make sure a dynamic array has a slot allocated for one more elements.
+ * Make sure a dynamic array has a slot allocated for one more element.
  *
  * @param darr  The dynamic array to allocate the slot in. Cannot be void.
  *
