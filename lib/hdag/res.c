@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG bundle - universal return code
  */
 

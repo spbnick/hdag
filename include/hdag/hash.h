@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG node ID hash
  */
 

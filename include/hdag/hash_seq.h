@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG hash sequence.
  */
 #ifndef _HDAG_HASH_SEQ_H

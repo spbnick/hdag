@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG bundle - a file in the making
  */
 
@@ -61,7 +61,7 @@ struct hdag_bundle {
      */
     struct hdag_darr    unknown_hashes;
 
-    /*
+    /**
      * The array of extra edges, which didn't fit into nodes themselves.
      * Must be empty if target_hashes is not.
      * If non-empty, the indirect indices in node's targets are pointing here.
@@ -835,7 +835,7 @@ struct hdag_bundle_node_seq {
     struct hdag_bundle_targets_hash_seq     targets_hash_seq;
 };
 
-/*
+/**
  * Initialize a sequence of hashes of targets of a node from a bundle.
  *
  * @param pseq      Location for the node sequence.
@@ -864,7 +864,7 @@ extern hdag_res hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *base_seq,
 /** A reset function for node hash sequence */
 extern void hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq);
 
-/*
+/**
  * Initialize a sequence of node hashes from a bundle.
  *
  * @param pseq      Location for the node sequence.

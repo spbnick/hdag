@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG - DOT output
  */
 

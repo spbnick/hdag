@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG - an abstract fanout array.
  */
 

@@ -478,7 +478,7 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     return HDAG_RES_OK;
 }
 
-/*
+/**
  * Check if both the nodes and targets of a bundle are sorted according to
  * a specified range of comparison results.
  *

@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG file
  *
  * NOTE: Files use host order.

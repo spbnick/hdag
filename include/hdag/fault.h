@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG bundle - a fault (failure cause/type)
  */
 

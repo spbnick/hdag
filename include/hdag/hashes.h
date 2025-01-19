@@ -1,4 +1,4 @@
-/*
+/**
  * Hash DAG (lexicographically) sorted hash array
  */
 
