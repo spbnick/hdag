@@ -133,6 +133,7 @@ static size_t
 test_empty(void)
 {
     size_t failed = 0;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(TEST_HASH_LEN);
     struct hdag_file file = HDAG_FILE_CLOSED;
     char pathname[256];
     uint8_t expected_contents[] = {
@@ -282,18 +283,26 @@ test_empty(void)
     /*
      * Empty in-memory file.
      */
-    TEST(!hdag_file_from_node_seq(&file, NULL, -1, 0,
-                                  &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
+        &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)
+    ));
+    TEST(!hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     TEST(file.size == sizeof(expected_contents));
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
+    hdag_bundle_cleanup(&bundle);
 
     /*
      * Create empty on-disk file.
      */
-    TEST(!hdag_file_from_node_seq(&file, "test.XXXXXX.hdag", 5,
-                                  S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-                                  &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)));
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
+        &HDAG_NODE_SEQ_EMPTY(TEST_HASH_LEN)
+    ));
+    TEST(!hdag_file_from_bundle(&file, "test.XXXXXX.hdag", 5,
+                                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
+                                &bundle));
     TEST(hdag_file_is_open(&file));
     /* Remember created file pathname */
     assert(strlen(file.pathname) < sizeof(pathname));
@@ -303,6 +312,7 @@ test_empty(void)
     TEST(memcmp(file.contents, expected_contents, file.size) == 0);
     TEST(!hdag_file_close(&file));
     TEST(!hdag_file_is_open(&file));
+    hdag_bundle_cleanup(&bundle);
 
     /*
      * Open (the created) empty on-disk file.
@@ -322,14 +332,18 @@ static size_t
 test_basic(void)
 {
     size_t failed = 0;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(TEST_HASH_LEN);
     struct hdag_file file = HDAG_FILE_CLOSED;
     struct hdag_node *node;
 
     /*
      * Single-node in-memory file.
      */
-    TEST(!hdag_file_from_node_seq(&file, NULL, -1, 0,
-                                  TEST_NODE_SEQ(TEST_NODE(1))));
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
+        TEST_NODE_SEQ(TEST_NODE(1))
+    ));
+    TEST(!hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     TEST(file.pathname == NULL);
     TEST(file.contents != NULL);
     TEST(file.header != NULL);
@@ -348,12 +362,16 @@ test_basic(void)
     TEST(node->hash[0] == 1);
     TEST(file.extra_edges != NULL);
     TEST(hdag_file_close(&file) == HDAG_RES_OK);
+    hdag_bundle_cleanup(&bundle);
 
     /*
      * Two-node in-memory file.
      */
-    TEST(!hdag_file_from_node_seq(&file, NULL, -1, 0,
-                                  TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))));
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
+        TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2))
+    ));
+    TEST(!hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
@@ -371,14 +389,16 @@ test_basic(void)
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
     TEST(hdag_file_close(&file) == HDAG_RES_OK);
+    hdag_bundle_cleanup(&bundle);
 
     /*
      * N1->N2 in-memory file.
      */
-    TEST(!hdag_file_from_node_seq(
-        &file, NULL, -1, 0,
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
         TEST_NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2))
     ));
+    TEST(!hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
@@ -396,14 +416,16 @@ test_basic(void)
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
     TEST(hdag_file_close(&file) == HDAG_RES_OK);
+    hdag_bundle_cleanup(&bundle);
 
     /*
      * N1<-N2 in-memory file.
      */
-    TEST(!hdag_file_from_node_seq(
-        &file, NULL, -1, 0,
+    TEST(!hdag_bundle_organized_from_node_seq(
+        &bundle, NULL,
         TEST_NODE_SEQ(TEST_NODE(1), TEST_NODE(2, 1))
     ));
+    TEST(!hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     TEST(file.header->node_num == 2);
     TEST(file.header->extra_edge_num == 0);
     TEST(file.nodes != NULL);
@@ -421,6 +443,7 @@ test_basic(void)
     TEST(node->targets.last == HDAG_TARGET_ABSENT);
     TEST(file.extra_edges != NULL);
     TEST(hdag_file_close(&file) == HDAG_RES_OK);
+    hdag_bundle_cleanup(&bundle);
 
     return failed;
 }

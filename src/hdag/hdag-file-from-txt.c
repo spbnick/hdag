@@ -25,6 +25,7 @@ int
 main(int argc, const char **argv)
 {
     hdag_res res = HDAG_RES_INVALID;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(0);
     struct hdag_file file = HDAG_FILE_CLOSED;
     unsigned long hash_len;
     char *end;
@@ -45,8 +46,8 @@ main(int argc, const char **argv)
         return 1;
     }
 
-    HDAG_RES_TRY(hdag_file_from_txt(&file, NULL, -1, 0,
-                                    stdin, (uint16_t)hash_len));
+    HDAG_RES_TRY(hdag_bundle_from_txt(&bundle, stdin, (uint16_t)hash_len));
+    HDAG_RES_TRY(hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
     if (fwrite(file.contents, file.size, 1, stdout) != 1) {
         res = HDAG_RES_ERRNO;
         goto cleanup;
@@ -55,6 +56,7 @@ main(int argc, const char **argv)
 
     res = HDAG_RES_OK;
 cleanup:
+    hdag_bundle_cleanup(&bundle);
     (void)hdag_file_close(&file);
     if (hdag_res_is_ok(res)) {
         return 0;
