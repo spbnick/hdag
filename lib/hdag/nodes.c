@@ -11,7 +11,7 @@ hdag_nodes_slice_find(const struct hdag_node *nodes,
                       uint16_t hash_len, const uint8_t *hash_ptr)
 {
     assert(start_idx < INT32_MAX);
-    assert(end_idx < INT32_MAX);
+    assert(end_idx <= INT32_MAX);
     assert(start_idx <= end_idx);
     assert(nodes != NULL || end_idx == 0);
     assert(hdag_hash_len_is_valid(hash_len));

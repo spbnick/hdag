@@ -17,7 +17,7 @@
  * @param end_idx   The end index of the nodes array slice to search in
  *                  (pointing right after the last node of the slice).
  *                  Must be greater than or equal to start_idx.
- *                  Must be less than INT32_MAX.
+ *                  Must be less than or equal to INT32_MAX.
  * @param hash_len  The length of the node hash.
  *                  Must be valid according to hdag_hash_len_is_valid().
  * @param hash_ptr  Pointer to the hash to find in the array.
