@@ -11,8 +11,13 @@ bool
 hdag_hashes_are_valid(const uint8_t *hashes,
                       uint16_t hash_len, size_t hash_num)
 {
-    if ((hashes == NULL && hash_num != 0) ||
-        !hdag_hash_len_is_valid(hash_len)) {
+    if (hashes == NULL && hash_num != 0) {
+        return false;
+    }
+    if (hash_len == 0) {
+        return hash_num == 0;
+    }
+    if (!hdag_hash_len_is_valid(hash_len)) {
         return false;
     }
 
