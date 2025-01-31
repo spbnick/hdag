@@ -87,6 +87,22 @@ hdag_bundle_node_seq_reset(struct hdag_node_seq *base_seq)
     seq->node_idx = 0;
 }
 
+static inline bool
+hdag_bundle_is_mutable_or_invalid(const struct hdag_bundle *bundle)
+{
+    return hdag_darr_is_mutable(&bundle->nodes) &&
+        hdag_darr_is_mutable(&bundle->target_hashes) &&
+        hdag_darr_is_mutable(&bundle->unknown_hashes) &&
+        hdag_darr_is_mutable(&bundle->extra_edges);
+}
+
+static inline bool
+hdag_bundle_is_immutable_or_invalid(const struct hdag_bundle *bundle)
+{
+    return !hdag_bundle_is_mutable_or_invalid(bundle);
+}
+
+
 bool
 hdag_bundle_is_valid(const struct hdag_bundle *bundle)
 {
@@ -122,20 +138,14 @@ bool
 hdag_bundle_is_mutable(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_darr_is_mutable(&bundle->nodes) &&
-        hdag_darr_is_mutable(&bundle->target_hashes) &&
-        hdag_darr_is_mutable(&bundle->unknown_hashes) &&
-        hdag_darr_is_mutable(&bundle->extra_edges);
+    return hdag_bundle_is_mutable_or_invalid(bundle);
 }
 
 bool
 hdag_bundle_is_immutable(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_darr_is_immutable(&bundle->nodes) ||
-        hdag_darr_is_immutable(&bundle->target_hashes) ||
-        hdag_darr_is_immutable(&bundle->unknown_hashes) ||
-        hdag_darr_is_immutable(&bundle->extra_edges);
+    return hdag_bundle_is_immutable_or_invalid(bundle);
 }
 
 bool
