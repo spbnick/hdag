@@ -904,7 +904,7 @@ hdag_darr_element_idx(const struct hdag_darr *darr, const void *element)
  * Copy a dynamic array over another one.
  *
  * @param pdst  Location for the output dynamic array.
- *              Not modified in case of failure.
+ *              Cannot be NULL. Not modified in case of failure.
  * @param src   The source dynamic array to copy.
  *
  * @return True if copying succeeded, false if memory reallocation failed,
@@ -915,16 +915,11 @@ hdag_darr_copy(struct hdag_darr *pdst, const struct hdag_darr *src)
 {
     assert(pdst != NULL);
     assert(hdag_darr_is_valid(src));
-
-    size_t size_occupied = src->slots_occupied * src->slot_size;
-    struct hdag_darr dst = *src;
-
-    if (size_occupied != 0) {
-        dst.slots = malloc(size_occupied);
-        if (dst.slots == NULL) {
-            return false;
-        }
-        memcpy(dst.slots, src->slots, size_occupied);
+    struct hdag_darr dst = HDAG_DARR_EMPTY(src->slot_size,
+                                           src->slots_preallocate);
+    if (src->slots_occupied != 0 &&
+        hdag_darr_append(&dst, src->slots, src->slots_occupied) == NULL) {
+        return false;
     }
     *pdst = dst;
     return true;
