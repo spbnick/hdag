@@ -847,6 +847,10 @@ extern struct hdag_node_seq *hdag_bundle_node_seq_init(
                                 struct hdag_bundle_node_seq *pseq,
                                 const struct hdag_bundle *bundle);
 
+/** An initializer for a bundle's node sequence */
+#define HDAG_BUNDLE_NODE_SEQ(_bundle) \
+    *hdag_bundle_node_seq_init(&(struct hdag_bundle_node_seq){0,}, _bundle)
+
 /** Bundle's (resettable) node hash sequence */
 struct hdag_bundle_node_hash_seq {
     /** The base abstract hash sequence */
