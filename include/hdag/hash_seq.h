@@ -134,7 +134,7 @@ extern void hdag_hash_seq_empty_reset(
 }
 
 /**
- * Compare two hash sequences, with the same hash len.
+ * Compare two hash sequences with the same hash length.
  *
  * @param seq_a    The first sequence to compare.
  * @param seq_b    The second sequence to compare.
