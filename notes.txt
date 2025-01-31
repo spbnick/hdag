@@ -851,3 +851,179 @@ unresizeable bundle to avoid reimplementing operations.
     - DONE, implemented!
 ---
 Actually, perhaps we could make bundles serve files as well...hmm...
+
+So we could have "bundles", which are "organized" and then "filed".
+
+And then we could create a bundle from a file, which would mean memory-mapping
+that file and linking the fields. BTW, we might need to turn the fanout array
+into a dynamic array, so we could more conveniently link it into the
+memory-mapped file.
+
+Then we could also support only a limited number of operations on a file, e.g.
+"forget_node" only.
+
+TODO: Generate a new "unknown_hashes" array in one go after removing all the
+nodes, when merging a new bundle.
+    - done!
+TODO: Check that we're using HDAG_DARR_ELEMENT macro everywhere we can.
+---
+NOTE: Fanout: empty is zero, but zero is not necessarily empty.
+              Or should we have them completely separated?
+---
+Actually, we cannot simply remove a node, because that potentially requires
+re-enumerating generations and components, so we have to create a new
+bundle/file, anyway.
+---
+TODO: Check if hdag_res return value is marked with [[nodiscard]] in the CI
+---
+So, if a file is a part of a bundle, should we make it possible to create a
+bundle from a free-standing file?
+
+Or should we instead make bundle *refer* to a file? But if we do that, it
+would mean that destroying a bundle wouldn't close a file. Which is probably,
+OK, but it would also mean that the database has to maintain the list of files
+and close them separately. OTOH, it has to manage the directory with the files
+and delete and rename them.
+
+So, suppose we have the file state integrated. Then we can move the contents
+to a specified file and link it. We can unlink the file and move the contents
+back, and close the file. We can't rename or move the file, because we don't
+know its context.
+
+OK, how about we separate file opening and closing and moving contents?
+
+
+open
+close
+
+    BUNDLE  HANDLE  FILE    OP      BUNDLE  HANDLE  FILE    COMMENT
+
+    empty   closed          create  empty   open    empty
+    empty   closed  empty   open    empty   open    empty
+    empty   open    empty   close   empty   closed  empty
+    DAG_B   closed  DAG_F   open    DAG_B   open    DAG_F
+    DAG_B   open    DAG_F   write  [DAG_B]  open    DAG_B
+    DAG_B   open    DAG_F   read   [DAG_F]  open    DAG_F
+   [DAG_F]  open    DAG_F   write  [DAG_F]  open    DAG_F   NOOP
+   [DAG_F]  open    DAG_F   close   DAG_F   closed  DAG_F   DAG_F copied
+   [DAG_F]  open    DAG_F   open   [DAG_F2] open    DAG_F2  implied close
+
+                            link
+   [DAG_F]  open    DAG_F   unlink
+
+OK, suppose we weren't embedding the file, but only linked it. Hmm, then we
+wouldn't have control on its closing and opening. Which doesn't sound great.
+
+So, OK, once again. Suppose we can be told to close or open the file. But then
+we can require that the bundle's data be unlinked from the file, either by
+copying the file's contents, or by emptying the in-memory contents.
+
+Let's say we can have two states: linked ("filed") and unlinked ("unfiled").
+The former has dynamic arrays pointing to the file contents, and the latter
+has them pointing somewhere else (or being empty).
+
+The "filed" state requires an open file. The "unfiled" state doesn't care?
+Actually, can we equate "filed" with an open file, and "unfiled" with a closed
+file, after all?
+
+
+Actually we can have two variants of both "filing" and "unfiling":
+
+* create file and move bundle contents there, linking it
+* discard bundle contents, open file and link its contents to the bundle
+* move file contents to the bundle and close it
+* empty the bundle and close the file
+
+Maybe we can come up with four verbs for these?
+
+* "save"
+* "load"
+* "detach"
+* "abandon"
+
+---
+
+Aargh, it still feels artificial. OK, let's try to break down the operations
+again:
+
+We can't really create a file without contents so we can only create the file
+from bundle contents
+
+But we can open a file and have the bundle's contents separate from that.
+
+Yet, we can't really put the bundle contents into an existing file.
+
+So when opening a file we can only link its contents to the file.
+Can we call it "open_file"?
+
+And when creating a file we can only put the bundle's contents in there.
+Can we call it "create_file"?
+
+Both operations create a linked bundle.
+
+And we can e.g. say that only a linked bundle can have the file open.
+So we can have two states: "filed" and "unfiled". "Filed" meaning we have the
+file opened and linked, and "unfiled" - the opposite.
+
+Another operation could be to create a file with the bundle's contents, but
+not link it and not free its memory. But that operation can skip using the
+embedded struct hdag_file. Call it "save_file"?
+
+Once we have a linked bundle we can close the file and then we can decide
+whether to empty the bundle, or move the file's contents to the bundle memory.
+
+Can we call the former "close_file" and the latter "unfile"?
+Actually, essentialy "close_file" would be equivalent to "cleanup" (which
+would close the file, and unfortunaterly would be able to fail). So we
+don't need a separate operation name.
+
+And then might want to just open a file, copy its contents into memory, and
+close the file in one go. Can we call it "load_file"?
+
+OK, let's try to put it together:
+
+hdag_bundle_is_filed
+hdag_bundle_is_unfiled
+hdag_bundle_file_in
+hdag_bundle_file_out
+hdag_bundle_unfile
+hdag_bundle_save
+hdag_bundle_load
+---
+Wait, what if we have the "hdag_bundle_from_file" operation, which creates a
+bundle with the file taken ower, and linked in, and then expect the user to
+deal with file creation or opening?
+
+What if we make it easier to create a file from a bundle by implementing, say,
+"hdag_bundle_save". And have "hdag_bundle_load" do "hdag_bundle_from_file" and
+then "hdag_bundle_unfile"?
+
+So, how about this:
+hdag_bundle_from_file
+hdag_bundle_save
+hdag_bundle_load
+hdag_bundle_unfile
+---
+Read text into a bundle
+Save it to a file
+Create a bundle from the file
+Output the bundle into text
+Compare to the input text
+
+---
+For each node sequence
+    Read the node sequence into a bundle
+    Save the bundle to a file
+    Create a bundle from the file
+    (or maybe do "file" instead of the two above)
+    Compare its node sequence to the original sequence
+---
+Consider replacing "node sequence" with just "hash sequence sequence".
+---
+So, how do we deal with "cleaning up" the bundle?
+
+We can say that "cleaning up" always doesn't care how the cleanup went: we're
+just releasing the resources, and then we add an additional function which
+makes sure the data is preserved.
+
+We actually doing the syncing when creating the file, so it should not fail.
