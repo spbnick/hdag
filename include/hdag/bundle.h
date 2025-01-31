@@ -836,7 +836,7 @@ struct hdag_bundle_node_seq {
 };
 
 /**
- * Initialize a sequence of hashes of targets of a node from a bundle.
+ * Initialize a sequence of (known) bundle nodes.
  *
  * @param pseq      Location for the node sequence.
  * @param bundle    The bundle to initialize the sequence for.

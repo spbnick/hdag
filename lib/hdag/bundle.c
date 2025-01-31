@@ -56,17 +56,22 @@ hdag_bundle_node_seq_next(struct hdag_node_seq *base_seq,
         struct hdag_bundle_node_seq, base, base_seq
     );
     const struct hdag_bundle *bundle = seq->bundle;
+    const struct hdag_node *node;
     assert(hdag_bundle_is_valid(bundle));
     assert(base_seq->hash_len == bundle->hash_len);
 
-    if (seq->node_idx >= bundle->nodes.slots_occupied) {
-        return 1;
-    }
-    *phash = HDAG_BUNDLE_NODE(bundle, seq->node_idx)->hash;
+    /* Find next known node */
+    do {
+        if (seq->node_idx >= bundle->nodes.slots_occupied) {
+            return 1;
+        }
+        node = HDAG_BUNDLE_NODE(bundle, seq->node_idx++);
+    } while (!hdag_node_is_known(node));
+    /* Output */
+    *phash = node->hash;
     *ptarget_hash_seq = hdag_bundle_targets_hash_seq_init(
-        &seq->targets_hash_seq, bundle, seq->node_idx
+        &seq->targets_hash_seq, bundle, seq->node_idx - 1
     );
-    seq->node_idx++;
     return 0;
 }
 
