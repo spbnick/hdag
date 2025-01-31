@@ -39,9 +39,8 @@ main(int argc, const char **argv)
     pathname = argv[1];
 
     HDAG_RES_TRY(hdag_file_open(&file, pathname));
-    HDAG_RES_TRY(hdag_file_to_bundle(&bundle, &file));
+    hdag_bundle_from_file(&bundle, &file);
     HDAG_RES_TRY(hdag_dot_write_bundle(&bundle, "", stdout));
-    HDAG_RES_TRY(hdag_file_close(&file));
 
     res = HDAG_RES_OK;
 cleanup:

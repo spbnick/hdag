@@ -3,6 +3,7 @@
  * list
  */
 #include <hdag/file.h>
+#include <hdag/bundle.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -39,9 +40,8 @@ main(int argc, const char **argv)
     pathname = argv[1];
 
     HDAG_RES_TRY(hdag_file_open(&file, pathname));
-    HDAG_RES_TRY(hdag_file_to_bundle(&bundle, &file));
+    hdag_bundle_from_file(&bundle, &file);
     HDAG_RES_TRY(hdag_bundle_to_txt(stdout, &bundle));
-    HDAG_RES_TRY(hdag_file_close(&file));
 
     res = HDAG_RES_OK;
 cleanup:

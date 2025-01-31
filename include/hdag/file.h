@@ -7,7 +7,11 @@
 #ifndef _HDAG_FILE_H
 #define _HDAG_FILE_H
 
-#include <hdag/bundle.h>
+#include <hdag/hash.h>
+#include <hdag/fanout.h>
+#include <hdag/node.h>
+#include <hdag/edge.h>
+#include <hdag/res.h>
 #include <hdag/misc.h>
 #include <fcntl.h>
 #include <linux/limits.h>
@@ -148,7 +152,7 @@ hdag_file_size(uint16_t hash_len,
 }
 
 /**
- * Create and open a hash DAG file, filling it with the contents of a bundle.
+ * Create a hash DAG file, filling it with the supplied data.
  *
  * @param pfile             Location for the state of the opened file.
  *                          Not modified in case of failure.
@@ -164,31 +168,42 @@ hdag_file_size(uint16_t hash_len,
  *                          NULL.
  * @param open_mode         The mode bitmap to supply to open(2).
  *                          Ignored, if pathname is NULL.
- * @param bundle            The bundle to get the file contents from.
- *                          Must be fully organized.
+ * @param hash_len          The length of all the hashes in the data.
+ * @param nodes             The node array. Size of each node depends on the
+ *                          "hash_len", and can be calculated using
+ *                          hdag_node_size(). Sorted lexicographically by
+ *                          hashes.
+ * @param node_fanout       Node hash fanout - an array where each element
+ *                          corresponds to the number of nodes having the
+ *                          first byte of their hash equal to or lower than
+ *                          the element index. Thus the array has 256
+ *                          elements, and its last element contains the total
+ *                          number of nodes.
+ *                          The node's target's direct indexes point into this
+ *                          array. The indirect ones point into the
+ *                          extra_edges array.
+ * @param extra_edges       The array of edges which didn't fit into the
+ *                          nodes' targets, referenced by nodes.
+ * @param extra_edge_num    The number of edges in the "extra_edges" array.
+ * @param unknown_hashes    The array of hashes of "unknown" nodes in the
+ *                          "nodes" array, sorted lexicographically.
+ * @param unknown_hash_num  The number of hashes in the "unknown_hashes"
+ *                          array.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_file_from_bundle(struct hdag_file *pfile,
-                                      const char *pathname,
-                                      int template_sfxlen,
-                                      mode_t open_mode,
-                                      const struct hdag_bundle *bundle);
-
-/**
- * Create a bundle from the contents of a file.
- *
- * @param pbundle           The location for the output bundle.
- *                          Not modified in case of failure.
- *                          Can be NULL to have bundle discarded.
- * @param file              The opened file to create the bundle from.
- *
- * @return A void universal result.
- */
-[[nodiscard]]
-extern hdag_res hdag_file_to_bundle(struct hdag_bundle *pbundle,
-                                    const struct hdag_file *file);
+extern hdag_res hdag_file_create(struct hdag_file *pfile,
+                                 const char *pathname,
+                                 int template_sfxlen,
+                                 mode_t open_mode,
+                                 uint16_t hash_len,
+                                 const struct hdag_node *nodes,
+                                 const uint32_t *node_fanout,
+                                 const struct hdag_edge *extra_edges,
+                                 uint32_t extra_edge_num,
+                                 const uint8_t *unknown_hashes,
+                                 uint32_t unknown_hash_num);
 
 /**
  * Open a previously-created hash DAG file.

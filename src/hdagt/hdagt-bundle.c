@@ -1277,6 +1277,154 @@ test_txt_buggy_case(void)
 
 #undef WITH_BUNDLES_AND_FILES
 
+/** Test node sequence */
+struct test_node_seq {
+    /** The base abstract node sequence */
+    struct hdag_node_seq    base;
+    /**
+     * The values of the test DAG hashes being iterated over.
+     * A series of zero-terminated hash value sequences, terminated with an
+     * empty sequence. Each sequence contains the value of the node's hash,
+     * followed by the values of the target hashes.
+     */
+    const uint32_t         *hash_vals;
+    /** The pointer to the next hash value to return */
+    const uint32_t         *next_hash_val;
+    /**
+     * Location of the buffer to store generated and returned node hashes in.
+     */
+    uint8_t                *hash_buf;
+    /**
+     * Location of the buffer to store target hashes in.
+     */
+    uint8_t                *target_hash_buf;
+    /** The returned node's target hash sequence */
+    struct hdag_hash_seq    target_hash_seq;
+};
+
+static hdag_res
+test_hash_seq_next(struct hdag_hash_seq *hash_seq,
+                   const uint8_t **phash)
+{
+    assert(hdag_hash_seq_is_valid(hash_seq));
+    struct test_node_seq *seq = HDAG_CONTAINER_OF(
+        struct test_node_seq, target_hash_seq, hash_seq
+    );
+    uint32_t hash_val = *seq->next_hash_val++;
+    if (hash_val == 0) {
+        return 1;
+    }
+    *phash = hdag_hash_fill(seq->target_hash_buf, seq->base.hash_len,
+                            hash_val);
+    return 0;
+}
+
+static hdag_res
+test_node_seq_next(struct hdag_node_seq   *base_seq,
+                   const uint8_t         **phash,
+                   struct hdag_hash_seq  **ptarget_hash_seq)
+{
+    assert(hdag_node_seq_is_valid(base_seq));
+    struct test_node_seq *seq = HDAG_CONTAINER_OF(
+        struct test_node_seq, base, base_seq
+    );
+    uint32_t hash_val = *seq->next_hash_val++;
+    if (hash_val == 0) {
+        return 1;
+    }
+    *phash = hdag_hash_fill(seq->hash_buf, base_seq->hash_len, hash_val);
+    *ptarget_hash_seq = &seq->target_hash_seq;
+    return 0;
+}
+
+static struct hdag_node_seq*
+test_node_seq_init(struct test_node_seq *pseq,
+                   uint16_t hash_len,
+                   uint8_t *hash_buf,
+                   uint8_t *target_hash_buf,
+                   const uint32_t *hash_vals)
+{
+    assert(pseq != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+    assert(hash_vals != NULL);
+    assert(hash_buf != NULL);
+    assert(target_hash_buf != NULL);
+
+    *pseq = (struct test_node_seq){
+        .base = {
+            .hash_len = hash_len,
+            .next_fn = test_node_seq_next,
+        },
+        .hash_vals = hash_vals,
+        .next_hash_val = hash_vals,
+        .hash_buf = hash_buf,
+        .target_hash_buf = target_hash_buf,
+        .target_hash_seq = {
+            .hash_len = hash_len,
+            .next_fn = test_hash_seq_next,
+        },
+    };
+
+    assert(hdag_node_seq_is_valid(&pseq->base));
+    assert(hdag_hash_seq_is_valid(&pseq->target_hash_seq));
+    return &pseq->base;
+}
+
+#define TEST_NODE_SEQ(_hash_len, _hash_buf, _target_hash_buf, \
+                      _hash_vals...)                                    \
+    *test_node_seq_init(&(struct test_node_seq){0,},                    \
+                        _hash_len,                                      \
+                        _hash_buf,                                      \
+                        _target_hash_buf,                               \
+                        (const uint32_t []){0, ##_hash_vals, 0} + 1)
+
+#define TEST_NODE(_hash_val, _target_hash_vals...) \
+    _hash_val, ##_target_hash_vals, 0
+
+static size_t
+test_file(uint16_t hash_len)
+{
+    size_t failed = 0;
+    hdag_res res;
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(0);
+    assert(hdag_hash_len_is_valid(hash_len));
+    uint8_t hash_buf[hash_len];
+    uint8_t target_hash_buf[hash_len];
+#define NODE_SEQ(_hash_vals...) \
+    TEST_NODE_SEQ(hash_len, hash_buf, target_hash_buf, ##_hash_vals)
+
+#define TEST_FILE(_node_seq) \
+    do {                                                            \
+        res = hdag_bundle_organized_from_node_seq(                  \
+            &bundle, NULL, _node_seq                                \
+        );                                                          \
+        TEST(res == HDAG_RES_OK);                                   \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
+                               _node_seq) - 2 == 0);                \
+        TEST(hdag_bundle_is_unfiled(&bundle));                      \
+        TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK); \
+        TEST(hdag_bundle_is_filed(&bundle));                        \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
+                               _node_seq) - 2 == 0);                \
+        TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);           \
+        TEST(hdag_bundle_is_unfiled(&bundle));                      \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
+                               _node_seq) - 2 == 0);                \
+        hdag_bundle_cleanup(&bundle);                               \
+    } while (0)
+
+    TEST_FILE(&NODE_SEQ());
+    TEST_FILE(&NODE_SEQ(TEST_NODE(1)));
+    TEST_FILE(&NODE_SEQ(TEST_NODE(1), TEST_NODE(2)));
+    TEST_FILE(&NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2)));
+    TEST_FILE(&NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2, 3)));
+    TEST_FILE(&NODE_SEQ(TEST_NODE(1, 2, 3),
+                        TEST_NODE(2, 3),
+                        TEST_NODE(3, 4, 5)));
+
+    return failed;
+}
+
 static size_t
 test_fanout(uint16_t hash_len)
 {
@@ -1441,6 +1589,11 @@ test(uint16_t hash_len)
      * Check adjacency list text file processing works.
      */
     failed += test_txt(hash_len);
+
+    /*
+     * Check HDAG file operations work
+     */
+    failed += test_file(hash_len);
 
     /* Cleanup the bundle */
     hdag_bundle_cleanup(&bundle);

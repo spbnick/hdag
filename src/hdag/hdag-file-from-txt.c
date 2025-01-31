@@ -3,6 +3,7 @@
  * list
  */
 #include <hdag/file.h>
+#include <hdag/bundle.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -47,7 +48,7 @@ main(int argc, const char **argv)
     }
 
     HDAG_RES_TRY(hdag_bundle_from_txt(&bundle, stdin, (uint16_t)hash_len));
-    HDAG_RES_TRY(hdag_file_from_bundle(&file, NULL, -1, 0, &bundle));
+    HDAG_RES_TRY(hdag_bundle_to_file(&file, NULL, -1, 0, &bundle));
     if (fwrite(file.contents, file.size, 1, stdout) != 1) {
         res = HDAG_RES_ERRNO;
         goto cleanup;

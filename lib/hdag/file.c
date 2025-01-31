@@ -26,11 +26,17 @@ hdag_file_mmap(int fd, size_t size)
 }
 
 hdag_res
-hdag_file_from_bundle(struct hdag_file *pfile,
-                      const char *pathname,
-                      int template_sfxlen,
-                      mode_t open_mode,
-                      const struct hdag_bundle *bundle)
+hdag_file_create(struct hdag_file *pfile,
+                 const char *pathname,
+                 int template_sfxlen,
+                 mode_t open_mode,
+                 uint16_t hash_len,
+                 const struct hdag_node *nodes,
+                 const uint32_t *node_fanout,
+                 const struct hdag_edge *extra_edges,
+                 uint32_t extra_edge_num,
+                 const uint8_t *unknown_hashes,
+                 uint32_t unknown_hash_num)
 {
     hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
@@ -39,13 +45,10 @@ hdag_file_from_bundle(struct hdag_file *pfile,
     struct hdag_file_header header = {
         .signature = HDAG_FILE_SIGNATURE,
         .version = {0, 0},
-        .hash_len = bundle->hash_len,
-        .extra_edge_num = bundle->extra_edges.slots_occupied,
-        .unknown_hash_num = bundle->unknown_hashes.slots_occupied,
+        .hash_len = hash_len,
+        .extra_edge_num = extra_edge_num,
+        .unknown_hash_num = unknown_hash_num,
     };
-
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_organized(bundle));
 
     if (pathname != NULL) {
         file.pathname = strdup(pathname);
@@ -54,11 +57,8 @@ hdag_file_from_bundle(struct hdag_file *pfile,
         }
     }
 
-    /* Copy the fanout (and thus node number) from the bundle */
-    assert(hdag_darr_occupied_size(&bundle->nodes_fanout) >=
-           sizeof(header.node_fanout));
-    memcpy(header.node_fanout, bundle->nodes_fanout.slots,
-           sizeof(header.node_fanout));
+    /* Copy the fanout (and thus node number) */
+    memcpy(header.node_fanout, node_fanout, sizeof(header.node_fanout));
 
     /* Calculate the file size */
     file.size = hdag_file_size(header.hash_len,
@@ -129,13 +129,13 @@ hdag_file_from_bundle(struct hdag_file *pfile,
         (uint8_t *)file.extra_edges +
         sizeof(struct hdag_edge) * file.header->extra_edge_num;
 
-    /* Copy the bundle data */
-    memcpy(file.nodes, bundle->nodes.slots,
-           hdag_darr_occupied_size(&bundle->nodes));
-    memcpy(file.extra_edges, bundle->extra_edges.slots,
-           hdag_darr_occupied_size(&bundle->extra_edges));
-    memcpy(file.unknown_hashes, bundle->unknown_hashes.slots,
-           hdag_darr_occupied_size(&bundle->unknown_hashes));
+    /* Copy the data */
+    memcpy(file.nodes, nodes,
+           hdag_node_size(file.header->hash_len) * file.header->node_num);
+    memcpy(file.extra_edges, extra_edges,
+           sizeof(struct hdag_edge) * file.header->extra_edge_num);
+    memcpy(file.unknown_hashes, unknown_hashes,
+           file.header->hash_len * file.header->unknown_hash_num);
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
@@ -160,48 +160,6 @@ cleanup:
     free(file.pathname);
     errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
-}
-
-hdag_res
-hdag_file_to_bundle(struct hdag_bundle *pbundle,
-                    const struct hdag_file *file)
-{
-    assert(hdag_file_is_valid(file));
-
-    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
-
-    bundle.nodes = HDAG_DARR_IMMUTABLE(
-        file->nodes,
-        hdag_node_size(file->header->hash_len),
-        file->header->node_num
-    );
-
-    bundle.nodes_fanout = HDAG_DARR_IMMUTABLE(
-        file->header->node_fanout,
-        sizeof(*file->header->node_fanout),
-        HDAG_ARR_LEN(file->header->node_fanout)
-    );
-
-    bundle.unknown_hashes = HDAG_DARR_IMMUTABLE(
-        file->unknown_hashes,
-        file->header->hash_len,
-        file->header->unknown_hash_num
-    );
-
-    bundle.extra_edges = HDAG_DARR_IMMUTABLE(
-        file->extra_edges,
-        sizeof(struct hdag_edge),
-        file->header->extra_edge_num
-    );
-
-    assert(hdag_bundle_is_valid(&bundle));
-    if (pbundle != NULL) {
-        *pbundle = bundle;
-        bundle = HDAG_BUNDLE_EMPTY(bundle.hash_len);
-    }
-
-    hdag_bundle_cleanup(&bundle);
-    return HDAG_RES_OK;
 }
 
 hdag_res

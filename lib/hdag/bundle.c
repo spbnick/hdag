@@ -131,7 +131,10 @@ hdag_bundle_is_valid(const struct hdag_bundle *bundle)
         hdag_darr_occupied_slots(&bundle->extra_edges) < INT32_MAX &&
         (bundle->hash_len != 0 || hdag_darr_is_empty(&bundle->target_hashes)) &&
         (hdag_darr_is_empty(&bundle->target_hashes) ||
-         hdag_darr_is_empty(&bundle->extra_edges));
+         hdag_darr_is_empty(&bundle->extra_edges)) &&
+        hdag_file_is_valid(&bundle->file) &&
+        (!hdag_file_is_open(&bundle->file) ||
+         hdag_bundle_is_immutable_or_invalid(bundle));
 }
 
 bool
@@ -396,12 +399,19 @@ hdag_bundle_node_hash_seq_init(struct hdag_bundle_node_hash_seq *pseq,
 void
 hdag_bundle_cleanup(struct hdag_bundle *bundle)
 {
+    hdag_res res;
     assert(hdag_bundle_is_valid(bundle));
     hdag_darr_cleanup(&bundle->nodes);
     hdag_darr_cleanup(&bundle->nodes_fanout);
     hdag_darr_cleanup(&bundle->target_hashes);
     hdag_darr_cleanup(&bundle->unknown_hashes);
     hdag_darr_cleanup(&bundle->extra_edges);
+    /*
+     * We're syncing the file after creating, and then never change it.
+     * This should not fail.
+     */
+    res = hdag_file_close(&bundle->file);
+    assert(res == HDAG_RES_OK);
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_clean(bundle));
 }
@@ -1871,5 +1881,177 @@ hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
     res = HDAG_RES_OK;
 cleanup:
     hdag_bundle_cleanup(&bundle);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+/**
+ * Create a bundle from an HDAG file, taking ownership over it and linking its
+ * contents in.
+ *
+ * @param pbundle   The location for the created bundle with the file
+ *                  embedded. Can be NULL to not have the bundle output, and
+ *                  to have it destroyed after creation instead.
+ * @param file      The file to link into the bundle.
+ *                  Must be open. Will be closed.
+ */
+void
+hdag_bundle_from_file(struct hdag_bundle *pbundle, struct hdag_file *file)
+{
+    assert(hdag_file_is_valid(file));
+    assert(hdag_file_is_open(file));
+
+    struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(file->header->hash_len);
+
+    bundle.hash_len = file->header->hash_len;
+    bundle.nodes = HDAG_DARR_IMMUTABLE(
+        file->nodes,
+        hdag_node_size(file->header->hash_len),
+        file->header->node_num
+    );
+    bundle.nodes_fanout = HDAG_DARR_IMMUTABLE(
+        file->header->node_fanout,
+        sizeof(*file->header->node_fanout),
+        HDAG_ARR_LEN(file->header->node_fanout)
+    );
+    bundle.unknown_hashes = HDAG_DARR_IMMUTABLE(
+        file->unknown_hashes,
+        file->header->hash_len,
+        file->header->unknown_hash_num
+    );
+    bundle.extra_edges = HDAG_DARR_IMMUTABLE(
+        file->extra_edges,
+        sizeof(struct hdag_edge),
+        file->header->extra_edge_num
+    );
+
+    assert(hdag_bundle_is_valid(&bundle));
+    assert(hdag_bundle_is_organized(&bundle));
+
+    bundle.file = *file;
+    *file = HDAG_FILE_CLOSED;
+    assert(hdag_bundle_is_filed(&bundle));
+
+    if (pbundle == NULL) {
+        hdag_bundle_cleanup(&bundle);
+    } else {
+        *pbundle = bundle;
+    }
+}
+
+hdag_res
+hdag_bundle_to_file(struct hdag_file *pfile,
+                    const char *pathname,
+                    int template_sfxlen,
+                    mode_t open_mode,
+                    const struct hdag_bundle *bundle)
+{
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_file file = HDAG_FILE_CLOSED;
+    int orig_errno;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_organized(bundle));
+
+    HDAG_RES_TRY(hdag_file_create(&file,
+                                  pathname,
+                                  template_sfxlen,
+                                  open_mode,
+                                  bundle->hash_len,
+                                  bundle->nodes.slots,
+                                  bundle->nodes_fanout.slots,
+                                  bundle->extra_edges.slots,
+                                  bundle->extra_edges.slots_occupied,
+                                  bundle->unknown_hashes.slots,
+                                  bundle->unknown_hashes.slots_occupied));
+    HDAG_RES_TRY(hdag_file_sync(&file));
+
+    if (pfile != NULL) {
+        *pfile = file;
+        file = HDAG_FILE_CLOSED;
+    }
+
+    res = HDAG_RES_OK;
+cleanup:
+    orig_errno = errno;
+    (void)hdag_file_close(&file);
+    errno = orig_errno;
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_bundle_unfile(struct hdag_bundle *bundle)
+{
+    hdag_res res = HDAG_RES_INVALID;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_filed(bundle));
+
+    struct hdag_bundle new_bundle = HDAG_BUNDLE_EMPTY(bundle->hash_len);
+
+    if (!(
+        hdag_darr_copy(&new_bundle.nodes, &bundle->nodes) &&
+        hdag_darr_copy(&new_bundle.nodes_fanout, &bundle->nodes_fanout) &&
+        hdag_darr_copy(&new_bundle.target_hashes, &bundle->target_hashes) &&
+        hdag_darr_copy(&new_bundle.unknown_hashes, &bundle->unknown_hashes) &&
+        hdag_darr_copy(&new_bundle.extra_edges, &bundle->extra_edges)
+    )) {
+        goto cleanup;
+    }
+
+    assert(hdag_bundle_is_valid(&new_bundle));
+    assert(hdag_bundle_is_organized(&new_bundle));
+    assert(hdag_bundle_is_unfiled(&new_bundle));
+
+    *bundle = new_bundle;
+    new_bundle = HDAG_BUNDLE_EMPTY(bundle->hash_len);
+
+    res = HDAG_RES_OK;
+cleanup:
+    hdag_bundle_cleanup(&new_bundle);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+/**
+ * Move bundle contents to a new hash DAG file, embed it and link its contents
+ * into the bundle.
+ *
+ * @param bundle            The bundle to "file". Must be organized.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
+ * @param template_sfxlen   The (non-negative) number of suffix characters
+ *                          following the "XXXXXX" at the end of "pathname",
+ *                          if it contains the template for a temporary file
+ *                          to be created. Or a negative number to treat
+ *                          "pathname" literally. Ignored, if "pathname" is
+ *                          NULL.
+ * @param open_mode         The mode bitmap to supply to open(2).
+ *                          Ignored, if pathname is NULL.
+ *
+ * @return A void universal result.
+ */
+hdag_res
+hdag_bundle_file(struct hdag_bundle *bundle,
+                 const char *pathname,
+                 int template_sfxlen,
+                 mode_t open_mode)
+{
+    hdag_res res = HDAG_RES_INVALID;
+    struct hdag_file file = HDAG_FILE_CLOSED;
+    int orig_errno;
+
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_organized(bundle));
+
+    HDAG_RES_TRY(hdag_bundle_to_file(&file, pathname,
+                                     template_sfxlen, open_mode,
+                                     bundle));
+    hdag_bundle_cleanup(bundle);
+    hdag_bundle_from_file(bundle, &file);
+
+    res = HDAG_RES_OK;
+cleanup:
+    orig_errno = errno;
+    (void)hdag_file_close(&file);
+    errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }

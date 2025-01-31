@@ -1,10 +1,11 @@
 /**
- * Hash DAG bundle - a file in the making
+ * Hash DAG bundle - a set of (organized) DAGs
  */
 
 #ifndef _HDAG_BUNDLE_H
 #define _HDAG_BUNDLE_H
 
+#include <hdag/file.h>
 #include <hdag/edge.h>
 #include <hdag/node.h>
 #include <hdag/nodes.h>
@@ -67,6 +68,14 @@ struct hdag_bundle {
      * If non-empty, the indirect indices in node's targets are pointing here.
      */
     struct hdag_darr    extra_edges;
+
+    /**
+     * The file containing the bundle (closed, if none).
+     * The bundle can be "filed" - put into/linked to a file, in which case
+     * this file will be "open", and "unfiled" - detached from a file, when
+     * this file is "closed". Only an organized bundle can be "filed".
+     */
+    struct hdag_file    file;
 };
 
 /**
@@ -81,6 +90,7 @@ struct hdag_bundle {
     .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                    \
     .unknown_hashes = HDAG_DARR_EMPTY(_hash_len, 16),                   \
     .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),       \
+    .file = HDAG_FILE_CLOSED,                                           \
 }
 
 /**
@@ -879,5 +889,114 @@ extern void hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq);
 extern struct hdag_hash_seq *hdag_bundle_node_hash_seq_init(
                                 struct hdag_bundle_node_hash_seq *pseq,
                                 const struct hdag_bundle *bundle);
+
+/**
+ * Check if a bundle is "filed" - having its contents located in a
+ * memory-mapped region, possibly backed by a file, instead of the heap.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bunde is "filed", false otherwise.
+ */
+static inline bool
+hdag_bundle_is_filed(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return hdag_file_is_open(&bundle->file);
+}
+
+/**
+ * Check if a bundle is "unfiled" - having its contents located in the heap,
+ * instead of a memory-mapped region, posssibly backed by a file.
+ * memory-mapped region, possibly backed by a file.
+ *
+ * @param bundle    The bundle to check.
+ *
+ * @return True if the bunde is "unfiled", false otherwise.
+ */
+static inline bool
+hdag_bundle_is_unfiled(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return !hdag_file_is_open(&bundle->file);
+}
+
+/**
+ * Create a bundle from an opened HDAG file, taking ownership over it and
+ * linking its contents in.
+ *
+ * @param pbundle   The location for the created bundle with the file
+ *                  embedded. Can be NULL to not have the bundle output, and
+ *                  to have it destroyed after creation instead.
+ * @param file      The file to embed and link into the bundle.
+ *                  Must be open. Will be closed.
+ */
+extern void hdag_bundle_from_file(struct hdag_bundle *pbundle,
+                                  struct hdag_file *file);
+
+/**
+ * Detach and close the ("filed") bundle's embedded and linked file,
+ * copying its contents to the bundle.
+ *
+ * @param bundle    The bundle to "unfile". Not modified in case of failure.
+ *                  Must be "filed".
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_unfile(struct hdag_bundle *bundle);
+
+/**
+ * Create a hash DAG file from a bundle.
+ *
+ * @param pfile             Location for the created and opened file.
+ *                          Not modified in case of failure.
+ *                          Can be NULL to have the file closed after
+ *                          creation.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
+ * @param template_sfxlen   The (non-negative) number of suffix characters
+ *                          following the "XXXXXX" at the end of "pathname",
+ *                          if it contains the template for a temporary file
+ *                          to be created. Or a negative number to treat
+ *                          "pathname" literally. Ignored, if "pathname" is
+ *                          NULL.
+ * @param open_mode         The mode bitmap to supply to open(2).
+ *                          Ignored, if pathname is NULL.
+ * @param bundle            The bundle to create the file from.
+ *                          Must be organized.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_to_file(struct hdag_file *pfile,
+                                    const char *pathname,
+                                    int template_sfxlen,
+                                    mode_t open_mode,
+                                    const struct hdag_bundle *bundle);
+
+/**
+ * Move bundle contents to a new hash DAG file, embed it and link its contents
+ * into the bundle.
+ *
+ * @param bundle            The bundle to "file". Must be organized.
+ * @param pathname          The file's pathname (template), or NULL to
+ *                          open an in-memory file.
+ * @param template_sfxlen   The (non-negative) number of suffix characters
+ *                          following the "XXXXXX" at the end of "pathname",
+ *                          if it contains the template for a temporary file
+ *                          to be created. Or a negative number to treat
+ *                          "pathname" literally. Ignored, if "pathname" is
+ *                          NULL.
+ * @param open_mode         The mode bitmap to supply to open(2).
+ *                          Ignored, if pathname is NULL.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_bundle_file(struct hdag_bundle *bundle,
+                                 const char *pathname,
+                                 int template_sfxlen,
+                                 mode_t open_mode);
 
 #endif /* _HDAG_BUNDLE_H */
