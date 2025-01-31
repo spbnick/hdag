@@ -43,8 +43,10 @@ hdag_hash_len_validate(uint16_t hash_len)
  * @param hash  The hash to fill.
  * @param len   The length of the hash.
  * @param fill  The value to fill the hash with.
+ *
+ * @return The filled "hash".
  */
-static inline void
+static inline uint8_t *
 hdag_hash_fill(uint8_t *hash, uint16_t len, uint32_t fill)
 {
     size_t i;
@@ -53,6 +55,7 @@ hdag_hash_fill(uint8_t *hash, uint16_t len, uint32_t fill)
     for (i = 0; i < len >> 2; i++) {
         ((uint32_t *)hash)[i] = fill;
     }
+    return hash;
 }
 
 /**
