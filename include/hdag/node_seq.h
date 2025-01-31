@@ -150,4 +150,19 @@ extern hdag_res hdag_node_seq_empty_next(
     .next_fn = hdag_node_seq_empty_next,                        \
 }
 
+/**
+ * Compare two node sequences with the same hash length.
+ *
+ * @param seq_a    The first sequence to compare.
+ * @param seq_b    The second sequence to compare.
+ *
+ * @return A universal result code:
+ *         1 - seq_a < seq_b,
+ *         2 - seq_a == seq_b,
+ *         3 - seq_a > seq_b,
+ *         or a node or hash retrieval fault.
+ */
+extern hdag_res hdag_node_seq_cmp(struct hdag_node_seq *seq_a,
+                                  struct hdag_node_seq *seq_b);
+
 #endif /* _HDAG_NODE_SEQ_H */
