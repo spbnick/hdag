@@ -1027,3 +1027,6 @@ just releasing the resources, and then we add an additional function which
 makes sure the data is preserved.
 
 We actually doing the syncing when creating the file, so it should not fail.
+---
+Add a run of tests under valgrind to the CI.
+    - DONE

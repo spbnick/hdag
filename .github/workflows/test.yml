@@ -28,3 +28,7 @@ jobs:
     - name: Test
       working-directory: build
       run: ctest --output-on-failure
+
+    - name: Test with memcheck
+      working-directory: build
+      run: ctest -T memcheck --output-on-failure
