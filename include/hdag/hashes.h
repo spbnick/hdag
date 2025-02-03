@@ -199,4 +199,8 @@ hdag_hashes_darr_seq_init(struct hdag_hashes_seq *pseq,
                                 hashes->slots, hashes->slots_occupied);
 }
 
+/** An initializer for a dynamic hash array sequence */
+#define HDAG_HASHES_DARR_SEQ(_hashes) \
+    (*(hdag_hashes_darr_seq_init(&(struct hdag_hashes_seq){}, _hashes)))
+
 #endif /* _HDAG_HASHES_H */
