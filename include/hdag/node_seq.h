@@ -165,4 +165,50 @@ extern hdag_res hdag_node_seq_empty_next(
 extern hdag_res hdag_node_seq_cmp(struct hdag_node_seq *seq_a,
                                   struct hdag_node_seq *seq_b);
 
+/** A sequence of nodes in concatenated (same hash_len) node sequences */
+struct hdag_node_seq_cat {
+    /** The base abstract node sequence */
+    struct hdag_node_seq    base;
+    /** The list of pointers to concatenated node sequences */
+    struct hdag_node_seq  **pcat_seq_list;
+    /** The number of pointers to concatenated node sequences */
+    size_t                  pcat_seq_num;
+    /** The index of the pointer to the currently-traversed node sequence */
+    size_t                  pcat_seq_idx;
+};
+
+/** A next-node retrieval function for concatenated node sequence */
+extern hdag_res hdag_node_seq_cat_next(
+                            struct hdag_node_seq *base_seq,
+                            const uint8_t **phash,
+                            struct hdag_hash_seq **ptarget_hash_seq);
+
+/** A reset function for concatenated node sequence (when applicable) */
+extern void hdag_node_seq_cat_reset(struct hdag_node_seq *base_seq);
+
+/**
+ * Initialize a concatenated node sequence. It will be non-resettable, if any
+ * concatenated node sequences are non-resettable.
+ *
+ * @param pseq          Location of the node sequence being initialized.
+ * @param hash_len      The length of the hash of the concatenated sequence.
+ * @param pcat_seq_list The array of pointers to concatenated node sequences.
+ *                      Each must have "hash_len" hash length.
+ * @param pcat_seq_num  The number of pointers to concatenated node sequences.
+ *
+ * @return The pointer to the abstract node sequence ("&pseq->base").
+ */
+extern struct hdag_node_seq *hdag_node_seq_cat_init(
+                                struct hdag_node_seq_cat *pseq,
+                                uint16_t hash_len,
+                                struct hdag_node_seq **pcat_seq_list,
+                                size_t pcat_seq_num);
+
+/* An initializer for a concatenated node sequence */
+#define HDAG_NODE_SEQ_CAT(_hash_len, _pcat_seq_list, _pcat_seq_num) \
+    (*hdag_node_seq_cat_init(&(struct hdag_node_seq_cat){},         \
+                             _hash_len,                             \
+                             _pcat_seq_list,                        \
+                             _pcat_seq_num))
+
 #endif /* _HDAG_NODE_SEQ_H */

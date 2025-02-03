@@ -3,6 +3,7 @@
  */
 
 #include <hdag/node_seq.h>
+#include <hdag/misc.h>
 #include <string.h>
 #include <sys/param.h>
 
@@ -21,6 +22,90 @@ hdag_node_seq_empty_next(struct hdag_node_seq *node_seq,
     (void)phash;
     (void)ptarget_hash_seq;
     return 1;
+}
+
+hdag_res
+hdag_node_seq_cat_next(struct hdag_node_seq *base_seq,
+                       const uint8_t **phash,
+                       struct hdag_hash_seq **ptarget_hash_seq)
+{
+    hdag_res res;
+    struct hdag_node_seq_cat *seq = HDAG_CONTAINER_OF(
+        struct hdag_node_seq_cat, base, base_seq
+    );
+    assert(hdag_node_seq_is_valid(base_seq));
+
+    /* For each unfinished sequence */
+    for (; seq->pcat_seq_idx < seq->pcat_seq_num; seq->pcat_seq_idx++) {
+        res = hdag_node_seq_next(seq->pcat_seq_list[seq->pcat_seq_idx],
+                                 phash, ptarget_hash_seq);
+        /* If the node retrieval succeeded or failed */
+        if (res <= HDAG_RES_OK) {
+            return res;
+        }
+        /* Else the current sequence ended */
+    }
+    /* Signal we have no more nodes */
+    return 1;
+}
+
+void
+hdag_node_seq_cat_reset(struct hdag_node_seq *base_seq)
+{
+    size_t i;
+    struct hdag_node_seq_cat *seq = HDAG_CONTAINER_OF(
+        struct hdag_node_seq_cat, base, base_seq
+    );
+    assert(hdag_node_seq_is_valid(base_seq));
+#ifndef NDEBUG
+    for (i = 0; i < seq->pcat_seq_num; i++) {
+        if (!hdag_node_seq_is_resettable(seq->pcat_seq_list[i])) {
+            break;
+        }
+    }
+    assert(i == seq->pcat_seq_num &&
+           "All concatenated sequences are resettable");
+#endif
+    for (i = 0; i < seq->pcat_seq_num; i++) {
+        hdag_node_seq_reset(seq->pcat_seq_list[i]);
+    }
+    seq->pcat_seq_idx = 0;
+}
+
+struct hdag_node_seq *
+hdag_node_seq_cat_init(struct hdag_node_seq_cat *pseq,
+                       uint16_t hash_len,
+                       struct hdag_node_seq **pcat_seq_list,
+                       size_t pcat_seq_num)
+{
+    size_t i;
+    hdag_node_seq_reset_fn reset = hdag_node_seq_cat_reset;
+
+    assert(pseq != NULL);
+    assert(hdag_hash_len_is_valid(hash_len));
+    assert(pcat_seq_list != NULL || pcat_seq_num == 0);
+
+    for (i = 0; i < pcat_seq_num; i++) {
+        assert(hdag_node_seq_is_valid(pcat_seq_list[i]));
+        assert(pcat_seq_list[i]->hash_len == hash_len);
+        if (!hdag_node_seq_is_resettable(pcat_seq_list[i])) {
+            reset = NULL;
+        }
+    }
+
+    *pseq = (struct hdag_node_seq_cat){
+        .base = {
+            .hash_len = hash_len,
+            .reset_fn = reset,
+            .next_fn = hdag_node_seq_cat_next,
+        },
+        .pcat_seq_list = pcat_seq_list,
+        .pcat_seq_num = pcat_seq_num,
+        .pcat_seq_idx = 0,
+    };
+
+    assert(hdag_node_seq_is_valid(&pseq->base));
+    return &pseq->base;
 }
 
 hdag_res
