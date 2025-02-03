@@ -839,6 +839,8 @@ struct hdag_bundle_node_seq {
     struct hdag_node_seq                    base;
     /** The bundle being iterated over */
     const struct hdag_bundle               *bundle;
+    /** If true, return unknown nodes too */
+    bool                                    with_unknown;
     /** The index of the next node to return */
     size_t                                  node_idx;
     /** The returned node's target hash sequence */
@@ -848,18 +850,30 @@ struct hdag_bundle_node_seq {
 /**
  * Initialize a sequence of (known) bundle nodes.
  *
- * @param pseq      Location for the node sequence.
- * @param bundle    The bundle to initialize the sequence for.
+ * @param pseq          Location for the node sequence.
+ * @param bundle        The bundle to initialize the sequence for.
+ * @param with_unknown  If true, return unknown nodes too.
  *
  * @return The pointer to the abstract node sequence ("&pseq->base").
  */
 extern struct hdag_node_seq *hdag_bundle_node_seq_init(
                                 struct hdag_bundle_node_seq *pseq,
-                                const struct hdag_bundle *bundle);
+                                const struct hdag_bundle *bundle,
+                                bool with_unknown);
 
 /** An initializer for a bundle's node sequence */
-#define HDAG_BUNDLE_NODE_SEQ(_bundle) \
-    *hdag_bundle_node_seq_init(&(struct hdag_bundle_node_seq){0,}, _bundle)
+#define HDAG_BUNDLE_NODE_SEQ(_bundle, _with_unknown) \
+    (*hdag_bundle_node_seq_init(                                    \
+        &(struct hdag_bundle_node_seq){}, _bundle, _with_unknown    \
+    ))
+
+/** An initializer for a bundle's any node sequence */
+#define HDAG_BUNDLE_ANY_NODE_SEQ(_bundle) \
+    HDAG_BUNDLE_NODE_SEQ(_bundle, true)
+
+/** An initializer for a bundle's known node sequence */
+#define HDAG_BUNDLE_KNOWN_NODE_SEQ(_bundle) \
+    HDAG_BUNDLE_NODE_SEQ(_bundle, false)
 
 /** Bundle's (resettable) node hash sequence */
 struct hdag_bundle_node_hash_seq {
@@ -867,6 +881,8 @@ struct hdag_bundle_node_hash_seq {
     struct hdag_hash_seq                    base;
     /** The bundle being iterated over */
     const struct hdag_bundle               *bundle;
+    /** If true, return hashes of unknown nodes too */
+    bool                                    with_unknown;
     /** The index of the next node which hash to return */
     size_t                                  node_idx;
 };
@@ -881,14 +897,30 @@ extern void hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq);
 /**
  * Initialize a sequence of node hashes from a bundle.
  *
- * @param pseq      Location for the node sequence.
- * @param bundle    The bundle to initialize the sequence for.
+ * @param pseq          Location for the node sequence.
+ * @param bundle        The bundle to initialize the sequence for.
+ * @param with_unknown  If true, return hashes of unknown nodes too.
  *
  * @return The pointer to the abstract hash sequence ("&pseq->base").
  */
 extern struct hdag_hash_seq *hdag_bundle_node_hash_seq_init(
                                 struct hdag_bundle_node_hash_seq *pseq,
-                                const struct hdag_bundle *bundle);
+                                const struct hdag_bundle *bundle,
+                                bool with_unknown);
+
+/** An initializer for a bundle's node hash sequence */
+#define HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, _with_unknown) \
+    (*hdag_bundle_node_hash_seq_init(                                   \
+        &(struct hdag_bundle_node_hash_seq){}, _bundle, _with_unknown   \
+    ))
+
+/** An initializer for a bundle's any node hash sequence */
+#define HDAG_BUNDLE_ANY_NODE_HASH_SEQ(_bundle) \
+    HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, true)
+
+/** An initializer for a bundle's known node hash sequence */
+#define HDAG_BUNDLE_KNOWN_NODE_HASH_SEQ(_bundle) \
+    HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, false)
 
 /**
  * Check if a bundle is "filed" - having its contents located in a

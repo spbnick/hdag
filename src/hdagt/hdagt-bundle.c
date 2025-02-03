@@ -1394,23 +1394,23 @@ test_file(uint16_t hash_len)
     TEST_NODE_SEQ(hash_len, hash_buf, target_hash_buf, ##_hash_vals)
 
 #define TEST_FILE(_node_seq) \
-    do {                                                            \
-        res = hdag_bundle_organized_from_node_seq(                  \
-            &bundle, NULL, _node_seq                                \
-        );                                                          \
-        TEST(res == HDAG_RES_OK);                                   \
-        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
-                               _node_seq) - 2 == 0);                \
-        TEST(hdag_bundle_is_unfiled(&bundle));                      \
-        TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK); \
-        TEST(hdag_bundle_is_filed(&bundle));                        \
-        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
-                               _node_seq) - 2 == 0);                \
-        TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);           \
-        TEST(hdag_bundle_is_unfiled(&bundle));                      \
-        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_NODE_SEQ(&bundle),      \
-                               _node_seq) - 2 == 0);                \
-        hdag_bundle_cleanup(&bundle);                               \
+    do {                                                                \
+        res = hdag_bundle_organized_from_node_seq(                      \
+            &bundle, NULL, _node_seq                                    \
+        );                                                              \
+        TEST(res == HDAG_RES_OK);                                       \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
+                               _node_seq) - 2 == 0);                    \
+        TEST(hdag_bundle_is_unfiled(&bundle));                          \
+        TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK);     \
+        TEST(hdag_bundle_is_filed(&bundle));                            \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
+                               _node_seq) - 2 == 0);                    \
+        TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);               \
+        TEST(hdag_bundle_is_unfiled(&bundle));                          \
+        TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
+                               _node_seq) - 2 == 0);                    \
+        hdag_bundle_cleanup(&bundle);                                   \
     } while (0)
 
     TEST_FILE(&NODE_SEQ());

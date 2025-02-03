@@ -60,13 +60,13 @@ hdag_bundle_node_seq_next(struct hdag_node_seq *base_seq,
     assert(hdag_bundle_is_valid(bundle));
     assert(base_seq->hash_len == bundle->hash_len);
 
-    /* Find next known node */
+    /* Find next suitable node */
     do {
         if (seq->node_idx >= bundle->nodes.slots_occupied) {
             return 1;
         }
         node = HDAG_BUNDLE_NODE(bundle, seq->node_idx++);
-    } while (!hdag_node_is_known(node));
+    } while (!(seq->with_unknown || hdag_node_is_known(node)));
     /* Output */
     *phash = node->hash;
     *ptarget_hash_seq = hdag_bundle_targets_hash_seq_init(
@@ -320,7 +320,8 @@ hdag_bundle_targets_hash_seq_init(
 
 struct hdag_node_seq *
 hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
-                          const struct hdag_bundle *bundle)
+                          const struct hdag_bundle *bundle,
+                          bool with_unknown)
 {
     assert(pseq != NULL);
     assert(hdag_bundle_is_valid(bundle));
@@ -332,6 +333,7 @@ hdag_bundle_node_seq_init(struct hdag_bundle_node_seq *pseq,
             .next_fn = hdag_bundle_node_seq_next,
         },
         .bundle = bundle,
+        .with_unknown = with_unknown,
         .node_idx = 0,
     };
 
@@ -350,14 +352,18 @@ hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *base_seq,
         struct hdag_bundle_node_hash_seq, base, base_seq
     );
     const struct hdag_bundle *bundle = seq->bundle;
+    const struct hdag_node *node;
     assert(hdag_bundle_is_valid(bundle));
     assert(base_seq->hash_len == bundle->hash_len);
 
-    if (seq->node_idx >= bundle->nodes.slots_occupied) {
-        return 1;
-    }
+    /* Find next suitable node */
+    do {
+        if (seq->node_idx >= bundle->nodes.slots_occupied) {
+            return 1;
+        }
+        node = HDAG_BUNDLE_NODE(bundle, seq->node_idx++);
+    } while (!(seq->with_unknown || hdag_node_is_known(node)));
     *phash = HDAG_BUNDLE_NODE(bundle, seq->node_idx)->hash;
-    seq->node_idx++;
     return 0;
 }
 
@@ -376,7 +382,8 @@ hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq)
 
 struct hdag_hash_seq *
 hdag_bundle_node_hash_seq_init(struct hdag_bundle_node_hash_seq *pseq,
-                               const struct hdag_bundle *bundle)
+                               const struct hdag_bundle *bundle,
+                               bool with_unknown)
 {
     assert(pseq != NULL);
     assert(hdag_bundle_is_valid(bundle));
@@ -388,6 +395,7 @@ hdag_bundle_node_hash_seq_init(struct hdag_bundle_node_hash_seq *pseq,
             .next_fn = hdag_bundle_node_hash_seq_next,
         },
         .bundle = bundle,
+        .with_unknown = with_unknown,
         .node_idx = 0,
     };
 
