@@ -651,6 +651,12 @@ extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
                                 const struct hdag_bundle *bundle,
                                 uint32_t node_idx);
 
+/** An initializer for a target hash sequence */
+#define HDAG_BUNDLE_TARGETS_HASH_SEQ(_bundle, _node_idx) \
+    (*hdag_bundle_targets_hash_seq_init(                                \
+        &(struct hdag_bundle_targets_hash_seq){}, _bundle, _node_idx    \
+    ))
+
 /**
  * Lookup the index of a node within a bundle, using its hash.
  *
