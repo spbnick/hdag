@@ -4,6 +4,7 @@
 
 #include <hdag/file.h>
 #include <sys/stat.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -275,4 +276,51 @@ hdag_file_close(struct hdag_file *pfile)
     res = HDAG_RES_OK;
 cleanup:
     return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_file_rename(struct hdag_file *file, const char *pathname)
+{
+    hdag_res res = HDAG_RES_INVALID;
+    char *new_pathname = NULL;
+    assert(hdag_file_is_valid(file));
+    assert(hdag_file_is_backed(file));
+
+    if (pathname == NULL) {
+        return hdag_file_unlink(file);
+    }
+
+    /* Duplicate the pathname first so we don't fail *after* renaming */
+    new_pathname = strdup(pathname);
+    if (new_pathname == NULL) {
+        goto cleanup;
+    }
+
+    if (rename(file->pathname, new_pathname) != 0) {
+        goto cleanup;
+    }
+
+    free(file->pathname);
+    file->pathname = new_pathname;
+    new_pathname = NULL;
+
+    res = HDAG_RES_OK;
+cleanup:
+    free(new_pathname);
+    return HDAG_RES_ERRNO_IF_INVALID(res);
+}
+
+hdag_res
+hdag_file_unlink(struct hdag_file *file)
+{
+    assert(hdag_file_is_valid(file));
+    assert(hdag_file_is_backed(file));
+
+    if (unlink(file->pathname) != 0) {
+        return HDAG_RES_ERRNO;
+    }
+    free(file->pathname);
+    file->pathname = NULL;
+    assert(!hdag_file_is_backed(file));
+    return HDAG_RES_OK;
 }

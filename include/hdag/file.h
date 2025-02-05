@@ -300,6 +300,32 @@ hdag_file_sync(struct hdag_file *file)
 }
 
 /**
+ * Change the name of a "backed" file.
+ *
+ * @param file      The backed file to change the name of.
+ *                  Not modified in case of failure. Must be "backed".
+ * @param pathname  The pathname to rename the file to.
+ *                  If NULL, the file is removed ("unlinked").
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_file_rename(struct hdag_file *file,
+                                 const char *pathname);
+
+/**
+ * Unlink (delete) the file behind the "backed" file.
+ * The file stops being "backed" as a result.
+ *
+ * @param file  The file to unlink the file of.
+ *              Not modified in case of failure. Must be "backed".
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+extern hdag_res hdag_file_unlink(struct hdag_file *file);
+
+/**
  * Close a previously-opened hash DAG file.
  *
  * @param pfile Location of the opened file.
