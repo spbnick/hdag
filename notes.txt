@@ -1030,3 +1030,40 @@ We actually doing the syncing when creating the file, so it should not fail.
 ---
 Add a run of tests under valgrind to the CI.
     - DONE
+TODO: Sort out the sequence initializers, so they're safer and less confusing
+      You can't really initialize an abstract sequence with them as the
+      derived one will get discarded. It only works for passing arguments.
+---
+cleanup
+
+    delete file
+     /      \
+unfile     cleanup
+
+      unfile
+      /    \
+delete      close
+
+
+close     delete
+    \     /
+    cleanup
+
+
+    filed -> unlink -> clean
+    filed -> unfile -> unfiled -> unlink
+
+Should we separate having an opened file embedded and the contents
+linked to it?
+
+We would still not be able to have the contents linked to an embedded file,
+and have it closed at the same time.
+
+Ah, OK, we can actually unlink the file without closing it or unfiling our
+contents.
+
+We can e.g. unlink the file first, and then cleanup the bundle. At that moment
+it will be closed, and we were the last ones to close it, it will actually get
+deleted. This is what we seem to need.
+
+In a way unlinking is similar to renaming, only the new name is NULL.

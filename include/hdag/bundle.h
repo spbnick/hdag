@@ -1036,4 +1036,43 @@ extern hdag_res hdag_bundle_file(struct hdag_bundle *bundle,
                                  int template_sfxlen,
                                  mode_t open_mode);
 
+/**
+ * Change the name of the ("backed") bundle's embedded and linked file.
+ *
+ * @param bundle    The bundle to rename the file of.
+ *                  Not modified in case of failure. Must be "backed".
+ * @param pathname  The pathname to rename the file to.
+ *                  If NULL, the bundle's file is removed instead.
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+static inline hdag_res
+hdag_bundle_rename(struct hdag_bundle *bundle, const char *pathname)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_filed(bundle));
+    assert(hdag_bundle_is_backed(bundle));
+    return hdag_file_rename(&bundle->file, pathname);
+}
+
+/**
+ * Unlink (remove) the ("backed") bundle's embedded and linked file.
+ * The bundle stops being "backed" as a result.
+ *
+ * @param bundle    The bundle to unlink the file of.
+ *                  Not modified in case of failure. Must be "backed".
+ *
+ * @return A void universal result.
+ */
+[[nodiscard]]
+static inline hdag_res
+hdag_bundle_unlink(struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_filed(bundle));
+    assert(hdag_bundle_is_backed(bundle));
+    return hdag_file_unlink(&bundle->file);
+}
+
 #endif /* _HDAG_BUNDLE_H */
