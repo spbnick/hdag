@@ -944,6 +944,21 @@ hdag_bundle_is_filed(const struct hdag_bundle *bundle)
 }
 
 /**
+ * Check if a filed bundle is "backed" - that is mapped to a file.
+ *
+ * @param bundle    The bundle to check. Must be "filed".
+ *
+ * @return True if the bunde is "backed", false otherwise.
+ */
+static inline bool
+hdag_bundle_is_backed(const struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(hdag_bundle_is_filed(bundle));
+    return hdag_file_is_backed(&bundle->file);
+}
+
+/**
  * Create a bundle from an opened HDAG file, taking ownership over it and
  * linking its contents in.
  *
