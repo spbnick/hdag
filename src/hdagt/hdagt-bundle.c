@@ -1401,13 +1401,13 @@ test_file(uint16_t hash_len)
         TEST(res == HDAG_RES_OK);                                       \
         TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
                                _node_seq) - 2 == 0);                    \
-        TEST(hdag_bundle_is_unfiled(&bundle));                          \
+        TEST(!hdag_bundle_is_filed(&bundle));                           \
         TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK);     \
         TEST(hdag_bundle_is_filed(&bundle));                            \
         TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
                                _node_seq) - 2 == 0);                    \
         TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);               \
-        TEST(hdag_bundle_is_unfiled(&bundle));                          \
+        TEST(!hdag_bundle_is_filed(&bundle));                           \
         TEST(hdag_node_seq_cmp(&HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle),    \
                                _node_seq) - 2 == 0);                    \
         hdag_bundle_cleanup(&bundle);                                   \

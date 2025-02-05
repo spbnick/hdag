@@ -944,22 +944,6 @@ hdag_bundle_is_filed(const struct hdag_bundle *bundle)
 }
 
 /**
- * Check if a bundle is "unfiled" - having its contents located in the heap,
- * instead of a memory-mapped region, posssibly backed by a file.
- * memory-mapped region, possibly backed by a file.
- *
- * @param bundle    The bundle to check.
- *
- * @return True if the bunde is "unfiled", false otherwise.
- */
-static inline bool
-hdag_bundle_is_unfiled(const struct hdag_bundle *bundle)
-{
-    assert(hdag_bundle_is_valid(bundle));
-    return !hdag_file_is_open(&bundle->file);
-}
-
-/**
  * Create a bundle from an opened HDAG file, taking ownership over it and
  * linking its contents in.
  *

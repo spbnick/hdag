@@ -2008,7 +2008,7 @@ hdag_bundle_unfile(struct hdag_bundle *bundle)
 
     assert(hdag_bundle_is_valid(&new_bundle));
     assert(hdag_bundle_is_organized(&new_bundle));
-    assert(hdag_bundle_is_unfiled(&new_bundle));
+    assert(!hdag_bundle_is_filed(&new_bundle));
 
     *bundle = new_bundle;
     new_bundle = HDAG_BUNDLE_EMPTY(bundle->hash_len);
