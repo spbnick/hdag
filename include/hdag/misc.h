@@ -248,4 +248,28 @@ extern char *hdag_bytes_to_hex(char *hex_ptr,
             )                                                           \
     )
 
+/**
+ * Compare two size_t values. Can be used with qsort.
+ *
+ * @param a     Pointer to the first size_t to compare.
+ * @param b     Pointer to the second size_t to compare.
+ *
+ * @return -1, if a < b
+ *          0, if a == b
+ *          1, if a > b
+ */
+extern int hdag_size_t_cmp(const void *a, const void *b);
+
+/**
+ * Compare two reversed size_t values. Can be used with qsort.
+ *
+ * @param a     Pointer to the first size_t to compare.
+ * @param b     Pointer to the second size_t to compare.
+ *
+ * @return -1, if a > b
+ *          0, if a == b
+ *          1, if a < b
+ */
+extern int hdag_size_t_rcmp(const void *a, const void *b);
+
 #endif /* _HDAG_MISC_H */

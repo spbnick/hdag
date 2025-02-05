@@ -24,3 +24,19 @@ hdag_bytes_to_hex(char *hex_ptr, const void *bytes_ptr, size_t bytes_num)
     *o = '\0';
     return hex_ptr;
 }
+
+int
+hdag_size_t_cmp(const void *a, const void *b)
+{
+    size_t val_a = *(const size_t *)a;
+    size_t val_b = *(const size_t *)b;
+    return val_a == val_b ? 0 : (val_a > val_b ? 1 : -1);
+}
+
+int
+hdag_size_t_rcmp(const void *a, const void *b)
+{
+    size_t val_a = *(const size_t *)a;
+    size_t val_b = *(const size_t *)b;
+    return val_a == val_b ? 0 : (val_a < val_b ? 1 : -1);
+}
