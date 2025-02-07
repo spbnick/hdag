@@ -106,7 +106,8 @@ hdag_hashes_darr_is_valid(const struct hdag_darr *hashes)
  *
  * @param hashes    The dynamic hash array to search.
  *                  Must be sorted lexicographically.
- * @param hash_ptr  Pointer to the hash to find in the array.
+ * @param hash      Pointer to the hash to find in the array.
+ *                  Must be the length of the array elements.
  * @param phash_idx Location for the index on which the search has stopped.
  *                  If the hash was found, it will point to it.
  *                  If not, it will point to the closest hash above it,
@@ -117,14 +118,14 @@ hdag_hashes_darr_is_valid(const struct hdag_darr *hashes)
  */
 static inline bool
 hdag_hashes_darr_find(const struct hdag_darr *hashes,
-                      const uint8_t *hash_ptr,
+                      const uint8_t *hash,
                       size_t *phash_idx)
 {
     assert(hdag_darr_is_valid(hashes));
     assert(hdag_hash_len_is_valid(hashes->slot_size));
-    assert(hash_ptr != NULL);
+    assert(hash != NULL);
     return hdag_hashes_find(hashes->slots, hashes->slot_size, hashes->slots_occupied,
-                            hash_ptr, phash_idx);
+                            hash, phash_idx);
 }
 
 /** Hash array sequence (resettable) */

@@ -661,7 +661,7 @@ extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
  * Lookup the index of a node within a bundle, using its hash.
  *
  * @param bundle    The bundle to look up the node in.
- * @param hash_ptr  The hash the node must have.
+ * @param hash      The hash the node must have.
  *                  The hash length must match the bundle hash length.
  *
  * @return The index of the found node (< INT32_MAX),
@@ -669,18 +669,18 @@ extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
  */
 static inline uint32_t
 hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
-                          const uint8_t *hash_ptr)
+                          const uint8_t *hash)
 {
     assert(hdag_bundle_is_valid(bundle));
     return hdag_nodes_slice_find(
         bundle->nodes.slots,
-        ((*hash_ptr == 0 || hdag_bundle_fanout_is_empty(bundle)) ? 0 :
-         hdag_fanout_darr_get(&bundle->nodes_fanout, *hash_ptr - 1)),
+        ((*hash == 0 || hdag_bundle_fanout_is_empty(bundle)) ? 0 :
+         hdag_fanout_darr_get(&bundle->nodes_fanout, *hash - 1)),
         (hdag_bundle_fanout_is_empty(bundle) ?
             hdag_darr_occupied_slots(&bundle->nodes) :
-            hdag_fanout_darr_get(&bundle->nodes_fanout, *hash_ptr)),
+            hdag_fanout_darr_get(&bundle->nodes_fanout, *hash)),
         bundle->hash_len,
-        hash_ptr
+        hash
     );
 }
 
@@ -689,18 +689,18 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
  *
  * @param bundle    The bundle to look up the node in.
  *                  Must have the nodes fanout filled in.
- * @param hash_ptr  The hash the node must have.
+ * @param hash      The hash the node must have.
  *                  The hash length must match the bundle hash length.
  *
  * @return The pointer to the found node, or NULL, if not found.
  */
 static inline struct hdag_node *
 hdag_bundle_find_node(struct hdag_bundle *bundle,
-                      const uint8_t *hash_ptr)
+                      const uint8_t *hash)
 {
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_mutable(bundle));
-    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash_ptr);
+    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash);
     return node_idx >= INT32_MAX ? NULL
         : hdag_darr_element(&bundle->nodes, node_idx);
 }
@@ -710,17 +710,17 @@ hdag_bundle_find_node(struct hdag_bundle *bundle,
  *
  * @param bundle    The bundle to look up the node in.
  *                  Must have the nodes fanout filled in.
- * @param hash_ptr  The hash the node must have.
+ * @param hash      The hash the node must have.
  *                  The hash length must match the bundle hash length.
  *
  * @return The pointer to the found node, or NULL, if not found.
  */
 static inline const struct hdag_node *
 hdag_bundle_find_node_const(const struct hdag_bundle *bundle,
-                            const uint8_t *hash_ptr)
+                            const uint8_t *hash)
 {
     assert(hdag_bundle_is_valid(bundle));
-    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash_ptr);
+    uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash);
     return node_idx >= INT32_MAX ? NULL
         : hdag_darr_element_const(&bundle->nodes, node_idx);
 }
