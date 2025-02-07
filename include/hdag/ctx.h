@@ -10,19 +10,22 @@
 /* The forward declaration of a context */
 struct hdag_ctx;
 
-/* A node retrieved from a context */
+/**
+ * A node retrieved from a context.
+ * Valid only until the next get_node_fn()
+ */
 struct hdag_ctx_node {
     /** The node hash with the length specified by the context */
-    const uint8_t              *hash;
+    const uint8_t          *hash;
+    /** The ID of the graph component the node belongs to */
+    uint32_t                component;
+    /** The node's generation number */
+    uint32_t                generation;
     /**
      * The (resettable) sequence of the node's target hashes (ordered
      * lexicographically), or NULL, if the node is "unknown".
      */
-    const struct hdag_hash_seq *target_hash_seq;
-    /** The ID of the graph component the node belongs to */
-    uint32_t                    component;
-    /** The node's generation number */
-    uint32_t                    generation;
+    struct hdag_hash_seq   *target_hash_seq;
 };
 
 /**
@@ -36,7 +39,7 @@ struct hdag_ctx_node {
  *         if found. NULL if the node is not found in the context.
  */
 typedef const struct hdag_ctx_node * (*hdag_ctx_get_node_fn)(
-                                            const struct hdag_ctx *ctx,
+                                            struct hdag_ctx *ctx,
                                             const uint8_t *hash);
 
 /** An abstract hash DAG context (a supergraph) */
@@ -72,7 +75,7 @@ hdag_ctx_is_valid(const struct hdag_ctx *ctx)
  *         if found. NULL if the node is not found in the context.
  */
 static inline const struct hdag_ctx_node *
-hdag_ctx_get_node(const struct hdag_ctx *ctx, const uint8_t *hash)
+hdag_ctx_get_node(struct hdag_ctx *ctx, const uint8_t *hash)
 {
     assert(hdag_ctx_is_valid(ctx));
     assert(hash != NULL);
@@ -81,7 +84,7 @@ hdag_ctx_get_node(const struct hdag_ctx *ctx, const uint8_t *hash)
 
 /** Node retrieval function for an empty context, never returning nodes */
 extern const struct hdag_ctx_node *hdag_ctx_empty_get_node(
-                                            const struct hdag_ctx *ctx,
+                                            struct hdag_ctx *ctx,
                                             const uint8_t *hash);
 
 /**
