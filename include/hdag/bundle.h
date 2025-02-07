@@ -730,20 +730,20 @@ hdag_bundle_find_node_const(const struct hdag_bundle *bundle,
  *
  * @param _bundle   The bundle to look up the node in.
  *                  Must have the nodes fanout filled in.
- * @param _hash_ptr The hash the node must have.
+ * @param _hash     The hash the node must have.
  *                  The hash length must match the bundle hash length.
  *
  * @return The node pointer (const, if the bundle was const).
  */
-#define HDAG_BUNDLE_FIND_NODE(_bundle, _hash_ptr) \
-    _Generic(                                               \
-        _bundle,                                            \
-        struct hdag_bundle *:                               \
-            hdag_bundle_find_node(                          \
-                (struct hdag_bundle *)_bundle, _node_idx    \
-            ),                                              \
-        const struct hdag_bundle *:                         \
-            hdag_bundle_find_node_const(_bundle, _node_idx) \
+#define HDAG_BUNDLE_FIND_NODE(_bundle, _hash) \
+    _Generic(                                           \
+        _bundle,                                        \
+        struct hdag_bundle *:                           \
+            hdag_bundle_find_node(                      \
+                (struct hdag_bundle *)_bundle, _hash    \
+            ),                                          \
+        const struct hdag_bundle *:                     \
+            hdag_bundle_find_node_const(_bundle, _hash) \
     )
 
 
