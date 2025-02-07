@@ -19,27 +19,30 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential cmake valgrind libgraphviz-dev
 
-    - name: Configure CMake
+    - name: Configure CMake Debug Build
       run: cmake -S . -B debug_build
 
-    - name: Build debug
+    - name: Build Debug
       run: cmake --build debug_build --config Debug
 
-    - name: Test
+    - name: Test Debug
       working-directory: debug_build
       run: ctest --output-on-failure
 
-    - name: Test with memcheck
+    - name: Test Debug with memcheck
       working-directory: debug_build
       run: ctest -T memcheck --output-on-failure
 
-    - name: Build release
+    - name: Configure CMake Release Build
+      run: cmake -S . -B release_build
+
+    - name: Build Release
       run: cmake --build release_build --config Release
 
-    - name: Test
+    - name: Test Release
       working-directory: release_build
       run: ctest --output-on-failure
 
-    - name: Test with memcheck
+    - name: Test Release with memcheck
       working-directory: release_build
       run: ctest -T memcheck --output-on-failure
