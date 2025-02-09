@@ -17,8 +17,6 @@ struct hdag_ctx;
 struct hdag_ctx_node {
     /** The node hash with the length specified by the context */
     const uint8_t          *hash;
-    /** The ID of the graph component the node belongs to */
-    uint32_t                component;
     /** The node's generation number */
     uint32_t                generation;
     /**
