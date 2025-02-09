@@ -1067,3 +1067,154 @@ it will be closed, and we were the last ones to close it, it will actually get
 deleted. This is what we seem to need.
 
 In a way unlinking is similar to renaming, only the new name is NULL.
+
+So, the generations in the bundle being added will be calculated correctly,
+without rebuilding the child bundles. However, component numbers might not be
+correct, because the new bundle might have connected two previously-separate
+components and now they need to have the same ID.
+
+Wait a minute, that means that we would need to recalculate component IDs in
+parent bundles as well... oh, man...
+
+To avoid that we would need to maintain the component number mapping after
+all. Can we be smarter somehow, and avoid both that and rebuilding parent
+bundles?
+
+OK, we can use Union-Find system to maintain component connectivity info.
+But now we would have to maintain global component IDs.
+
+Perhaps that should be the job of the context?
+
+And while we're at it we should rename "context" to just abstract HDAG
+providing basic functions only? And derive both the bundle and the database
+from it?
+
+Generations are assigned from parents to children, starting with one.
+When creating the bundle with the new nodes/edges, the generations would be
+assigned correctly, and won't be changed by rebuilding the child
+components/bundles.
+
+----
+
+So, the problem with components is that we need to traverse the whole DAG
+*both* ways to identify them. And so, a new bundle could be connecting two
+previously-disconnected components in parent bundle(s). Hmmm, perhaps it would
+be easy enough to copy the affected bundles, and update their component
+numbers? This wouldn't change their sizes. It would need the disk space, of
+course. And would need a lot of blocks written, if the component being updated
+is a major one. OTOH, it would make things *much* simpler to handle.
+
+How would we find the bundles to rebuild and the component IDs to update?
+
+OK, let's suppose we're building the merged bundle, and traverse its nodes to
+identify the components. We stumble on an unknown node which we can
+dereference through the context and get its component ID. By that time we've
+already traversed a part of the component and assigned it a new number. We
+would have to re-traverse that part to correct its ID, which wouldn't be fun
+or all that performant. Plus, we might hit another unknown node dereferencing
+to yet *another* component ID later, and would have to redo this again. If
+we're to rewrite component numbers, it should be done *after* we've fully
+traversed all of them.
+
+Or we could follow the old idea of maintaining a mapping between the component
+IDs, using the "union-find". We should be able to avoid storing it on disc,
+and reconstruct it on each start up from the "unknown hashes", or perhaps
+better "unknown nodes" arrays. We could realign the component IDs whenever
+we're rebuilding the bundles. BTW, rebuilding any bundles would mean we would
+have to rebuild the "union-find" mapping too. In all processes. Having the
+component IDs rewritten would rid us of this hassle and complication.
+
+We would still need the context to give us the new component IDs, though.
+And if we simply give a new one each time, and we have a lot of additions, we
+could run out of them eventually. We'll need to reclaim them somehow.
+*And* we'll need to store the next available one somewhere too. Hmm...
+
+In any case, bundle component enumeration wouldn't need to take the component
+IDs of dereferenced unknown nodes into account at all. So we can simplify the
+context interface to remove that. It would still need to reference the
+generation numbers, though.
+
+So, since those component ID mismatches wouldn't be discovered from the POV of
+a bundle, we can comfortably do it from the database's POV.
+
+We can go over all the "unknown" hashes of the merged bundle, and collect the
+mappings into e.g. the same "union-find" structure. Then we can go over each
+set and update every bundle in the set except the biggest one, for example.
+
+OTOH, if we have the union-find structure, we can manage the ID distribution
+and find new untaken IDs, if necessary.
+
+Hmm, we wouldn't really need to have all the IDs in the union-find, only those
+spanning multiple bundles. And it would be easier to have only those there,
+otherwise we would need to traverse all the nodes in all the bundles to find
+all of them. If we don't have all the IDs in the union-find, then we can't
+reasonably give out new ones. So that means we would have to store *something*
+specifying which IDs are available and which are not. Reconstructing the
+complete structure every time we start (and rebuild bundles!) would be too
+costly, for just finding the next free ID. Perhaps each bundle could keep a
+set of its component IDs stored.
+
+OK, how about we let the bundles manage the component IDs independently? Only
+keep generations influenced? And then we map them into the global ID space
+somehow in the DB? Hmmm.... Perhaps it would be similar to keeping the
+information about used IDs inside the bundles somehow. Let's say, if they're
+contiguous, we could just keep the number of IDs there?
+
+It looks like they are! So, we can just have the number of components there.
+
+Oh, and BTW, we can keep an array of indexes of unknown nodes, instead of
+unknown hashes. This way we can quickly get to their component IDs and avoid
+duplicating more of their data.
+
+OK, so how would we map the component IDs from each of the bundles into a
+single contiguous space?
+
+123
+   12345678
+           12345
+                1
+                 123
+
+We should be able to quickly say if a component from one bundle is connected
+to a component in another bundle.
+
+So, we find a node and get its bundle and component IDs. We find another node
+and get the same.
+
+If we have an array of accumulated components, similar to the fanout array for
+the bundles, we would be able to quickly find their entry in the union-find.
+
+OK, let's go with this:
+* Have a "fanout" array for quickly finding a component entry. Or we can even
+  skip that and simply add the component numbers as we're looking up.
+* Have a component entry array, where each bundle's components are represented
+  in order, by the following structure:
+  * Bundle index
+  * Component index
+  * "Parent" component index in the same array
+  * "Rank" or "size"
+
+Wait, how would we be finding cycles between components with this? We would
+have to consider the connecting node directions, which means we would have to
+go and check the unknown node entries in both bundles.
+
+Could we somehow employ a bundle for this, as we've considered a long time
+ago? We could represent each component as a node. And then represent each
+unknown->known node connection as a directed edge. We would get cycle
+detection for "free". Each bundle-spanning component would actually get its
+own component ID.
+
+Now, how would we for example check if a node connected to another node using
+this component bundle? We could look up the first node and find its bundle.
+We could then try to look up the other node in the same bundle. If it's not
+there, we could try to find the node's component in the component bundle.
+Let's assume we have every component there, and we can follow the edges to
+other bundles until we checked all of them. If we didn't find the other node in any,
+then we check if any of the checked bundles had any ultimately-unknown nodes,
+and if they did, we can say we don't know if the nodes are connected, because
+we don't know if the other node exists. If none did, then we can say the node
+does not exist.
+
+Eh, no, we gotta look up both nodes first, then get their components, and then
+check the component bundle to see if their components are connected. Well,
+first we would check if they're in the same bundle, of course.
