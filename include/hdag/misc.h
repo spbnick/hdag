@@ -272,4 +272,19 @@ extern int hdag_size_t_cmp(const void *a, const void *b);
  */
 extern int hdag_size_t_rcmp(const void *a, const void *b);
 
+/**
+ * Generate a 64-bit "hash" from a 64-bit number using SplitMix64.
+ * Source: https://prng.di.unimi.it/splitmix64.c (used in Java PRNG).
+ *
+ * @param x The number to "hash".
+ *
+ * @return The "hash".
+ */
+static inline uint64_t hdag_splitmix64_hash(uint64_t x)
+{
+	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9;
+	x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
+	return x ^ (x >> 31);
+}
+
 #endif /* _HDAG_MISC_H */
