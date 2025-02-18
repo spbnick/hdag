@@ -36,8 +36,8 @@ hdag_file_create(struct hdag_file *pfile,
                  const uint32_t *node_fanout,
                  const struct hdag_edge *extra_edges,
                  uint32_t extra_edge_num,
-                 const uint8_t *unknown_hashes,
-                 uint32_t unknown_hash_num)
+                 const uint32_t *unknown_indexes,
+                 uint32_t unknown_index_num)
 {
     hdag_res res = HDAG_RES_INVALID;
     int orig_errno;
@@ -48,7 +48,7 @@ hdag_file_create(struct hdag_file *pfile,
         .version = {0, 0},
         .hash_len = hash_len,
         .extra_edge_num = extra_edge_num,
-        .unknown_hash_num = unknown_hash_num,
+        .unknown_index_num = unknown_index_num,
     };
 
     if (pathname != NULL) {
@@ -65,7 +65,7 @@ hdag_file_create(struct hdag_file *pfile,
     file.size = hdag_file_size(header.hash_len,
                                header.node_num,
                                header.extra_edge_num,
-                               header.unknown_hash_num);
+                               header.unknown_index_num);
 
     /* If creating an anonymous mapping */
     if (file.pathname == NULL) {
@@ -126,17 +126,17 @@ hdag_file_create(struct hdag_file *pfile,
         (uint8_t *)file.nodes +
         hdag_node_size(file.header->hash_len) * file.header->node_num
     );
-    file.unknown_hashes =
-        (uint8_t *)file.extra_edges +
-        sizeof(struct hdag_edge) * file.header->extra_edge_num;
+    file.unknown_indexes = (uint32_t *)(
+        file.extra_edges + file.header->extra_edge_num
+    );
 
     /* Copy the data */
     memcpy(file.nodes, nodes,
            hdag_node_size(file.header->hash_len) * file.header->node_num);
     memcpy(file.extra_edges, extra_edges,
-           sizeof(struct hdag_edge) * file.header->extra_edge_num);
-    memcpy(file.unknown_hashes, unknown_hashes,
-           file.header->hash_len * file.header->unknown_hash_num);
+           sizeof(*extra_edges) * file.header->extra_edge_num);
+    memcpy(file.unknown_indexes, unknown_indexes,
+           sizeof(*unknown_indexes) * file.header->unknown_index_num);
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
@@ -218,7 +218,7 @@ hdag_file_open(struct hdag_file *pfile,
             file.header->hash_len,
             file.header->node_num,
             file.header->extra_edge_num,
-            file.header->unknown_hash_num
+            file.header->unknown_index_num
         )
     ) {
         errno = EINVAL;
@@ -229,9 +229,9 @@ hdag_file_open(struct hdag_file *pfile,
         (uint8_t *)file.nodes +
         hdag_node_size(file.header->hash_len) * file.header->node_num
     );
-    file.unknown_hashes =
-        (uint8_t *)file.extra_edges +
-        sizeof(struct hdag_edge) * file.header->extra_edge_num;
+    file.unknown_indexes = (uint32_t *)(
+        file.extra_edges + file.header->extra_edge_num
+    );
 
     /* The file state should be valid now */
     assert(hdag_file_is_valid(&file));
