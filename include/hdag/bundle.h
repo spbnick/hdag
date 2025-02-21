@@ -13,7 +13,6 @@
 #include <hdag/darr.h>
 #include <hdag/fanout.h>
 #include <hdag/res.h>
-#include <hdag/ctx.h>
 #include <hdag/misc.h>
 #include <stdio.h>
 
@@ -132,15 +131,6 @@ hdag_bundle_is_hashless(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     return bundle->hash_len == 0;
 }
-
-/**
- * Check if a bundle's nodes and targets are all sorted.
- *
- * @param bundle    The bundle to check. Must be valid.
- *
- * @return True if the bundle is sorted, false if not.
- */
-extern bool hdag_bundle_is_sorted(const struct hdag_bundle *bundle);
 
 /**
  * Check if a bundle's nodes and targets are all sorted and deduplicated.
@@ -306,13 +296,22 @@ extern hdag_res hdag_bundle_to_txt(FILE *stream,
                                    const struct hdag_bundle *bundle);
 
 /**
- * Sort the bundle's nodes and their target nodes by hash, lexicographically,
- * assuming target nodes are not referenced by their indices.
+ * Sort the bundle's nodes (and their targets), lexicographically, then
+ * deduplicate both, assuming target nodes are not referenced by their
+ * indices. 
  *
- * @param bundle    The bundle to sort the nodes and targets in.
- *                  Must be valid.
+ * @param bundle        The bundle to sort and deduplicate
+ *                      the nodes and targets in. Must be valid.
+ * @param merge_targets If true, targets of same-hash nodes are merged
+ *                      together when deduping. If false, same-hash nodes will
+ *                      be verified to have the same set of targets before
+ *                      deduping.
+ *
+ * @return A void universal result.
  */
-extern void hdag_bundle_sort(struct hdag_bundle *bundle);
+[[nodiscard]]
+extern hdag_res hdag_bundle_sort_and_dedup(struct hdag_bundle *bundle,
+                                           bool merge_targets);
 
 /**
  * Fill in the nodes fanout array for a bundle.
@@ -337,25 +336,6 @@ hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     return hdag_fanout_darr_is_empty(&bundle->nodes_fanout);
 }
-
-/**
- * Remove duplicate node entries from a bundle, preferring known ones, as well
- * as duplicate edges. Assume nodes are sorted by hash, and are not using
- * direct-index targets.
- *
- * @param bundle    The bundle to deduplicate nodes in.
- *                  Must be valid, and have hashes.
- * @param ctx       The context of this bundle (the abstract supergraph) to
- *                  check if nodes are duplicates. Can be NULL, which is
- *                  interpreted as an empty context.
- *
- * @return A void universal result. Including:
- *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes but
- *           different targets were found.
- */
-[[nodiscard]]
-extern hdag_res hdag_bundle_dedup(struct hdag_bundle *bundle,
-                                  const struct hdag_ctx *ctx);
 
 /**
  * Convert a bundle's target references from hashes to indexes, and compact
@@ -405,15 +385,11 @@ extern bool hdag_bundle_is_unenumerated(const struct hdag_bundle *bundle);
  * generation numbers to every node.
  *
  * @param bundle    The bundle to enumerate. Must be unenumerated.
- * @param ctx       The context of this bundle (the abstract supergraph) to
- *                  retrieve connected component and generation numbers. Can
- *                  be NULL, which is interpreted as an empty context.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
-extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle,
-                                      const struct hdag_ctx *ctx);
+extern hdag_res hdag_bundle_enumerate(struct hdag_bundle *bundle);
 
 /**
  * Check if all bundle nodes are enumerated. That is have both components and
@@ -759,16 +735,17 @@ extern bool hdag_bundle_is_unorganized(const struct hdag_bundle *bundle);
  * Organize a bundle - prepare it for becoming a file - sort, dedup, fill
  * the fanout, compact, enumerate generations and components, and deflate.
  *
- * @param bundle    The bundle to organize. Must be completely unorganized.
- * @param ctx       The context of this bundle (the abstract supergraph) to
- *                  check if nodes are duplicates. Can be NULL, which is
- *                  interpreted as an empty context.
+ * @param bundle        The bundle to organize. Must be completely unorganized.
+ * @param merge_targets If true, targets of same-hash nodes are merged
+ *                      together when deduping. If false, same-hash nodes will
+ *                      be verified to have the same set of targets before
+ *                      deduping.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
 extern hdag_res hdag_bundle_organize(struct hdag_bundle *bundle,
-                                     const struct hdag_ctx *ctx);
+                                     bool merge_targets);
 
 /**
  * Check if a bundle is fully organized, that is ready to become a file.
@@ -782,40 +759,43 @@ extern bool hdag_bundle_is_organized(const struct hdag_bundle *bundle);
 /**
  * Create a bundle from a node sequence (adjacency list), and organize it.
  *
- * @param pbundle   The location for the bundle created from the node
- *                  sequence. Can be NULL to have the bundle discarded after
- *                  creation. Will not be modified on failure.
- * @param ctx       The context of the created bundle (the abstract
- *                  supergraph) to check if nodes are duplicates. Can be NULL,
- *                  which is interpreted as an empty context.
- * @param node_seq  The sequence of nodes (and optionally their targets)
- *                  to create the bundle from.
+ * @param pbundle       The location for the bundle created from the node
+ *                      sequence. Can be NULL to have the bundle discarded
+ *                      after creation. Will not be modified on failure.
+ * @param merge_targets If true, targets of same-hash nodes are merged
+ *                      together when deduping. If false, same-hash nodes will
+ *                      be verified to have the same set of targets before
+ *                      deduping.
+ * @param node_seq      The sequence of nodes (and optionally their targets)
+ *                      to create the bundle from.
  *
  * @return A void universal result.
  */
 [[nodiscard]]
 extern hdag_res hdag_bundle_organized_from_node_seq(
                         struct hdag_bundle *pbundle,
-                        const struct hdag_ctx *ctx,
+                        bool merge_targets,
                         struct hdag_node_seq *node_seq);
 
 /**
  * Create a bundle from an adjacency list text file, optimize and validate.
  *
- * @param pbundle   The location for the bundle created from the adjacency
- *                  list text file. Can be NULL to have the bundle discarded
- *                  after creating. Will not be modified on failure.
- * @param ctx       The context of the created bundle (the abstract
- *                  supergraph) to check if nodes are duplicates. Can be NULL,
- *                  which is interpreted as an empty context.
- * @param stream    The FILE stream containing the text to parse and load.
- *                  Each line of the stream is expected to contain a node's
- *                  hash followed by hashes of its targets, if any. Each hash is
- *                  represented by a hexadecimal number, separated by
- *                  (non-linebreak) whitespace. Hashes are assumed to be
- *                  right-aligned.
- * @param hash_len  The length of hashes expected to be contained in the
- *                  stream. Must be a valid hash length.
+ * @param pbundle       The location for the bundle created from the adjacency
+ *                      list text file. Can be NULL to have the bundle
+ *                      discarded after creating. Will not be modified on
+ *                      failure.
+ * @param merge_targets If true, targets of same-hash nodes are merged
+ *                      together when deduping. If false, same-hash nodes will
+ *                      be verified to have the same set of targets before
+ *                      deduping.
+ * @param stream        The FILE stream containing the text to parse and load.
+ *                      Each line of the stream is expected to contain a
+ *                      node's hash followed by hashes of its targets, if any.
+ *                      Each hash is represented by a hexadecimal number,
+ *                      separated by (non-linebreak) whitespace. Hashes are
+ *                      assumed to be right-aligned.
+ * @param hash_len      The length of hashes expected to be contained in the
+ *                      stream. Must be a valid hash length.
  *
  * @return A void universal result, including HDAG_RES_INVALID_FORMAT,
  *         if the file format is invalid, HDAG_RES_ERRNO's in case of
@@ -824,7 +804,7 @@ extern hdag_res hdag_bundle_organized_from_node_seq(
 [[nodiscard]]
 extern hdag_res hdag_bundle_organized_from_txt(
                         struct hdag_bundle *pbundle,
-                        const struct hdag_ctx *ctx,
+                        bool merge_targets,
                         FILE *stream, uint16_t hash_len);
 
 /** A next-node retrieval function for bundle's node sequence */

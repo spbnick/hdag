@@ -58,7 +58,8 @@ hdag_db_create(struct hdag_db *pdb, const char *pathname, bool template,
     res = HDAG_RES_OK;
 cleanup:
     orig_errno = errno;
-    hdag_db_close(&db);
+    /* We're doing our best to cleanup */
+    (void)hdag_db_close(&db);
     errno = orig_errno;
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
@@ -131,46 +132,218 @@ hdag_db_ctx_init(struct hdag_db_ctx *pctx, const struct hdag_db *db,
 }
 
 
-struct hdag_db_components_pseudohash {
-    uint64_t    hash;
-    uint32_t    bundle_idx;
-    uint32_t    component_idx;
-};
-
-HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
-    hdag_db_components_pseudohash,
-    hash,
-    bundle_idx,
-    component_idx
-);
-
-struct hdag_db_components_targets_hash_seq {
-    /** The base abstract hash sequence */
-    struct hdag_hash_seq                    base;
-    /** The pseudohash of the target returned last */
-    struct hdag_db_components_pseudohash    pseudohash;
-};
-
+/** Sequence of component piece nodes generated from a bundle pointer list */
 struct hdag_db_components_node_seq {
     /** The base abstract node sequence */
     struct hdag_node_seq                        base;
     /** The array of pointers to bundles to build the component DAG from */
-    struct hdag_bundle                        **pbundle_list;
+    const struct hdag_bundle                  **pbundle_list;
     /** The number of pointers to bundles to build the component DAG from */
-    size_t                                      pbundle_num;
-    /** The index of the next bundle to extract component pieces from */
-    size_t                                      pbundle_idx;
-    /** The hash of the node returned last */
+    uint32_t                                    pbundle_num;
+    /**
+     * The index of the pointer to the bundle the component pieces are
+     * extracted from.
+     */
+    uint32_t                                    source_pbundle_idx;
+    /**
+     * The index of the index of the unknown node we're looking the known
+     * (target) node for, in the above-referenced bundle.
+     */
+    uint32_t                                    source_unknown_idx_idx;
+    /**
+     * The ID of the above-referenced bundle's component being traversed, or
+     * zero if none
+     */
+    uint32_t                                    source_component;
+    /**
+     * The index of the pointer to the bundle containing next target node to
+     * return, if less than INT32_MAX. Greater or equal to INT32_MAX if
+     * there's no target node.
+     */
+    uint32_t                                    target_pbundle_idx;
+    /**
+     * The index of the next target node to return, in the above-referenced
+     * bundle, if less than INT32_MAX. Greater or equal to INT32_MAX if
+     * there's no target node.
+     */
+    uint32_t                                    target_node_idx;
+    /** The hash of the source node returned last */
     struct hdag_db_components_pseudohash        pseudohash;
-    /** The sequence of the returned node's target hashes */
-    struct hdag_db_components_targets_hash_seq  targets_hash_seq;
+    /** The hash of the target node returned last */
+    struct hdag_db_components_pseudohash        target_pseudohash;
+    /** The sequence of the target hashes of the node returned last */
+    struct hdag_db_components_target_hash_seq   target_hash_seq;
 };
 
 static hdag_res
-hdag_db_components_node_seq_next(struct hdag_node_seq *node_seq,
+hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *hash_seq,
+                               const uint8_t **phash)
+{
+    assert(hdag_hash_seq_is_valid(base_seq));
+    assert(phash != NULL);
+    struct hdag_db_components_node_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_db_components_node_seq, target_hash_seq, hash_seq
+    );
+
+    /* If there's no target bundle or node */
+    if (seq->target_pbundle_idx >= INT32_MAX ||
+        seq->target_node_idx >= INT32_MAX) {
+        return 1;
+    }
+    assert(seq->target_pbundle_idx < seq->pbundle_num);
+    assert(
+        seq->target_node_idx <
+        hdag_darr_slots_occupied(
+            seq->pbundle_list[seq->target_pbundle_idx].nodes
+        )
+    );
+
+    /* Output the target node hash */
+    seq->target_pseudohash = HDAG_DB_COMPONENTS_PSEUDOHASH(
+        seq->target_pbundle_idx, seq->target_node_idx
+    );
+    *phash = &seq->pseudohash;
+
+    /* Try to get the next target node to output the hash for */
+
+
+    /* If there are no more bundles */
+    if (seq->source_pbundle_idx >= seq->pbundle_num) {
+        return 1;
+    };
+    source_bundle = seq->pbundle_list[seq->source_pbundle_idx];
+    /* If there are no more unknown node indexes */
+    if (source_unknown_idx_idx >=
+        hdag_darr_slots_occupied(&source_bundle->unknown_indexes)) {
+        return 1;
+    }
+    /* Get the unknown (source) node */
+    source_node_idx = HDAG_DARR_ELEMENT(
+        &source_bundle->unknown_indexes,
+        uint32_t,
+        seq->source_unknown_idx_idx
+    );
+    source_node = HDAG_BUNDLE_NODE(source_bundle, source_node_idx);
+    /* If it's a part of another component */
+    if (source_node->component != seq->source_component) {
+        return 1;
+    }
+    /* Output the target node's hash */
+    seq->pseudohash = HDAG_DB_COMPONENTS_PSEUDOHASH(
+        seq->source_pbundle_idx, source_node_idx
+    );
+    *phash = &seq->pseudohash;
+    *ptarget_hash_seq = &seq->target_hash_seq;
+    seq->source_component = source_node->component;
+
+    /* Try to find the target (known) node in another bundle */
+    /* For each other bundle */
+    for (seq->target_pbundle_idx = 0;
+         seq->target_pbundle_idx < seq->pbundle_num;
+         seq->target_pbundle_idx++) {
+        /* Skip source bundle */
+        if (seq->target_pbundle_idx == seq->source_pbundle_idx) {
+            continue;
+        }
+        /* Skip unknown or missing nodes */
+        target_bundle = seq->pbundle_list[seq->target_pbundle_idx];
+        seq->target_node_idx = hdag_bundle_find_node_idx(target_bundle,
+                                                         source_node->hash);
+        if (seq->target_node_idx >= INT32_MAX) {
+            continue;
+        }
+        target_node = HDAG_BUNDLE_NODE(target_bundle, seq->target_node_idx);
+        if (!hdag_node_is_known(target_node)) {
+            continue;
+        }
+        /* This must be a new component */
+        assert(source_node->component != seq->source_component);
+        /* Output the source node and the target hash sequence */
+        seq->pseudohash = HDAG_DB_COMPONENTS_PSEUDOHASH(
+            seq->source_pbundle_idx,
+            source_node_idx
+        );
+        *phash = &seq->pseudohash;
+        *ptarget_hash_seq = &seq->target_hash_seq;
+        seq->source_component = source_node->component;
+        return 0;
+    }
+}
+
+static hdag_res
+hdag_db_components_node_seq_next(struct hdag_node_seq *base_seq,
                                  const uint8_t **phash,
                                  struct hdag_hash_seq **ptarget_hash_seq)
 {
+    struct hdag_db_components_node_seq *seq = HDAG_CONTAINER_OF(
+        struct hdag_db_components_node_seq, base, base_seq
+    );
+    const struct hdag_bundle *source_bundle;
+    uint32_t source_node_idx;
+    const struct hdag_node *source_node;
+    const struct hdag_bundle *target_bundle;
+    assert(hdag_node_seq_is_valid(base_seq));
+    assert(phash != NULL);
+    assert(ptarget_hash_seq != NULL);
+    /* For each unknown node */
+    while (true) {
+        /* Get next unknown node index */
+        while (true) {
+            /* If there are no more bundles */
+            if (seq->source_pbundle_idx >= seq->pbundle_num) {
+                return 1;
+            };
+            source_bundle = seq->pbundle_list[seq->source_pbundle_idx];
+            /* If there are still some unknown node indexes */
+            if (source_unknown_idx_idx <
+                hdag_darr_slots_occupied(&source_bundle->unknown_indexes)) {
+                break;
+            }
+            /* Take next bundle */
+            seq->source_pbundle_idx++;
+            /* Start with the first unknown node index */
+            seq->source_unknown_idx_idx = 0;
+        }
+        /* Get the unknown (source) node */
+        source_node_idx = HDAG_DARR_ELEMENT(
+            &source_bundle->unknown_indexes,
+            uint32_t,
+            seq->source_unknown_idx_idx
+        );
+        source_node = HDAG_BUNDLE_NODE(source_bundle, source_node_idx);
+        /* Try to find the target (known) node in another bundle */
+        /* For each other bundle */
+        for (seq->target_pbundle_idx = 0;
+             seq->target_pbundle_idx < seq->pbundle_num;
+             seq->target_pbundle_idx++) {
+            /* Skip source bundle */
+            if (seq->target_pbundle_idx == seq->source_pbundle_idx) {
+                continue;
+            }
+            /* Skip unknown or missing nodes */
+            target_bundle = seq->pbundle_list[seq->target_pbundle_idx];
+            seq->target_node_idx = hdag_bundle_find_node_idx(target_bundle,
+                                                             source_node->hash);
+            if (seq->target_node_idx >= INT32_MAX) {
+                continue;
+            }
+            target_node = HDAG_BUNDLE_NODE(target_bundle, seq->target_node_idx);
+            if (!hdag_node_is_known(target_node)) {
+                continue;
+            }
+            /* This must be a new component */
+            assert(source_node->component != seq->source_component);
+            /* Output the source node and the target hash sequence */
+            seq->pseudohash = HDAG_DB_COMPONENTS_PSEUDOHASH(
+                seq->source_pbundle_idx,
+                source_node_idx
+            );
+            *phash = &seq->pseudohash;
+            *ptarget_hash_seq = &seq->target_hash_seq;
+            seq->source_component = source_node->component;
+            return 0;
+        }
+    }
 }
 
 static hdag_res
@@ -188,6 +361,12 @@ hdag_db_components_node_seq_init(struct hdag_db_components_node_seq *pseq,
         },
         .pbundle_list = pbundle_list,
         .pbundle_num = pbundle_num,
+        .target_pbundle_idx = INT32_MAX,
+        .target_node_idx = INT32_MAX,
+        .target_hash_seq = {
+            .hash_len = sizeof(pseq->pseudohash),
+            .next_fn = hdag_bundle_node_hash_seq_next
+        },
     };
 
     assert(hdag_node_seq_is_valid(&pseq->base));

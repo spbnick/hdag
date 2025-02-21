@@ -27,7 +27,7 @@ add_library(
     lib/hdag/ctx.c
     lib/hdag/node_seq.c
     lib/hdag/hash_seq.c
-    lib/hdag/hashes.c
+    lib/hdag/hdarr.c
     lib/hdag/nodes.c
     lib/hdag/node.c
     lib/hdag/darr.c

@@ -464,7 +464,7 @@ as well as the ID of the next connected WCC, or zero, if none.
             For each item in the linked list starting from the next one
                 Do a DFS from the starting node, for all nodes with the same
                 WCC ID set the current WCC ID
-        
+
 The worst case for the memory use is when e.g. every node we traverse points
 back to at least one of the previous nodes. For that case we'll need the WCC
 ID array length to be the same as the number of nodes. Each item in that array
@@ -1218,3 +1218,189 @@ does not exist.
 Eh, no, we gotta look up both nodes first, then get their components, and then
 check the component bundle to see if their components are connected. Well,
 first we would check if they're in the same bundle, of course.
+---
+What if we hash the bundle/component IDs, and have a map of
+hash->bundle/component
+
+Oooor, what if we put a hash of bundle/component into the node hash, followed
+by the actual bundle index and component index?
+
+Yep, it looks like we could use something like splitmix64 and cram 32 bits of
+bundle index and 32 bits of component ID in there. So we would have 128 bit
+hash in the component bundle.
+
+And we won't need to know the number of components in each bundle!
+---
+bundle pointer list
+bundle pointer number
+current source bundle pointer index
+current unknown node index index
+current component (of the source bundle)
+current pointer to the known target node
+
+
+For each bundle
+    Set "component" to zero
+    For each unknown node index
+        Get the unknown node at the index
+        For each other bundle
+            If it contains the node with the unknown hash as "known"
+                If the unknown node's component is not the same as "component"
+                    Generate the source node hash from the outer bundle index and
+                    the unknown node's component ID
+                    Output the source node
+                    Set the "component" to the unknown node's component
+                Generate the hash of the target node from the inner bundle
+                index and the known node's component ID
+                Output the target node
+                break
+
+
+targets_hash_seq_next
+    if there's no last found target
+        return end-of-sequence
+    output last found target
+    try to find the next one
+
+Get next
+---
+So, we want to find the next
+
+OK, no, we cannot have node index in the components hashes, because we want to
+have a single node
+
+Wait, OK, a component piece might be referencing multiple other pieces in
+other bundles. That is done through multiple unknown nodes in the source
+bundle an one or more known nodes in the target bundle.
+
+So, a single component piece in one bundle might be referencing a single
+component piece in another bundle via multiple nodes.
+
+Actually a single component piece in one bundle might be referencing multiple
+component pieces in another bundle.
+
+OK, how about we call them "local" and "global" components? Or "bundle" and
+"db" components?
+
+So, a node in the "components" graph should correspond to what? To a local
+component? Seems right. Then we cannot have node IDs in the hashes, because
+there could be multiple referenced/ing nodes per local component.
+---
+So, we not only need to deduplicate the source component ID, but also the
+target component ID. And while we can sort the unknown nodes by component ID,
+we can't really sort the target nodes like that. Oh, wait, no, we can sort the
+unknown nodes by source component ID first, and by target component ID second.
+
+But that would mean that the bundle itself cannot do that, because other
+bundles don't really exist for it. Or do they? It has the context object it
+uses to retrieve generation numbers, why can't it retrieve component IDs for
+sorting?
+
+So, we need to go towards one of the options: either isolate bundles as much
+as possible (including enumerating generations), and move gluing them together
+to the database, or use the context fully and lean on it, dropping local work
+making bundles easier to glue together in the DB.
+
+Let's try to think about isolating generation enumeration. Actually, if we
+take the maximum generation among all downstream components of a particular
+component, then we can use it as an offset for all generation numbers of that
+component. The only problem might be exhausting the available generation
+numbers, but this number would still be less (or equal) to the total number of
+nodes (a hunch). Then, we gotta store those offset numbers somewhere, and we
+actually can store it in the component piece graph, in the generation number,
+because logically they would align in ordering, and would be correct, even if
+not contiguous.
+
+Now, given that, we would be able to get rid of the context, wouldn't we?
+Seems like it!
+
+We would have to go over the component piece graph, though, to recalculate the
+generation numbers.
+
+And going back, we still have to generate the nodes for the component piece
+graph. And so, we would have to take the unknown node sorting out of the
+bundle.
+
+If we could it would be nice to support creating bundles from the edge list,
+not just adjacency list (node sequence). Because that's the natural output of
+going through the unknown nodes. Perhaps a solution for that would be
+accepting duplicate node hashes with different target hashes, and instead of
+aborting, merging them, in the bundle.
+---
+We gotta remember the index of the first node in a span,
+then when the span ends, we sort and dedup the hashes, and assign each node in
+the span the same 
+
+Ah, wait, we're reducing multiple 
+
+Wait, first, we won't need the separate edge deduping step.
+
+We're reducing multiple nodes to one. And all nodes except the first one will
+be discarded.
+
+Aaactually, we would need to discard a bunch of duplicated targets, and would
+probably need another array of target hashes allocated.
+
+So, when a span of same-hash nodes ends, we go over each node in order and
+pick the smallest hash. Ah, wait, that's too many comparisons.
+
+So, what if we rearrange and sort the targets at the same time?
+
+Like, we find same-hash nodes, and then go over each target taking the
+smallest target hash larger than the previous one, and adding it at the new
+location, and then we assign the same span of target hashes to all the
+same-hash nodes?
+
+Wouldn't that be faster?
+Let's see.
+
+last_min_target = NULL
+while true
+    min_target = NULL
+    for each node in the span
+        for each target of the node:
+            if (last_min_target == NULL ||
+                target->hash > last_min_target->hash) &&
+               (min_target == NULL ||
+                target->hash < min_target->hash):
+                min_target = target
+    if min_target == NULL:
+        break
+    append min_target->hash to the new target_hashes
+    last_min_target = min_target
+
+So, basically we need to compare two hashes this many times in the worst case:
+    total_targets^2 * 2
+---
+So we would be better off with concat->qsort->dedup.
+
+Now, technically, we could keep sorting and deduping separated in two API
+calls, but it looks like we can benefit from doing it in a single call, now
+that we've decided to ignore duplicates and merge targets.
+---
+TODO: Implement a convention for naming function with "slice" if it works on a
+      slice of an array, and without "slice" if it works on a complete array.
+---
+    if told to merge targets
+        for each node duplicate
+            append targets to the output hashes
+        sort combined targets
+        dedup combined targets
+        update the first known node with the range of targets
+    else
+        for each node duplicate
+            sort targets
+            if it's not first node in the run
+                if this node's targets are not equal to the last node's
+                    report conflict
+    copy the first known node to the output pointer
+    increment output node pointer
+
+
+if told to merge targets
+else
+
+---
+TODO: Use uintptr_t instead of passing pointer to a size, for comparison
+      functions.
+TODO: Consider using size_t as the hdag_hash_len_is_valid() parameter.

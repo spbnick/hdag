@@ -98,13 +98,13 @@ hdag_node_off_const(const struct hdag_node *node,
  *
  * @param a         The first node to compare.
  * @param b         The second node to compare.
- * @param phash_len Location containing the node hash length (uint16_t).
+ * @param hash_len  The node hash length (uintptr_t).
  *
  * @return -1, if a < b
  *          0, if a == b
  *          1, if a > b
  */
-extern int hdag_node_cmp(const void *a, const void *b, void *phash_len);
+extern int hdag_node_cmp(const void *a, const void *b, void *hash_len);
 
 /**
  * Fill a node's hash with specified 32-bit unsigned integer.

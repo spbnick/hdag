@@ -4,7 +4,7 @@
 
 #include <hdag/bundle.h>
 #include <hdag/nodes.h>
-#include <hdag/hashes.h>
+#include <hdag/hdarr.h>
 #include <hdag/misc.h>
 #include <hdag/res.h>
 #include <cgraph.h>
@@ -479,33 +479,6 @@ hdag_bundle_deflate(struct hdag_bundle *bundle)
     return HDAG_RES_ERRNO;
 }
 
-void
-hdag_bundle_sort(struct hdag_bundle *bundle)
-{
-    /* Currently traversed node */
-    struct hdag_node *node;
-    /* The index of the currently-traversed node */
-    ssize_t idx;
-
-    assert(hdag_bundle_is_valid(bundle));
-    assert(!hdag_bundle_has_index_targets(bundle));
-    assert(hdag_bundle_is_mutable(bundle));
-    /* Sort the nodes by hash lexicographically */
-    hdag_darr_sort(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
-    /* Sort the target hashes for each node lexicographically */
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        if (hdag_targets_are_indirect(&node->targets)) {
-            hdag_darr_slice_sort(&bundle->target_hashes,
-                                 hdag_node_get_first_ind_idx(node),
-                                 hdag_node_get_last_ind_idx(node) + 1,
-                                 hdag_hash_cmp, &bundle->hash_len);
-        }
-    }
-
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_sorted(bundle));
-}
-
 hdag_res
 hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
 {
@@ -519,7 +492,7 @@ hdag_bundle_fanout_fill(struct hdag_bundle *bundle)
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
-    assert(hdag_bundle_is_sorted(bundle));
+    assert(hdag_bundle_is_sorted_and_deduped(bundle));
 
     if (!hdag_darr_uresize(&bundle->nodes_fanout, UINT8_MAX + 1)) {
         return HDAG_RES_ERRNO;
@@ -559,10 +532,12 @@ hdag_bundle_is_sorted_as(const struct hdag_bundle *bundle,
     ssize_t node_idx;
     const struct hdag_node *prev_node;
     const struct hdag_node *node;
-    size_t target_idx;
     int64_t rel;
     int64_t rel_min = cmp_min < 0 ? INT64_MIN : cmp_min;
     int64_t rel_max = cmp_max > 0 ? INT64_MAX : cmp_max;
+
+    /* (Last) target index */
+    size_t target_idx = 0;
 
     assert(hdag_bundle_is_valid(bundle));
     assert(cmp_min >= -1);
@@ -571,6 +546,7 @@ hdag_bundle_is_sorted_as(const struct hdag_bundle *bundle,
 
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, node_idx, node,
                            prev_node = NULL, prev_node=node) {
+        /* Check hash relation */
         if (prev_node != NULL) {
             rel = memcmp(prev_node->hash, node->hash, bundle->hash_len);
             if (rel < rel_min || rel > rel_max) {
@@ -580,6 +556,7 @@ hdag_bundle_is_sorted_as(const struct hdag_bundle *bundle,
         if (!hdag_targets_are_indirect(&node->targets)) {
             continue;
         }
+        /* Check target relations */
         for (target_idx = hdag_node_get_first_ind_idx(node) + 1;
              target_idx <= hdag_node_get_last_ind_idx(node);
              target_idx++) {
@@ -614,130 +591,15 @@ hdag_bundle_is_sorted_as(const struct hdag_bundle *bundle,
 }
 
 bool
-hdag_bundle_is_sorted(const struct hdag_bundle *bundle)
-{
-    return hdag_bundle_is_sorted_as(bundle, -1, 0);
-}
-
-bool
 hdag_bundle_is_sorted_and_deduped(const struct hdag_bundle *bundle)
 {
     return hdag_bundle_is_sorted_as(bundle, -1, -1);
 }
 
-/**
- * Find duplicate edges in a bundle, and either discard them, or raise an
- * error, depending on the specified context.
- *
- * @param bundle    The bundle to find duplicate edges in.
- *                  Must be sorted, and use target_hashes.
- * @param ctx       The context of this bundle (the abstract supergraph).
- *                  Can be NULL, which is interpreted as an empty context.
- *
- * @return A void universal result.
- */
-[[nodiscard]]
-static hdag_res
-hdag_bundle_dedup_edges(struct hdag_bundle *bundle,
-                        const struct hdag_ctx *ctx)
-{
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_mutable(bundle));
-    assert(!hdag_bundle_is_hashless(bundle));
-    assert(hdag_bundle_is_sorted(bundle));
-    assert(!hdag_bundle_has_index_targets(bundle));
-    assert(hdag_darr_occupied_slots(&bundle->extra_edges) == 0);
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-
-    if (ctx == NULL) {
-        ctx = &HDAG_CTX_EMPTY(bundle->hash_len);
-    }
-
-    /* Currently traversed node index */
-    ssize_t idx;
-    /* Currently traversed node */
-    struct hdag_node *node;
-
-    /* The size of each target_hash */
-    const size_t hash_size = bundle->target_hashes.slot_size;
-    /* Location of the node's original last hash */
-    uint8_t *last_hash;
-    /* Currently-traversed hash */
-    uint8_t *hash;
-    /* The hash before the current one */
-    uint8_t *prev_hash;
-    /* The hash output position */
-    uint8_t *out_hash;
-
-    /* For each (potentially duplicate) node */
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
-        /* If the node doesn't have indirect targets */
-        if (!hdag_targets_are_indirect(&node->targets)) {
-            continue;
-        }
-        last_hash = hdag_darr_element(&bundle->target_hashes,
-                                      hdag_node_get_last_ind_idx(node));
-        /* For each target hash starting with the second one */
-        for (
-            prev_hash = hdag_darr_element(
-                &bundle->target_hashes, hdag_node_get_first_ind_idx(node)
-            ),
-            hash = prev_hash + hash_size,
-            out_hash = hash;
-            hash <= last_hash;
-            prev_hash = hash, hash += hash_size
-        ) {
-            /* If the current hash is different from the previous one */
-            if (memcmp(hash, prev_hash, hash_size) != 0) {
-                /* If the output pointer is less than the current hash */
-                if (out_hash < hash) {
-                    /* Copy the current hash to the output pointer */
-                    memcpy(out_hash, hash, bundle->hash_len);
-                }
-                /* Advance the output pointer */
-                out_hash += hash_size;
-            }
-        }
-        /* Update the last target hash index */
-        node->targets.last = hdag_target_from_ind_idx(
-            hdag_darr_element_idx(&bundle->target_hashes,
-                                  out_hash - hash_size)
-        );
-    }
-    assert(hdag_bundle_is_valid(bundle));
-    return HDAG_RES_OK;
-}
-
-/**
- * Find duplicate nodes in a bundle, and either discard them, or raise an
- * error, depending on the specified context.
- *
- * @param bundle    The bundle to find duplicate nodes in.
- *                  Must be sorted, and use target_hashes.
- * @param ctx       The context of this bundle (the abstract supergraph).
- *                  Can be NULL, which is interpreted as an empty context.
- *
- * @return A void universal result. Including:
- *         * HDAG_RES_NODE_CONFLICT, if nodes with matching hashes but
- *           different targets were found.
- */
-[[nodiscard]]
-static hdag_res
-hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
-                        const struct hdag_ctx *ctx)
+hdag_res
+hdag_bundle_sort_and_dedup(struct hdag_bundle *bundle, bool merge_targets)
 {
     hdag_res res = HDAG_RES_INVALID;
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_mutable(bundle));
-    assert(!hdag_bundle_is_hashless(bundle));
-    assert(hdag_bundle_is_sorted(bundle));
-    assert(!hdag_bundle_has_index_targets(bundle));
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-
-    if (ctx == NULL) {
-        ctx = &HDAG_CTX_EMPTY(bundle->hash_len);
-    }
-
     /* The size of each node */
     const size_t node_size = bundle->nodes.slot_size;
     /* Previously traversed node */
@@ -748,16 +610,33 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
     struct hdag_node *out_node;
     /* The node to keep out of all the nodes in the run */
     struct hdag_node *keep_node;
-    /* Number of nodes */
-    size_t node_num = bundle->nodes.slots_occupied;
+    /* The sorted and deduped target hashes array */
+    struct hdag_darr target_hashes = HDAG_DARR_EMPTY(
+        bundle->target_hashes.slot_size,
+        bundle->target_hashes.slots_occupied
+    );
+    size_t first_target_hash_idx;
     /* The end node of the node array */
     const struct hdag_node *end_node =
-        hdag_darr_slot(&bundle->nodes, node_num);
+        hdag_darr_end_slot_const(&bundle->nodes);
 
+    assert(hdag_bundle_is_valid(bundle));
+    assert(!hdag_bundle_has_index_targets(bundle));
+    assert(!hdag_bundle_is_hashless(bundle));
+    assert(hdag_bundle_is_mutable(bundle));
+
+    /* Sort the nodes by hash lexicographically */
+    hdag_darr_sort(&bundle->nodes, hdag_node_cmp,
+                   (void *)(uintptr_t)bundle->hash_len);
+
+    /*
+     * Deduplicate nodes and targets
+     */
     prev_node = NULL;
     node = bundle->nodes.slots;
     out_node = node;
     keep_node = NULL;
+    first_target_hash_idx = 0;
     /* For each node, plus one slot after */
     while (true) {
         /*
@@ -772,7 +651,22 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
             if (keep_node == NULL) {
                 /* Keep the last unknown node */
                 keep_node = prev_node;
+            /* Else, if we're told to merge targets */
+            } else if (merge_targets) {
+                /* Sort and deduplicate combined target hashes */
+                /* Update the kept node with new targets */
+                keep_node->targets = HDAG_TARGETS_INDIRECT(
+                    first_target_hash_idx,
+                    target_hashes.slots_occupied =
+                        hdag_hdarr_slice_sort_and_dedup(
+                            &target_hashes,
+                            first_target_hash_idx,
+                            target_hashes.slots_occupied
+                        )
+                );
+                first_target_hash_idx = target_hashes.slots_occupied;
             }
+            /* Output the node to keep */
             if (out_node < keep_node) {
                 memcpy(out_node, keep_node, node_size);
             }
@@ -785,68 +679,82 @@ hdag_bundle_dedup_nodes(struct hdag_bundle *bundle,
         }
         /* If this is a known node */
         if (hdag_targets_are_known(&node->targets)) {
+            /* If it has any targets */
+            if (hdag_targets_count(&node->targets) != 0) {
+                /* If asked to merge targets */
+                if (merge_targets) {
+                    /* Append the node's target hashes to the new array */
+                    if (!hdag_darr_append(
+                        &target_hashes,
+                        hdag_darr_slot(
+                            &bundle->target_hashes,
+                            hdag_node_get_first_ind_idx(node)
+                        ),
+                        hdag_node_targets_count(node)
+                    )) {
+                        goto cleanup;
+                    }
+                /* Else, we're asked to verify target consistency */
+                } else {
+                    /* Sort and dedup node's targets, so we could compare */
+                    node->targets.last = hdag_target_from_ind_idx(
+                        hdag_hdarr_slice_sort_and_dedup(
+                            &bundle->target_hashes,
+                            hdag_node_get_first_ind_idx(node),
+                            hdag_node_get_last_ind_idx(node) + 1
+                        ) - 1
+                    );
+                }
+            }
             /* If this is the first known node in this run */
             if (keep_node == NULL) {
                 keep_node = node;
-            /* Else it's not the first one and if its targets differ */
-            } else if (
-                hdag_targets_count(&node->targets) !=
-                hdag_targets_count(&keep_node->targets) ||
-                (
-                    hdag_targets_count(&node->targets) != 0 &&
-                    memcmp(hdag_darr_element(
-                                &bundle->target_hashes,
-                                hdag_node_get_first_ind_idx(node)
-                           ),
-                           hdag_darr_element(
-                                &bundle->target_hashes,
-                                hdag_node_get_first_ind_idx(keep_node)
-                           ),
-                           hdag_targets_count(&node->targets) *
-                           bundle->hash_len
-                    ) != 0
-                )
-            ) {
-                res = HDAG_RES_NODE_CONFLICT;
-                goto cleanup;
+            /* Else, if we're asked to check they're consistent */
+            } else if (!merge_targets) {
+                /* If they're not */
+                if (
+                    hdag_targets_count(&node->targets) !=
+                    hdag_targets_count(&keep_node->targets) ||
+                    (
+                        hdag_targets_count(&node->targets) != 0 &&
+                        memcmp(hdag_darr_element(
+                                    &bundle->target_hashes,
+                                    hdag_node_get_first_ind_idx(node)
+                               ),
+                               hdag_darr_element(
+                                    &bundle->target_hashes,
+                                    hdag_node_get_first_ind_idx(keep_node)
+                               ),
+                               hdag_targets_count(&node->targets) *
+                               bundle->hash_len
+                        ) != 0
+                    )
+                ) {
+                    res = HDAG_RES_NODE_CONFLICT;
+                    goto cleanup;
+                }
             }
         }
         prev_node = node;
         node = (struct hdag_node *)((uint8_t *)node + node_size);
     }
     /* Truncate the nodes */
-    end_node = out_node;
-    node_num = ((uint8_t *)end_node - (uint8_t *)bundle->nodes.slots) /
-               node_size;
-    bundle->nodes.slots_occupied = node_num;
+    bundle->nodes.slots_occupied =
+        hdag_darr_slot_idx(&bundle->nodes, out_node);
 
-    assert(hdag_bundle_is_valid(bundle));
-    res = HDAG_RES_OK;
-cleanup:
-    return HDAG_RES_ERRNO_IF_INVALID(res);
-}
-
-hdag_res
-hdag_bundle_dedup(struct hdag_bundle *bundle,
-                  const struct hdag_ctx *ctx)
-{
-    hdag_res res = HDAG_RES_INVALID;
-    assert(hdag_bundle_is_valid(bundle));
-    assert(hdag_bundle_is_mutable(bundle));
-    assert(!hdag_bundle_is_hashless(bundle));
-    assert(hdag_bundle_is_sorted(bundle));
-    assert(!hdag_bundle_has_index_targets(bundle));
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-
-    /* Dedup edges first, so targets can be compared between nodes */
-    HDAG_RES_TRY(hdag_bundle_dedup_edges(bundle, ctx));
-    /* Dedup nodes */
-    HDAG_RES_TRY(hdag_bundle_dedup_nodes(bundle, ctx));
+    /* If we're asked to merge targets */
+    if (merge_targets) {
+        /* Replace the target hashes with new ones */
+        hdag_darr_cleanup(&bundle->target_hashes);
+        bundle->target_hashes = target_hashes;
+        target_hashes = HDAG_DARR_EMPTY(target_hashes.slot_size, 0);
+    }
 
     assert(hdag_bundle_is_valid(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     res = HDAG_RES_OK;
 cleanup:
+    hdag_darr_cleanup(&target_hashes);
     return HDAG_RES_ERRNO_IF_INVALID(res);
 }
 
@@ -1122,8 +1030,7 @@ cleanup:
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_enumerate_generations(struct hdag_bundle *bundle,
-                                  const struct hdag_ctx *ctx)
+hdag_bundle_enumerate_generations(struct hdag_bundle *bundle)
 {
     ssize_t                 idx;
     struct hdag_node       *node;
@@ -1137,11 +1044,6 @@ hdag_bundle_enumerate_generations(struct hdag_bundle *bundle,
     assert(hdag_bundle_is_mutable(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-
-    if (ctx == NULL) {
-        ctx = &HDAG_CTX_EMPTY(bundle->hash_len);
-    }
 
 #define NODE_HAS_PARENT(_node) \
     ((_node)->component >= (uint32_t)INT32_MAX)
@@ -1254,8 +1156,7 @@ hdag_bundle_enumerate_generations(struct hdag_bundle *bundle,
  */
 [[nodiscard]]
 static hdag_res
-hdag_bundle_enumerate_components(struct hdag_bundle *bundle,
-                                 const struct hdag_ctx *ctx)
+hdag_bundle_enumerate_components(struct hdag_bundle *bundle)
 {
     hdag_res                res = HDAG_RES_INVALID;
     struct hdag_bundle      inverted = HDAG_BUNDLE_EMPTY(bundle->hash_len);
@@ -1277,11 +1178,6 @@ hdag_bundle_enumerate_components(struct hdag_bundle *bundle,
     assert(hdag_bundle_is_mutable(bundle));
     assert(hdag_bundle_is_sorted_and_deduped(bundle));
     assert(hdag_bundle_is_compacted(bundle));
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
-
-    if (ctx == NULL) {
-        ctx = &HDAG_CTX_EMPTY(bundle->hash_len);
-    }
 
     /* Invert the graph */
     HDAG_RES_TRY(hdag_bundle_invert(&inverted, bundle, true));
@@ -1401,7 +1297,7 @@ cleanup:
 }
 
 hdag_res
-hdag_bundle_enumerate(struct hdag_bundle *bundle, const struct hdag_ctx *ctx)
+hdag_bundle_enumerate(struct hdag_bundle *bundle)
 {
     hdag_res            res      = HDAG_RES_INVALID;
 
@@ -1416,13 +1312,13 @@ hdag_bundle_enumerate(struct hdag_bundle *bundle, const struct hdag_ctx *ctx)
     /* Try to enumerate the generations */
     HDAG_PROFILE_TIME(
         "Enumerating the generations",
-        HDAG_RES_TRY(hdag_bundle_enumerate_generations(bundle, ctx))
+        HDAG_RES_TRY(hdag_bundle_enumerate_generations(bundle))
     );
 
     /* Try to enumerate the components */
     HDAG_PROFILE_TIME(
         "Enumerating the components",
-        HDAG_RES_TRY(hdag_bundle_enumerate_components(bundle, ctx))
+        HDAG_RES_TRY(hdag_bundle_enumerate_components(bundle))
     );
 
 #undef HDAG_PROFILE_TIME
@@ -1801,8 +1697,7 @@ hdag_bundle_is_unorganized(const struct hdag_bundle *bundle)
 }
 
 hdag_res
-hdag_bundle_organize(struct hdag_bundle *bundle,
-                     const struct hdag_ctx *ctx)
+hdag_bundle_organize(struct hdag_bundle *bundle, bool merge_targets)
 {
     hdag_res            res      = HDAG_RES_INVALID;
 
@@ -1810,19 +1705,16 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
     assert(hdag_bundle_is_mutable(bundle));
     assert(!hdag_bundle_is_hashless(bundle));
     assert(hdag_bundle_is_unorganized(bundle));
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
 
     /* Disable profiling */
 #undef HDAG_PROFILE_TIME
 #define HDAG_PROFILE_TIME(_action, _statement) _statement
 
-    /* Sort the nodes and edges by hash lexicographically */
-    HDAG_PROFILE_TIME("Sorting the bundle",
-                      hdag_bundle_sort(bundle));
-
     /* Deduplicate the nodes and edges */
-    HDAG_PROFILE_TIME("Deduping the bundle",
-                      HDAG_RES_TRY(hdag_bundle_dedup(bundle, ctx)));
+    HDAG_PROFILE_TIME(
+        "Sorting and deduplicating the bundle",
+        HDAG_RES_TRY(hdag_bundle_sort_and_dedup(bundle, merge_targets))
+    );
 
     /* Fill in the fanout array */
     HDAG_PROFILE_TIME("Filling in fanout array",
@@ -1834,7 +1726,7 @@ hdag_bundle_organize(struct hdag_bundle *bundle,
 
     /* Try to enumerate the bundle's components and generations */
     HDAG_PROFILE_TIME("Enumerating the bundle",
-                      HDAG_RES_TRY(hdag_bundle_enumerate(bundle, ctx)));
+                      HDAG_RES_TRY(hdag_bundle_enumerate(bundle)));
 
     /* Shrink the extra space allocated for the bundle */
     HDAG_RES_TRY(hdag_bundle_deflate(bundle));
@@ -1862,18 +1754,17 @@ hdag_bundle_is_organized(const struct hdag_bundle *bundle)
 
 hdag_res
 hdag_bundle_organized_from_txt(struct hdag_bundle *pbundle,
-                               const struct hdag_ctx *ctx,
+                               bool merge_targets,
                                FILE *stream, uint16_t hash_len)
 {
     hdag_res            res     = HDAG_RES_INVALID;
     struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(hash_len);
 
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
     assert(stream != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
 
     HDAG_RES_TRY(hdag_bundle_from_txt(&bundle, stream, hash_len));
-    HDAG_RES_TRY(hdag_bundle_organize(&bundle, ctx));
+    HDAG_RES_TRY(hdag_bundle_organize(&bundle, merge_targets));
 
     assert(hdag_bundle_is_valid(&bundle));
     assert(hdag_bundle_is_organized(&bundle));
@@ -1889,13 +1780,12 @@ cleanup:
 
 hdag_res
 hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
-                                    const struct hdag_ctx *ctx,
+                                    bool merge_targets,
                                     struct hdag_node_seq *node_seq)
 {
     hdag_res            res      = HDAG_RES_INVALID;
     struct hdag_bundle  bundle  = HDAG_BUNDLE_EMPTY(node_seq->hash_len);
 
-    assert(ctx == NULL || hdag_ctx_is_valid(ctx));
     assert(hdag_node_seq_is_valid(node_seq));
 
     /* Disable profiling */
@@ -1909,8 +1799,10 @@ hdag_bundle_organized_from_node_seq(struct hdag_bundle *pbundle,
     );
 
     /* Organize */
-    HDAG_PROFILE_TIME("Organizing the bundle",
-                      HDAG_RES_TRY(hdag_bundle_organize(&bundle, ctx)));
+    HDAG_PROFILE_TIME(
+        "Organizing the bundle",
+        HDAG_RES_TRY(hdag_bundle_organize(&bundle, merge_targets))
+    );
 
 #undef HDAG_PROFILE_TIME
 

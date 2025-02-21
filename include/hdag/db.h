@@ -51,18 +51,73 @@ struct hdag_db {
      * Each node is a piece of a component that is spread over more than one
      * bundle. Edge directions represent the connecting edge directions.
      * The node hash is a 64-bit "hash" generated from the following 32 bits
-     * of bundle index, followed by 32 bits of component ID and generated from
-     * these two numbers, giving a total of 128 bits (16 bytes).
+     * of bundle index, followed by 32 bits of target node index, giving a
+     * total of 128 bits (16 bytes).
      */
     struct hdag_bundle components;
 };
+
+/**
+ * The structure of the (pseudo)hash of a "components" node (component piece).
+ */
+struct hdag_db_components_pseudohash {
+    /** A SplitMix64 hash over (bundle_idx << 32) | node_idx */
+    uint64_t    hash;
+    /** The index of the bundle the component piece belongs to */
+    uint32_t    bundle_idx;
+    /** The index of the node component connects to, in the bundle */
+    uint32_t    node_idx;
+};
+
+HDAG_ASSERT_STRUCT_MEMBERS_PACKED(
+    hdag_db_components_pseudohash,
+    hash,
+    bundle_idx,
+    node_idx
+);
+
+/** An initializer for a component piece pseudohash */
+#define HDAG_DB_COMPONENTS_PSEUDOHASH(_bundle_idx, _node_idx) \
+    (struct hdag_db_components_pseudohash) {                            \
+        .hash = hdag_splitmix64_hash((((uint64_t)_bundle_idx) << 32) |  \
+                                     (_node_idx)),                      \
+        .bundle_idx = bundle_idx,                                       \
+        .node_idx = node_idx,                                           \
+    }
+
+/**
+ * Initialize a component piece pseudohash
+ *
+ * @param pseudohash    The pseudohash to initialize.
+ * @param bundle_idx    The index of the bundle of the component piece.
+ * @param node_idx      The index of the component source/target node in the
+ *                      bundle.
+ *
+ * @return The initialized pseudohash.
+ */
+static inline struct hdag_db_components_pseudohash *
+hdag_db_components_pseudohash_init(
+                        struct hdag_db_components_pseudohash *pseudohash,
+                        uint32_t bundle_idx, uint32_t node_idx)
+{
+    assert(pseudohash != NULL);
+    *pseudohash = HDAG_DB_COMPONENTS_PSEUDOHASH(_bundle_idx, _node_idx);
+    return pseudohash;
+}
+
+/** An initializer for a component piece pseudohash */
+#define HDAG_DB_COMPONENTS_PSEUDOHASH(_bundle_idx, _node_idx) \
+    (*hdag_db_components_pseudohash_init(
+        &(struct
 
 /**
  * An initializer for a closed HDAG database
  */
 #define HDAG_DB_CLOSED ((struct hdag_db){ \
     .bundles = HDAG_DARR_EMPTY(sizeof(struct hdag_bundle), 16), \
-    .components = HDAG_BUNDLE_EMPTY(16),                        \
+    .components = HDAG_BUNDLE_EMPTY(                            \
+        sizeof(struct hdag_db_components_pseudohash)            \
+    ),                                                          \
 })
 
 /**
@@ -83,9 +138,10 @@ hdag_db_is_valid(const struct hdag_db *db)
         (db->hash_len == 0 || hdag_hash_len_is_valid(db->hash_len)) &&
         (db->pathname == NULL) == (db->new_file_pathname_tmpl == NULL) &&
         hdag_darr_is_valid(&db->bundles) &&
-        hdag_darr_is_valid(&db->component_fanout) &&
-        hdag_darr_occupied_slots(&db->bundles) ==
-            hdag_darr_occupied_slots(&db->component_fanout)
+        hdag_bundle_is_valid(&db->components) &&
+        db->components.hash_len ==
+            sizeof(struct hdag_db_components_pseudohash) &&
+        hdag_bundle_is_organized(&db->components)
     )) {
         return false;
     }

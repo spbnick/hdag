@@ -87,12 +87,12 @@ hdag_hash_is_filled(const uint8_t *hash, uint16_t len, uint32_t fill)
  *
  * @param a     The first node to compare.
  * @param b     The second node to compare.
- * @param plen  Location containing the node hash length (uint16_t).
+ * @param len   Node hash length (uintptr_t).
  *
  * @return -1, if a < b
  *          0, if a == b
  *          1, if a > b
  */
-extern int hdag_hash_cmp(const void *a, const void *b, void *plen);
+extern int hdag_hash_cmp(const void *a, const void *b, void *len);
 
 #endif /* _HDAG_HASH_H */
