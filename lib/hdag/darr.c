@@ -140,6 +140,11 @@ hdag_darr_slice_dedup(struct hdag_darr *darr,
     assert(hdag_darr_is_mutable(darr));
     assert(cmp != NULL);
 
+    /* Handle empty slices to simplify the below code */
+    if (start == end) {
+        return start;
+    }
+
     for (
         slot_size = darr->slot_size,
         start_slot = darr->slots + slot_size * start,
