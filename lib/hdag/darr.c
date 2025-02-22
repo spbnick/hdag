@@ -168,3 +168,12 @@ hdag_darr_slice_dedup(struct hdag_darr *darr,
 
     return hdag_darr_slot_idx(darr, output_slot + slot_size);
 }
+
+int
+hdag_darr_mem_cmp(const void *a, const void *b, void *len)
+{
+    assert(a != NULL);
+    assert(b != NULL);
+    assert((uintptr_t)len <= SIZE_MAX);
+    return memcmp(a, b, (uintptr_t)len);
+}

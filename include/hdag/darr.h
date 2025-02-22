@@ -878,6 +878,19 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
                                 void *data);
 
 /**
+ * Compare two dynamic array elements using memcmp.
+ *
+ * @param a     The first element to compare.
+ * @param b     The second element to compare.
+ * @param len   The element size (uintptr_t).
+ *
+ * @return -1, if a < b
+ *          0, if a == b
+ *          1, if a > b
+ */
+extern int hdag_darr_mem_cmp(const void *a, const void *b, void *len);
+
+/**
  * Check if a slice of a dynamic array is sorted according to specification.
  *
  * @param darr      The dynamic array containing the slice to check.
