@@ -52,6 +52,23 @@ test(void)
     TEST(hdag_darr_alloc(&darr, 0) == NULL);
     TEST(hdag_darr_deflate(&darr));
     TEST(hdag_darr_uappend(&darr, 0) == NULL);
+    hdag_darr_cleanup(&darr);
+
+    /* Test sorting and deduping empty array */
+    darr = HDAG_DARR_EMPTY(1, 16);
+    TEST(hdag_darr_is_sorted(&darr, hdag_darr_mem_cmp,
+                             (void *)(uintptr_t)darr.slot_size));
+    TEST(hdag_darr_is_sorted_and_deduped(&darr, hdag_darr_mem_cmp,
+                                         (void *)(uintptr_t)darr.slot_size));
+    hdag_darr_sort(&darr, hdag_darr_mem_cmp,
+                   (void *)(uintptr_t)darr.slot_size);
+    TEST(hdag_darr_is_sorted(&darr, hdag_darr_mem_cmp,
+                             (void *)(uintptr_t)darr.slot_size));
+    TEST(hdag_darr_dedup(&darr, hdag_darr_mem_cmp,
+                         (void *)(uintptr_t)darr.slot_size) == 0);
+    TEST(hdag_darr_is_sorted_and_deduped(&darr, hdag_darr_mem_cmp,
+                                         (void *)(uintptr_t)darr.slot_size));
+
 
     return failed;
 }
