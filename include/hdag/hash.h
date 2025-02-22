@@ -85,9 +85,9 @@ hdag_hash_is_filled(const uint8_t *hash, uint16_t len, uint32_t fill)
 /**
  * Compare two hashes lexicographically.
  *
- * @param a     The first node to compare.
- * @param b     The second node to compare.
- * @param len   Node hash length (uintptr_t).
+ * @param a     The first hash to compare.
+ * @param b     The second hash to compare.
+ * @param len   Hash length (uintptr_t).
  *
  * @return -1, if a < b
  *          0, if a == b
