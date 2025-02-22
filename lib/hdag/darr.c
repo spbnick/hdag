@@ -91,7 +91,7 @@ hdag_darr_slice_is_sorted_as(const struct hdag_darr *darr,
                              int cmp_min, int cmp_max)
 {
     size_t slot_size;
-    uint8_t *first_slot;
+    uint8_t *start_slot;
     uint8_t *prev_slot;
     uint8_t *slot;
     uint8_t *end_slot;
@@ -107,8 +107,8 @@ hdag_darr_slice_is_sorted_as(const struct hdag_darr *darr,
 
     for (
         slot_size = darr->slot_size,
-        first_slot = darr->slots + slot_size * start,
-        prev_slot = first_slot,
+        start_slot = darr->slots + slot_size * start,
+        prev_slot = start_slot,
         end_slot = darr->slots + slot_size * end;
 
         (slot = prev_slot + slot_size) < end_slot;
@@ -131,7 +131,7 @@ hdag_darr_slice_dedup(struct hdag_darr *darr,
 {
     size_t slot_size;
     uint8_t *output_slot;
-    uint8_t *first_slot;
+    uint8_t *start_slot;
     uint8_t *prev_slot;
     uint8_t *slot;
     uint8_t *end_slot;
@@ -142,10 +142,10 @@ hdag_darr_slice_dedup(struct hdag_darr *darr,
 
     for (
         slot_size = darr->slot_size,
-        first_slot = darr->slots + slot_size * start,
-        prev_slot = first_slot,
+        start_slot = darr->slots + slot_size * start,
+        prev_slot = start_slot,
         end_slot = darr->slots + slot_size * end,
-        output_slot = first_slot;
+        output_slot = start_slot;
 
         (slot = prev_slot + slot_size) < end_slot;
 
