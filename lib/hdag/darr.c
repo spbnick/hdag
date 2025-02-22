@@ -151,9 +151,11 @@ hdag_darr_slice_dedup(struct hdag_darr *darr,
 
         prev_slot = slot
     ) {
+        /* Keep previous element if it's different */
         if (cmp(prev_slot, slot, data) != 0) {
             output_slot += slot_size;
         }
+        /* Output current element if it's moved */
         if (output_slot < slot) {
             memcpy(output_slot, slot, slot_size);
         }
