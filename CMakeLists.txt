@@ -57,6 +57,10 @@ add_executable(hdagt-bundle src/hdagt/hdagt-bundle.c)
 target_link_libraries(hdagt-bundle hdag)
 add_test(NAME bundle COMMAND hdagt-bundle)
 
+add_executable(hdagt-darr src/hdagt/hdagt-darr.c)
+target_link_libraries(hdagt-darr hdag)
+add_test(NAME darr COMMAND hdagt-darr)
+
 add_executable(hdagt-misc src/hdagt/hdagt-misc.c)
 target_link_libraries(hdagt-misc hdag)
 add_test(NAME misc COMMAND hdagt-misc)
