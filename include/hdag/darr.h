@@ -878,6 +878,75 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
                                 void *data);
 
 /**
+ * Check if a slice of a dynamic array is sorted according to specification.
+ *
+ * @param darr      The dynamic array containing the slice to check.
+ *                  Cannot be void unless both start and end are zero.
+ * @param start     The index of the first element of the slice to be checked.
+ * @param end       The index of the first element *after* the slice to be
+ *                  checked.
+ * @param cmp       The element comparison function.
+ * @param data      The private data to pass to the comparison function.
+ * @param cmp_min   The minimum comparison result of adjacent elements
+ *                  [-1, cmp_max].
+ * @param cmp_max   The maximum comparison result of adjacent elements
+ *                  [cmp_min, 1].
+ *
+ * @return True if the slice is sorted as specified.
+ */
+extern bool hdag_darr_slice_is_sorted_as(const struct hdag_darr *darr,
+                                         size_t start, size_t end,
+                                         hdag_darr_cmp_fn cmp, void *data,
+                                         int cmp_min, int cmp_max);
+
+/**
+ * Check if a slice of a dynamic array is sorted in ascending order.
+ *
+ * @param darr  The dynamic array containing the slice to check.
+ *              Cannot be void unless both start and end are zero.
+ * @param start The index of the first element of the slice to be checked.
+ * @param end   The index of the first element *after* the slice to be
+ *              checked.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return True if the slice is sorted in ascending order.
+ */
+static inline bool
+hdag_darr_slice_is_sorted(const struct hdag_darr *darr,
+                          size_t start, size_t end,
+                          hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_slice_is_valid(darr, start, end));
+    assert(cmp != NULL);
+    return hdag_darr_slice_is_sorted_as(darr, start, end, cmp, data, -1, 0);
+}
+
+/**
+ * Check if a slice of a dynamic array is sorted in ascending order and
+ * deduplicated.
+ *
+ * @param darr  The dynamic array containing the slice to check.
+ *              Cannot be void unless both start and end are zero.
+ * @param start The index of the first element of the slice to be checked.
+ * @param end   The index of the first element *after* the slice to be
+ *              checked.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return True if the slice is sorted in ascending order.
+ */
+static inline bool
+hdag_darr_slice_is_sorted_and_deduped(const struct hdag_darr *darr,
+                                      size_t start, size_t end,
+                                      hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_slice_is_valid(darr, start, end));
+    assert(cmp != NULL);
+    return hdag_darr_slice_is_sorted_as(darr, start, end, cmp, data, -1, -1);
+}
+
+/**
  * Sort a slice of a dynamic array.
  *
  * @param darr  The dynamic array containing the slice to sort.
@@ -902,6 +971,87 @@ hdag_darr_slice_sort(struct hdag_darr *darr, size_t start, size_t end,
 }
 
 /**
+ * Deduplicate a slice of a dynamic array (remove adjacent equal elements).
+ * Do not remove the deduplicated elements, let the caller do it.
+ *
+ * @param darr  The dynamic array containing the slice to deduplicate.
+ *              Cannot be void unless both start and end are zero.
+ * @param start The index of the first element of the slice.
+ * @param end   The index of the first element *after* the slice.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return The new end index of the slice, after deduplicating.
+ */
+extern size_t hdag_darr_slice_dedup(struct hdag_darr *darr,
+                                    size_t start, size_t end,
+                                    hdag_darr_cmp_fn cmp, void *data);
+
+/**
+ * Check if a dynamic array is sorted according to specification.
+ *
+ * @param darr      The dynamic array to check.
+ * @param cmp       The element comparison function.
+ * @param data      The private data to pass to the comparison function.
+ * @param cmp_min   The minimum comparison result of adjacent elements
+ *                  [-1, cmp_max].
+ * @param cmp_max   The maximum comparison result of adjacent elements
+ *                  [cmp_min, 1].
+ *
+ * @return True if the slice is sorted as specified.
+ */
+static inline bool
+hdag_darr_is_sorted_as(const struct hdag_darr *darr,
+                       hdag_darr_cmp_fn cmp, void *data,
+                       int cmp_min, int cmp_max)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(cmp != NULL);
+    assert(cmp_min >= -1);
+    assert(cmp_max <= 1);
+    assert(cmp_max >= cmp_min);
+    return hdag_darr_slice_is_sorted_as(darr, 0, darr->slots_occupied,
+                                        cmp, data, cmp_min, cmp_max);
+}
+
+/**
+ * Check if a dynamic array is sorted in ascending order.
+ *
+ * @param darr  The dynamic array to check.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return True if the array is sorted in ascending order.
+ */
+static inline bool
+hdag_darr_is_sorted(const struct hdag_darr *darr,
+                    hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(cmp != NULL);
+    return hdag_darr_is_sorted_as(darr, cmp, data, -1, 0);
+}
+
+/**
+ * Check if a dynamic array is sorted in ascending order and
+ * deduplicated.
+ *
+ * @param darr  The dynamic array to check.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return True if the array is sorted in ascending order.
+ */
+static inline bool
+hdag_darr_is_sorted_and_deduped(const struct hdag_darr *darr,
+                                hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(cmp != NULL);
+    return hdag_darr_is_sorted_as(darr, cmp, data, -1, -1);
+}
+
+/**
  * Sort a complete dynamic array.
  *
  * @param darr  The dynamic array to sort.
@@ -915,6 +1065,28 @@ hdag_darr_sort(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
     assert(hdag_darr_is_mutable(darr));
     assert(cmp != NULL);
     hdag_darr_slice_sort(darr, 0, darr->slots_occupied, cmp, data);
+}
+
+/**
+ * Deduplicate a dynamic array (remove adjacent equal elements).
+ * Truncate the array to remove deduplicated elements.
+ *
+ * @param darr  The dynamic array to deduplicate.
+ * @param cmp   The element comparison function.
+ * @param data  The private data to pass to the comparison function.
+ *
+ * @return The new size of the array, after deduplicating.
+ */
+static inline size_t
+hdag_darr_dedup(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_is_mutable(darr));
+    assert(cmp != NULL);
+    darr->slots_occupied = hdag_darr_slice_dedup(
+        darr, 0, darr->slots_occupied, cmp, data
+    );
+    return darr->slots_occupied;
 }
 
 /**
