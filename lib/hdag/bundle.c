@@ -491,14 +491,14 @@ hdag_bundle_sort(struct hdag_bundle *bundle)
     assert(!hdag_bundle_has_index_targets(bundle));
     assert(hdag_bundle_is_mutable(bundle));
     /* Sort the nodes by hash lexicographically */
-    hdag_darr_sort_all(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
+    hdag_darr_sort(&bundle->nodes, hdag_node_cmp, &bundle->hash_len);
     /* Sort the target hashes for each node lexicographically */
     HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, node, (void)0, (void)0) {
         if (hdag_targets_are_indirect(&node->targets)) {
-            hdag_darr_sort(&bundle->target_hashes,
-                           hdag_node_get_first_ind_idx(node),
-                           hdag_node_get_last_ind_idx(node) + 1,
-                           hdag_hash_cmp, &bundle->hash_len);
+            hdag_darr_slice_sort(&bundle->target_hashes,
+                                 hdag_node_get_first_ind_idx(node),
+                                 hdag_node_get_last_ind_idx(node) + 1,
+                                 hdag_hash_cmp, &bundle->hash_len);
         }
     }
 
