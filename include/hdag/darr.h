@@ -858,7 +858,7 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
                                 void *data);
 
 /**
- * Qsort a slice of a dynamic array.
+ * Sort a slice of a dynamic array.
  *
  * @param darr  The dynamic array containing the slice to sort.
  *              Cannot be void unless both start and end are zero.
@@ -868,8 +868,8 @@ typedef int (*hdag_darr_cmp_fn)(const void *first, const void *second,
  * @param data  The private data to pass to the comparison function.
  */
 static inline void
-hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
-                hdag_darr_cmp_fn cmp, void *data)
+hdag_darr_sort(struct hdag_darr *darr, size_t start, size_t end,
+               hdag_darr_cmp_fn cmp, void *data)
 {
     assert(hdag_darr_is_valid(darr));
     assert(hdag_darr_is_mutable(darr));
@@ -884,19 +884,19 @@ hdag_darr_qsort(struct hdag_darr *darr, size_t start, size_t end,
 }
 
 /**
- * Qsort a complete dynamic array.
+ * Sort a complete dynamic array.
  *
  * @param darr  The dynamic array containing the slice to sort.
  * @param cmp   The element comparison function.
  * @param data  The private data to pass to the comparison function.
  */
 static inline void
-hdag_darr_qsort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
+hdag_darr_sort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
 {
     assert(hdag_darr_is_valid(darr));
     assert(hdag_darr_is_mutable(darr));
     assert(cmp != NULL);
-    hdag_darr_qsort(darr, 0, darr->slots_occupied, cmp, data);
+    hdag_darr_sort(darr, 0, darr->slots_occupied, cmp, data);
 }
 
 /**
