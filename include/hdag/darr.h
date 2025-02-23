@@ -891,10 +891,8 @@ static inline void
 hdag_darr_slice_sort(struct hdag_darr *darr, size_t start, size_t end,
                      hdag_darr_cmp_fn cmp, void *data)
 {
-    assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_slice_is_valid(darr, start, end));
     assert(hdag_darr_is_mutable(darr));
-    assert(start <= end);
-    assert(end <= darr->slots_occupied);
     assert(cmp != NULL);
     if (start != end) {
         assert(!hdag_darr_is_void(darr));
