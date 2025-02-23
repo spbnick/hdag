@@ -889,15 +889,34 @@ hdag_darr_qsort_all(struct hdag_darr *darr, hdag_darr_cmp_fn cmp, void *data)
  * @return The slot index.
  */
 static inline size_t
+hdag_darr_slot_idx(const struct hdag_darr *darr, const void *slot)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
+    assert(slot >= darr->slots);
+    assert(slot <= hdag_darr_slot_const(darr, darr->slots_allocated));
+    size_t off = (const char *)slot - (const char *)darr->slots;
+    assert(off % darr->slot_size == 0);
+    return off / darr->slot_size;
+}
+
+/**
+ * Return the index corresponding to an array element pointer.
+ *
+ * @param darr      The dynamic array containing the element.
+ *                  Cannot be void.
+ * @param element   The pointer to the element to return index of.
+ *
+ * @return The element index.
+ */
+static inline size_t
 hdag_darr_element_idx(const struct hdag_darr *darr, const void *element)
 {
     assert(hdag_darr_is_valid(darr));
     assert(!hdag_darr_is_void(darr));
     assert(element >= darr->slots);
     assert(element < hdag_darr_slot_const(darr, darr->slots_occupied));
-    size_t off = (const char *)element - (const char *)darr->slots;
-    assert(off % darr->slot_size == 0);
-    return off / darr->slot_size;
+    return hdag_darr_slot_idx(darr, element);
 }
 
 /**
