@@ -229,6 +229,26 @@ hdag_darr_slot_const(const struct hdag_darr *darr, size_t idx)
 }
 
 /**
+ * Retrieve the const pointer to the dynamic array slot right after the last
+ * element.
+ *
+ * @param darr  The array to retrieve the last slot pointer from.
+ *              Cannot be void.
+ *
+ * @return The end slot pointer. NULL if the array was void.
+ */
+static inline const void *
+hdag_darr_end_slot_const(const struct hdag_darr *darr)
+{
+    assert(hdag_darr_is_valid(darr));
+    assert(!hdag_darr_is_void(darr));
+    if (hdag_darr_is_void(darr)) {
+        return NULL;
+    }
+    return (const char *)darr->slots + darr->slot_size * darr->slots_occupied;
+}
+
+/**
  * Retrieve the pointer to a dynamic array element slot at specified index.
  *
  * @param darr  The array to retrieve the element pointer from.
