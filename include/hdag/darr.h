@@ -85,6 +85,28 @@ hdag_darr_is_valid(const struct hdag_darr *darr)
 }
 
 /**
+ * Check if a dynamic array slice is valid.
+ *
+ * @param darr  The dynamic hash array containing the slice to check.
+ * @param start The start index of the slice.
+ * @param end   The end index of the slice (pointing right after the last
+ *              element of the slice).
+ *              Must be greater than or equal to start, and less than
+ *              or equal to darr->slots_occupied.
+ *
+ * @return True if the dynamic array slice is valid, false otherwise.
+ */
+static inline bool
+hdag_darr_slice_is_valid(const struct hdag_darr *darr,
+                         size_t start, size_t end)
+{
+    return
+        hdag_darr_is_valid(darr) &&
+        start <= end &&
+        end <= darr->slots_occupied;
+}
+
+/**
  * Check if a dynamic array is immutable.
  *
  * @param darr  The dynamic array to check.
@@ -751,10 +773,8 @@ hdag_darr_is_clean(const struct hdag_darr *darr)
 static inline void
 hdag_darr_remove(struct hdag_darr *darr, size_t start, size_t end)
 {
-    assert(hdag_darr_is_valid(darr));
+    assert(hdag_darr_slice_is_valid(darr, start, end));
     assert(hdag_darr_is_mutable(darr));
-    assert(start <= end);
-    assert(end <= darr->slots_occupied);
     if (start != end) {
         assert(!hdag_darr_is_void(darr));
         memmove(hdag_darr_slot(darr, start), hdag_darr_slot(darr, end),
