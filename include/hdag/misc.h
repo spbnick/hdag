@@ -6,6 +6,8 @@
 #define _HDAG_MISC_H
 
 #include <stdlib.h>
+#include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <time.h>
@@ -286,5 +288,59 @@ static inline uint64_t hdag_splitmix64_hash(uint64_t x)
 	x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
 	return x ^ (x >> 31);
 }
+
+/**
+ * The prototype for an abstract value comparison function.
+ *
+ * @param first     The first value to compare.
+ * @param second    The second value to compare.
+ * @param data      The function's private data.
+ *
+ * @return -1 if first < second, 0 if first == second, 1 if first > second.
+ * @return -1, if first < second
+ *          0, if first == second
+ *          1, if first > second
+ */
+typedef int (*hdag_cmp_fn)(const void *first, const void *second, void *data);
+
+/**
+ * Check if a comparison result is valid.
+ *
+ * @param cmp   The comparison result to check.
+ *
+ * @return True if the comparison result is valid, false otherwise.
+ */
+static inline bool
+hdag_cmp_is_valid(int cmp)
+{
+    return cmp >= -1 && cmp <= 1;
+}
+
+/**
+ * Validate a comparison result.
+ *
+ * @param cmp   The comparison result to validate.
+ *
+ * @return The validated comparison result.
+ */
+static inline int
+hdag_cmp_validate(int cmp)
+{
+    assert(hdag_cmp_is_valid(cmp));
+    return cmp;
+}
+
+/**
+ * Compare two abstract values using memcmp.
+ *
+ * @param first     The first value to compare.
+ * @param second    The second value to compare.
+ * @param data      The size of each value (uintptr_t).
+ *
+ * @return -1, if first < second
+ *          0, if first == second
+ *          1, if first > second
+ */
+extern int hdag_cmp_mem(const void *first, const void *second, void *data);
 
 #endif /* _HDAG_MISC_H */

@@ -3,6 +3,7 @@
  */
 
 #include <hdag/misc.h>
+#include <string.h>
 #include <assert.h>
 
 char *
@@ -39,4 +40,15 @@ hdag_size_t_rcmp(const void *a, const void *b)
     size_t val_a = *(const size_t *)a;
     size_t val_b = *(const size_t *)b;
     return val_a == val_b ? 0 : (val_a < val_b ? 1 : -1);
+}
+
+int
+hdag_cmp_mem(const void *first, const void *second, void *data)
+{
+    int res;
+    assert((uintptr_t)data == 0 ||
+           (first != NULL && second != NULL));
+    assert((uintptr_t)data <= SIZE_MAX);
+    res = memcmp(first, second, (uintptr_t)data);
+    return res == 0 ? 0 : (res < 0 ? -1 : 1);
 }
