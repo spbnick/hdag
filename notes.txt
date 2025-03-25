@@ -1404,3 +1404,10 @@ else
 TODO: Use uintptr_t instead of passing pointer to a size, for comparison
       functions.
 TODO: Consider using size_t as the hdag_hash_len_is_valid() parameter.
+---
+OK, so right now we're trying to only return const elements/slots out of
+a const struct hdag_arr. But these are not really equivalent. We can be given
+a const struct for creating a slice of an array out of, so we don't modify the
+original, but we should be able to modify the elements of the new slice.
+
+So, how about we switch to checking the "constant" flag instead?

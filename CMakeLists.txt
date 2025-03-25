@@ -21,6 +21,7 @@ add_definitions(-D_GNU_SOURCE)
 
 add_library(
     hdag
+    lib/hdag/arr.c
     lib/hdag/dot.c
     lib/hdag/bundle.c
     lib/hdag/file.c
@@ -56,6 +57,10 @@ add_test(NAME file COMMAND hdagt-file)
 add_executable(hdagt-bundle src/hdagt/hdagt-bundle.c)
 target_link_libraries(hdagt-bundle hdag)
 add_test(NAME bundle COMMAND hdagt-bundle)
+
+add_executable(hdagt-arr src/hdagt/hdagt-arr.c)
+target_link_libraries(hdagt-arr hdag)
+add_test(NAME arr COMMAND hdagt-arr)
 
 add_executable(hdagt-darr src/hdagt/hdagt-darr.c)
 target_link_libraries(hdagt-darr hdag)
