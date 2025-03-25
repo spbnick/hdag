@@ -35,6 +35,7 @@ add_library(
     lib/hdag/hash.c
     lib/hdag/misc.c
     lib/hdag/res.c
+    lib/hdag/seq.c
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
 
