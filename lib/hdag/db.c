@@ -75,7 +75,7 @@ hdag_db_ctx_get_node(struct hdag_ctx *base_ctx, const uint8_t *hash)
     const struct hdag_bundle *bundle;
 
     for (idx_idx = 0; idx_idx < ctx->bundle_idx_num; idx_idx++) {
-        bundle = hdag_darr_element_const(
+        bundle = hdag_arr_element_const(
             &ctx->db->bundles, ctx->bundle_idx_list[idx_idx]
         );
         node_idx = hdag_bundle_find_node_idx(bundle, hash);
@@ -108,7 +108,7 @@ hdag_db_ctx_init(struct hdag_db_ctx *pctx, const struct hdag_db *db,
     size_t idx_idx;
     size_t prev_idx;
     size_t idx;
-    size_t bundle_num = hdag_darr_occupied_slots(&db->bundles);
+    size_t bundle_num = hdag_arr_slots_occupied(&db->bundles);
 
     for (idx_idx = 0; idx_idx < bundle_idx_num; prev_idx = idx, idx_idx++) {
         idx = bundle_idx_list[idx_idx];
@@ -193,7 +193,7 @@ hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *hash_seq,
     assert(seq->target_pbundle_idx < seq->pbundle_num);
     assert(
         seq->target_node_idx <
-        hdag_darr_slots_occupied(
+        hdag_arr_slots_occupied(
             seq->pbundle_list[seq->target_pbundle_idx].nodes
         )
     );
@@ -214,11 +214,11 @@ hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *hash_seq,
     source_bundle = seq->pbundle_list[seq->source_pbundle_idx];
     /* If there are no more unknown node indexes */
     if (source_unknown_idx_idx >=
-        hdag_darr_slots_occupied(&source_bundle->unknown_indexes)) {
+        hdag_arr_slots_occupied(&source_bundle->unknown_indexes)) {
         return 1;
     }
     /* Get the unknown (source) node */
-    source_node_idx = HDAG_DARR_ELEMENT(
+    source_node_idx = HDAG_ARR_ELEMENT(
         &source_bundle->unknown_indexes,
         uint32_t,
         seq->source_unknown_idx_idx
@@ -296,7 +296,7 @@ hdag_db_components_node_seq_next(struct hdag_node_seq *base_seq,
             source_bundle = seq->pbundle_list[seq->source_pbundle_idx];
             /* If there are still some unknown node indexes */
             if (source_unknown_idx_idx <
-                hdag_darr_slots_occupied(&source_bundle->unknown_indexes)) {
+                hdag_arr_slots_occupied(&source_bundle->unknown_indexes)) {
                 break;
             }
             /* Take next bundle */
@@ -305,7 +305,7 @@ hdag_db_components_node_seq_next(struct hdag_node_seq *base_seq,
             seq->source_unknown_idx_idx = 0;
         }
         /* Get the unknown (source) node */
-        source_node_idx = HDAG_DARR_ELEMENT(
+        source_node_idx = HDAG_ARR_ELEMENT(
             &source_bundle->unknown_indexes,
             uint32_t,
             seq->source_unknown_idx_idx
@@ -477,8 +477,8 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
      * and find directly-linked bundles to rebuild.
      */
     /* For each known node in the bundle */
-    HDAG_DARR_ITER_FORWARD(&new_bundle.nodes, new_node_idx, new_node,
-                           (void)0, (void)0) {
+    HDAG_ARR_IFWD(&new_bundle.nodes, new_node_idx, new_node,
+                  (void)0, (void)0) {
         if (!hdag_node_is_known(new_node)) {
             continue;
         }
@@ -488,7 +488,7 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
              bundle_idx_idx < bundle_num;
              bundle_idx_idx++) {
             bundle_idx = bundle_idx_list[bundle_idx_idx];
-            bundle = hdag_darr_element(&db->bundles, bundle_idx);
+            bundle = hdag_arr_element(&db->bundles, bundle_idx);
             node_idx = hdag_bundle_find_node_idx(bundle, new_node->hash);
             /* If not found */
             if (node_idx >= INT_MAX) {
@@ -542,13 +542,13 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
              bundle_idx_idx < bundle_num;
              bundle_idx_idx++) {
             bundle_idx = bundle_idx_list[bundle_idx_idx];
-            bundle = hdag_darr_element(&db->bundles, bundle_idx);
+            bundle = hdag_arr_element(&db->bundles, bundle_idx);
             /* For each index of a bundle to be rebuilt */
             for (rebuilt_bundle_idx_idx = 0;
                  rebuilt_bundle_idx_idx < rebuilt_bundle_num;
                  rebuilt_bundle_idx_idx++) {
                 rebuilt_bundle_idx = bundle_idx_list[rebuilt_bundle_idx_idx];
-                rebuilt_bundle = hdag_darr_element(
+                rebuilt_bundle = hdag_arr_element(
                     &db->bundles, rebuilt_bundle_idx
                 );
                 /*
@@ -556,7 +556,7 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
                  * in the bundle to rebuild.
                  */
                 if (HDAG_RES_TRY(hdag_hash_seq_are_intersecting(
-                    &HDAG_HASHES_DARR_SEQ(&bundle->unknown_hashes),
+                    &HDAG_HASHES_ARR_SEQ(&bundle->unknown_hashes),
                     &HDAG_BUNDLE_KNOWN_NODE_HASH_SEQ(rebuilt_bundle)
                 ))) {
                     /* Make sure the index is below rebuilt_bundle_num */
@@ -604,7 +604,7 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
          bundle_idx_idx++) {
         pnode_seq_list[bundle_idx_idx + 1] = hdag_bundle_node_seq_init(
             &node_seq_list[bundle_idx_idx + 1],
-            hdag_darr_element(&db->bundles, bundle_idx_list[bundle_idx_idx]),
+            hdag_arr_element(&db->bundles, bundle_idx_list[bundle_idx_idx]),
             /* Without unknown nodes */
             false
         );
@@ -643,11 +643,11 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
     for (bundle_idx_idx = 0;
          bundle_idx_idx < rebuilt_bundle_num; bundle_idx_idx++) {
         bundle_idx = bundle_idx_list[bundle_idx_idx];
-        bundle = hdag_darr_element(&db->bundles, bundle_idx);
+        bundle = hdag_arr_element(&db->bundles, bundle_idx);
         /* Remove the bundle's file */
         HDAG_RES_TRY(hdag_bundle_unlink(bundle));
         hdag_bundle_cleanup(bundle);
-        hdag_darr_remove_one(&db->bundles, bundle_idx);
+        hdag_arr_remove_one(&db->bundles, bundle_idx);
     }
     /* Remove the "new" extension from the now absorbed merged bundle file */
     /* FIXME: Renaming a temporary file is unsafe, create a new one instead */
@@ -663,7 +663,7 @@ hdag_db_merge_node_seq(struct hdag_db *db, struct hdag_node_seq *node_seq)
     free(merged_pathname);
     merged_pathname = NULL;
     /* Move the merged bundle into the bundle array */
-    if (hdag_darr_append_one(&db->bundles, &merged_bundle) == NULL) {
+    if (hdag_arr_append_one(&db->bundles, &merged_bundle) == NULL) {
         goto cleanup;
     }
     merged_bundle = HDAG_BUNDLE_EMPTY(db->hash_len);
@@ -707,10 +707,10 @@ hdag_db_close(struct hdag_db *db)
 
     assert(hdag_db_is_valid(db));
 
-    HDAG_DARR_ITER_FORWARD(&db->bundles, idx, bundle, (void)0, (void)0) {
+    HDAG_ARR_IFWD(&db->bundles, idx, bundle, (void)0, (void)0) {
         hdag_bundle_cleanup(bundle);
     }
-    hdag_darr_cleanup(&db->bundles);
+    hdag_arr_cleanup(&db->bundles);
     if (db->pathname != NULL) {
         free(db->pathname);
         db->pathname = NULL;

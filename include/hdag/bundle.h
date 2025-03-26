@@ -10,7 +10,7 @@
 #include <hdag/node.h>
 #include <hdag/nodes.h>
 #include <hdag/node_seq.h>
-#include <hdag/darr.h>
+#include <hdag/arr.h>
 #include <hdag/fanout.h>
 #include <hdag/res.h>
 #include <hdag/misc.h>
@@ -35,7 +35,7 @@ struct hdag_bundle {
      * pointing into the same array, or indirect indices pointing into the
      * extra_edges array.
      */
-    struct hdag_darr    nodes;
+    struct hdag_arr     nodes;
 
     /**
      * An array of node numbers, where each element stores the number of nodes
@@ -45,27 +45,27 @@ struct hdag_bundle {
      * in the bundle. No elements can be greater than INT32_MAX.
      * Otherwise the array is considered invalid.
      */
-    struct hdag_darr    nodes_fanout;
+    struct hdag_arr     nodes_fanout;
 
     /**
      * Target hashes.
      * Must be empty if extra_edges is not.
      * If non-empty, the indirect indices in node's targets are pointing here.
      */
-    struct hdag_darr    target_hashes;
+    struct hdag_arr     target_hashes;
 
     /**
      * The array of extra edges, which didn't fit into nodes themselves.
      * Must be empty if target_hashes is not. Filled in when "compacting".
      * If non-empty, the indirect indices in node's targets are pointing here.
      */
-    struct hdag_darr    extra_edges;
+    struct hdag_arr     extra_edges;
 
     /**
      * Indexes (uint32_t) of "unknown" nodes. Filled in when "compacting".
      * Duplicates "nodes" somewhat for faster reference checks.
      */
-    struct hdag_darr    unknown_indexes;
+    struct hdag_arr     unknown_indexes;
 
     /**
      * The file containing the bundle (closed, if none).
@@ -83,11 +83,11 @@ struct hdag_bundle {
  */
 #define HDAG_BUNDLE_EMPTY(_hash_len) (struct hdag_bundle){ \
     .hash_len = (_hash_len) ? hdag_hash_len_validate(_hash_len) : 0,    \
-    .nodes = HDAG_DARR_EMPTY(hdag_node_size(_hash_len), 64),            \
-    .nodes_fanout = HDAG_DARR_EMPTY(sizeof(uint32_t), 256),             \
-    .target_hashes = HDAG_DARR_EMPTY(_hash_len, 64),                    \
-    .extra_edges = HDAG_DARR_EMPTY(sizeof(struct hdag_edge), 64),       \
-    .unknown_indexes = HDAG_DARR_EMPTY(sizeof(uint32_t), 16),           \
+    .nodes = HDAG_ARR_EMPTY(hdag_node_size(_hash_len), 64),             \
+    .nodes_fanout = HDAG_ARR_EMPTY(sizeof(uint32_t), 256),              \
+    .target_hashes = HDAG_ARR_EMPTY(_hash_len, 64),                     \
+    .extra_edges = HDAG_ARR_EMPTY(sizeof(struct hdag_edge), 64),        \
+    .unknown_indexes = HDAG_ARR_EMPTY(sizeof(uint32_t), 16),            \
     .file = HDAG_FILE_CLOSED,                                           \
 }
 
@@ -166,7 +166,7 @@ static inline bool
 hdag_bundle_has_hash_targets(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_darr_occupied_slots(&bundle->target_hashes) != 0;
+    return hdag_arr_slots_occupied(&bundle->target_hashes) != 0;
 }
 
 /**
@@ -192,11 +192,11 @@ hdag_bundle_is_empty(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     return
-        hdag_darr_is_empty(&bundle->nodes) &&
-        hdag_darr_is_empty(&bundle->nodes_fanout) &&
-        hdag_darr_is_empty(&bundle->target_hashes) &&
-        hdag_darr_is_empty(&bundle->extra_edges) &&
-        hdag_darr_is_empty(&bundle->unknown_indexes);
+        hdag_arr_is_empty(&bundle->nodes) &&
+        hdag_arr_is_empty(&bundle->nodes_fanout) &&
+        hdag_arr_is_empty(&bundle->target_hashes) &&
+        hdag_arr_is_empty(&bundle->extra_edges) &&
+        hdag_arr_is_empty(&bundle->unknown_indexes);
 }
 
 /**
@@ -211,11 +211,11 @@ hdag_bundle_is_clean(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
     return
-        hdag_darr_is_clean(&bundle->nodes) &&
-        hdag_darr_is_clean(&bundle->nodes_fanout) &&
-        hdag_darr_is_clean(&bundle->target_hashes) &&
-        hdag_darr_is_clean(&bundle->extra_edges) &&
-        hdag_darr_is_clean(&bundle->unknown_indexes);
+        hdag_arr_is_clean(&bundle->nodes) &&
+        hdag_arr_is_clean(&bundle->nodes_fanout) &&
+        hdag_arr_is_clean(&bundle->target_hashes) &&
+        hdag_arr_is_clean(&bundle->extra_edges) &&
+        hdag_arr_is_clean(&bundle->unknown_indexes);
 }
 
 /**
@@ -334,7 +334,7 @@ static inline bool
 hdag_bundle_fanout_is_empty(const struct hdag_bundle *bundle)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_fanout_darr_is_empty(&bundle->nodes_fanout);
+    return hdag_fanout_arr_is_empty(&bundle->nodes_fanout);
 }
 
 /**
@@ -413,7 +413,7 @@ static inline struct hdag_targets *
 hdag_bundle_targets(struct hdag_bundle *bundle, uint32_t node_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return &HDAG_DARR_ELEMENT_UNSIZED(
+    return &HDAG_ARR_ELEMENT_UNSIZED(
         &bundle->nodes, struct hdag_node, node_idx
     )->targets;
 }
@@ -430,7 +430,7 @@ static inline const struct hdag_targets *
 hdag_bundle_targets_const(const struct hdag_bundle *bundle, uint32_t node_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return &HDAG_DARR_ELEMENT_UNSIZED(
+    return &HDAG_ARR_ELEMENT_UNSIZED_CONST(
         &bundle->nodes, struct hdag_node, node_idx
     )->targets;
 }
@@ -494,7 +494,7 @@ static inline struct hdag_node *
 hdag_bundle_node(struct hdag_bundle *bundle, uint32_t node_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_darr_element(&bundle->nodes, node_idx);
+    return hdag_arr_element(&bundle->nodes, node_idx);
 }
 
 /**
@@ -509,7 +509,7 @@ static inline const struct hdag_node *
 hdag_bundle_node_const(const struct hdag_bundle *bundle, uint32_t node_idx)
 {
     assert(hdag_bundle_is_valid(bundle));
-    return hdag_darr_element_const(&bundle->nodes, node_idx);
+    return hdag_arr_element_const(&bundle->nodes, node_idx);
 }
 
 /**
@@ -649,10 +649,10 @@ hdag_bundle_find_node_idx(const struct hdag_bundle *bundle,
     return hdag_nodes_slice_find(
         bundle->nodes.slots,
         ((*hash == 0 || hdag_bundle_fanout_is_empty(bundle)) ? 0 :
-         hdag_fanout_darr_get(&bundle->nodes_fanout, *hash - 1)),
+         hdag_fanout_arr_get(&bundle->nodes_fanout, *hash - 1)),
         (hdag_bundle_fanout_is_empty(bundle) ?
-            hdag_darr_occupied_slots(&bundle->nodes) :
-            hdag_fanout_darr_get(&bundle->nodes_fanout, *hash)),
+            hdag_arr_slots_occupied(&bundle->nodes) :
+            hdag_fanout_arr_get(&bundle->nodes_fanout, *hash)),
         bundle->hash_len,
         hash
     );
@@ -676,7 +676,7 @@ hdag_bundle_find_node(struct hdag_bundle *bundle,
     assert(hdag_bundle_is_mutable(bundle));
     uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash);
     return node_idx >= INT32_MAX ? NULL
-        : hdag_darr_element(&bundle->nodes, node_idx);
+        : hdag_arr_element(&bundle->nodes, node_idx);
 }
 
 /**
@@ -696,7 +696,7 @@ hdag_bundle_find_node_const(const struct hdag_bundle *bundle,
     assert(hdag_bundle_is_valid(bundle));
     uint32_t node_idx = hdag_bundle_find_node_idx(bundle, hash);
     return node_idx >= INT32_MAX ? NULL
-        : hdag_darr_element_const(&bundle->nodes, node_idx);
+        : hdag_arr_element_const(&bundle->nodes, node_idx);
 }
 
 /**

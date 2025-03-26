@@ -28,10 +28,8 @@ add_library(
     lib/hdag/ctx.c
     lib/hdag/node_seq.c
     lib/hdag/hash_seq.c
-    lib/hdag/hdarr.c
     lib/hdag/nodes.c
     lib/hdag/node.c
-    lib/hdag/darr.c
     lib/hdag/hash.c
     lib/hdag/misc.c
     lib/hdag/res.c
@@ -62,10 +60,6 @@ add_test(NAME bundle COMMAND hdagt-bundle)
 add_executable(hdagt-arr src/hdagt/hdagt-arr.c)
 target_link_libraries(hdagt-arr hdag)
 add_test(NAME arr COMMAND hdagt-arr)
-
-add_executable(hdagt-darr src/hdagt/hdagt-darr.c)
-target_link_libraries(hdagt-darr hdag)
-add_test(NAME darr COMMAND hdagt-darr)
 
 add_executable(hdagt-misc src/hdagt/hdagt-misc.c)
 target_link_libraries(hdagt-misc hdag)

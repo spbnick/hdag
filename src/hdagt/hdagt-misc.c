@@ -3,7 +3,6 @@
  */
 
 #include <hdag/misc.h>
-#include <hdag/darr.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

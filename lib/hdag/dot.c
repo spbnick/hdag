@@ -3,6 +3,7 @@
  */
 
 #include <hdag/dot.h>
+#include <hdag/arr.h>
 #include <hdag/misc.h>
 #include <cgraph.h>
 
@@ -51,9 +52,9 @@ hdag_dot_write_bundle_dir_target(const struct hdag_bundle *bundle,
     }
 
     /* Fetch destination node (we won't change it) */
-    dst_node = HDAG_DARR_ELEMENT_UNSIZED(&bundle->nodes,
-                                         struct hdag_node,
-                                         hdag_target_to_dir_idx(target));
+    dst_node = HDAG_ARR_ELEMENT_UNSIZED_CONST(&bundle->nodes,
+                                              struct hdag_node,
+                                              hdag_target_to_dir_idx(target));
 
     /* Create/fetch destination agnode */
     hdag_bytes_to_hex(dst_hash_buf, dst_node->hash, bundle->hash_len);
@@ -114,17 +115,17 @@ hdag_dot_write_bundle_ind_targets(const struct hdag_bundle *bundle,
          idx <= hdag_node_get_last_ind_idx(src_node);
          idx++) {
         /* If indirect indices are pointing to the "extra edges" */
-        if (hdag_darr_occupied_slots(&bundle->extra_edges) != 0) {
-            edge = HDAG_DARR_ELEMENT(
+        if (hdag_arr_slots_occupied(&bundle->extra_edges) != 0) {
+            edge = HDAG_ARR_ELEMENT_CONST(
                 &bundle->extra_edges, struct hdag_edge, idx
             );
-            dst_node = HDAG_DARR_ELEMENT_UNSIZED(
+            dst_node = HDAG_ARR_ELEMENT_UNSIZED_CONST(
                 &bundle->nodes, struct hdag_node, edge->node_idx
             );
             dst_hash = dst_node->hash;
         /* Else, indirect indices are pointing to the "target hashes" */
         } else {
-            dst_hash = HDAG_DARR_ELEMENT_UNSIZED(
+            dst_hash = HDAG_ARR_ELEMENT_UNSIZED_CONST(
                 &bundle->target_hashes, uint8_t, idx
             );
         }
@@ -192,7 +193,7 @@ hdag_dot_write_bundle(const struct hdag_bundle *bundle,
     }
 
     /* For each node */
-    HDAG_DARR_ITER_FORWARD(&bundle->nodes, idx, src_node, (void)0, (void)0) {
+    HDAG_ARR_IFWD_CONST(&bundle->nodes, idx, src_node, (void)0, (void)0) {
         /* Create or fetch the node */
         hdag_bytes_to_hex(src_hash_buf,
                           src_node->hash, bundle->hash_len);

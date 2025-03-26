@@ -7,6 +7,7 @@
 
 #include <hdag/file.h>
 #include <hdag/bundle.h>
+#include <hdag/arr.h>
 #include <hdag/ctx.h>
 #include <hdag/res.h>
 #include <stdint.h>
@@ -43,8 +44,8 @@ struct hdag_db {
     char *new_file_pathname_tmpl;
     /** The length of the node hash used throughout the database */
     uint16_t hash_len;
-    /** The dynamic array of hash DAG bundles */
-    struct hdag_darr bundles;
+    /** The array of hash DAG bundles */
+    struct hdag_arr bundles;
 
     /**
      * An HDAG representing component connections across bundle boundaries.
@@ -114,7 +115,7 @@ hdag_db_components_pseudohash_init(
  * An initializer for a closed HDAG database
  */
 #define HDAG_DB_CLOSED ((struct hdag_db){ \
-    .bundles = HDAG_DARR_EMPTY(sizeof(struct hdag_bundle), 16), \
+    .bundles = HDAG_ARR_EMPTY(sizeof(struct hdag_bundle), 16),  \
     .components = HDAG_BUNDLE_EMPTY(                            \
         sizeof(struct hdag_db_components_pseudohash)            \
     ),                                                          \
@@ -137,7 +138,7 @@ hdag_db_is_valid(const struct hdag_db *db)
         db != NULL &&
         (db->hash_len == 0 || hdag_hash_len_is_valid(db->hash_len)) &&
         (db->pathname == NULL) == (db->new_file_pathname_tmpl == NULL) &&
-        hdag_darr_is_valid(&db->bundles) &&
+        hdag_arr_is_valid(&db->bundles) &&
         hdag_bundle_is_valid(&db->components) &&
         db->components.hash_len ==
             sizeof(struct hdag_db_components_pseudohash) &&
@@ -146,7 +147,7 @@ hdag_db_is_valid(const struct hdag_db *db)
         return false;
     }
 
-    HDAG_DARR_ITER_FORWARD(&db->bundles, idx, bundle, (void)0, (void)0) {
+    HDAG_ARR_IFWD_CONST(&db->bundles, idx, bundle, (void)0, (void)0) {
         if (!hdag_bundle_is_valid(bundle) ||
             !hdag_bundle_is_filed(bundle)) {
             return false;
