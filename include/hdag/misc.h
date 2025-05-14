@@ -296,38 +296,51 @@ static inline uint64_t hdag_splitmix64_hash(uint64_t x)
  * @param second    The second value to compare.
  * @param data      The function's private data.
  *
- * @return -1 if first < second, 0 if first == second, 1 if first > second.
- * @return -1, if first < second
- *          0, if first == second
- *          1, if first > second
+ * @return The (non-normalized) bare (standard) comparison result:
+ *          < 0, if first < second
+ *         == 0, if first == second
+ *          > 0, if first > second
  */
 typedef int (*hdag_cmp_fn)(const void *first, const void *second, void *data);
 
 /**
- * Check if a comparison result is valid.
+ * Check if a comparison result is normal (must be in [-1, 1] range).
  *
  * @param cmp   The comparison result to check.
  *
  * @return True if the comparison result is valid, false otherwise.
  */
 static inline bool
-hdag_cmp_is_valid(int cmp)
+hdag_cmp_is_normal(int cmp)
 {
-    return cmp >= -1 && cmp <= 1;
+    return (unsigned int)(cmp + 1) <= 2;
 }
 
 /**
- * Validate a comparison result.
+ * Verify that a comparison result is normal (in [-1, 1] range).
  *
- * @param cmp   The comparison result to validate.
+ * @param cmp   The comparison result to verify.
  *
- * @return The validated comparison result.
+ * @return The verified comparison result.
  */
 static inline int
-hdag_cmp_validate(int cmp)
+hdag_cmp_verify_normal(int cmp)
 {
-    assert(hdag_cmp_is_valid(cmp));
+    assert(hdag_cmp_is_normal(cmp));
     return cmp;
+}
+
+/**
+ * Normalize a comparison result (from any value to [-1, 1] range).
+ *
+ * @param cmp   The comparison result to normalize.
+ *
+ * @return The normalized comparison result.
+ */
+static inline int
+hdag_cmp_normalize(int cmp)
+{
+    return (cmp > 0) - (cmp < 0);
 }
 
 /**
@@ -337,9 +350,7 @@ hdag_cmp_validate(int cmp)
  * @param second    The second value to compare.
  * @param data      The size of each value (uintptr_t).
  *
- * @return -1, if first < second
- *          0, if first == second
- *          1, if first > second
+ * @return Non-normalized comparison result.
  */
 extern int hdag_cmp_mem(const void *first, const void *second, void *data);
 

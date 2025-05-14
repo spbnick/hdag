@@ -101,6 +101,20 @@ struct hdag_bundle {
 extern bool hdag_bundle_is_valid(const struct hdag_bundle *bundle);
 
 /**
+ * Validate a bundle.
+ *
+ * @param bundle    The bundle to validate.
+ *
+ * @return The validated bundle.
+ */
+static inline struct hdag_bundle*
+hdag_bundle_validate(struct hdag_bundle *bundle)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return bundle;
+}
+
+/**
  * Check if a bundle is mutable.
  *
  * @param bundle    The bundle to check.
@@ -321,6 +335,7 @@ extern hdag_res hdag_bundle_sort_and_dedup(struct hdag_bundle *bundle,
  *
  * @return A void universal result.
  */
+[[nodiscard]]
 extern hdag_res hdag_bundle_fanout_fill(struct hdag_bundle *bundle);
 
 /**
@@ -601,35 +616,111 @@ struct hdag_bundle_targets_hash_seq {
     uint32_t                    target_idx;
 };
 
+/**
+ * Check if a bundle node target hash sequence is valid.
+ *
+ * @param seq   The sequence to check.
+ *
+ * @return True if the sequence is valid, false otherwise.
+ */
+static inline bool
+hdag_bundle_targets_hash_seq_is_valid(
+                        const struct hdag_bundle_targets_hash_seq *seq)
+{
+    return seq != NULL && hdag_hash_seq_is_valid(&seq->base) && (
+        hdag_hash_seq_is_void(&seq->base) || (
+            hdag_bundle_is_valid(seq->bundle) &&
+            seq->bundle->hash_len == seq->base.base.item_size &&
+            seq->node_idx <= hdag_arr_slots_occupied(&seq->bundle->nodes) &&
+            (
+                seq->node_idx ==
+                    hdag_arr_slots_occupied(&seq->bundle->nodes) ||
+                seq->target_idx <= hdag_bundle_targets_count(seq->bundle,
+                                                             seq->node_idx)
+            )
+        )
+    );
+}
+
+/**
+ * Validate a bundle targets hash sequence.
+ *
+ * @param seq   The sequence to validate.
+ *
+ * @return The validated sequence.
+ */
+static inline struct hdag_bundle_targets_hash_seq*
+hdag_bundle_targets_hash_seq_validate(
+                        struct hdag_bundle_targets_hash_seq *seq)
+{
+    assert(hdag_bundle_targets_hash_seq_is_valid(seq));
+    return seq;
+}
+
+/** Cast a hash sequence pointer to a target hash sequence pointer */
+#define HDAG_BUNDLE_TARGETS_HASH_SEQ_FROM_HASH_SEQ(_seq) \
+    HDAG_CONTAINER_OF(struct hdag_bundle_targets_hash_seq, base, _seq)
+
+/** Cast an abstract sequence pointer to a target hash sequence pointer */
+#define HDAG_BUNDLE_TARGETS_HASH_SEQ_FROM_SEQ(_seq) \
+    HDAG_BUNDLE_TARGETS_HASH_SEQ_FROM_HASH_SEQ(HDAG_HASH_SEQ_FROM_SEQ(_seq))
+
+/**
+ * Cast a bundle target hash sequence pointer to an abstract hash sequence
+ * pointer.
+ */
+#define HDAG_BUNDLE_TARGETS_HASH_SEQ_TO_HASH_SEQ(_seq) \
+    (&hdag_bundle_targets_hash_seq_validate(_seq)->base)
+
+/**
+ * Cast a bundle target hash sequence pointer to an abstract sequence pointer.
+ */
+#define HDAG_BUNDLE_TARGETS_HASH_SEQ_TO_SEQ(_seq) \
+    HDAG_HASH_SEQ_TO_SEQ(HDAG_BUNDLE_TARGETS_HASH_SEQ_TO_HASH_SEQ(_seq))
+
 /** A next-hash retrieval function for target hash sequence */
 [[nodiscard]]
 extern hdag_res hdag_bundle_targets_hash_seq_next(
-                    struct hdag_hash_seq *base_seq,
-                    const uint8_t **phash);
+                    struct hdag_seq *base_seq,
+                    void **pitem);
 
 /** A reset function for target hash sequence */
-extern void hdag_bundle_targets_hash_seq_reset(
-                    struct hdag_hash_seq *base_seq);
+[[nodiscard]]
+extern hdag_res hdag_bundle_targets_hash_seq_reset(
+                                struct hdag_seq *base_seq);
 
 /**
- * Initialize a sequence of target hashes for a bundle node.
+ * Create a node's target hash sequence.
  *
- * @param pseq      The location of the target hash sequence to initialize.
  * @param bundle    The bundle containing the node.
  * @param node_idx  The index of the node to return the target hashes for.
- *
- * @return The pointer to the abstract hash sequence ("&pseq->base").
  */
-extern struct hdag_hash_seq *hdag_bundle_targets_hash_seq_init(
-                                struct hdag_bundle_targets_hash_seq *pseq,
-                                const struct hdag_bundle *bundle,
-                                uint32_t node_idx);
+static inline struct hdag_bundle_targets_hash_seq
+hdag_bundle_targets_hash_seq(const struct hdag_bundle *bundle,
+                             uint32_t node_idx)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    assert(node_idx <= hdag_arr_slots_occupied(&bundle->nodes));
+    return (struct hdag_bundle_targets_hash_seq){
+        .bundle = bundle,
+        .node_idx = node_idx,
+        .base = HDAG_HASH_SEQ(
+            hdag_bundle_targets_hash_seq_next,
+            false, /* Constant items */
+            hdag_bundle_targets_hash_seq_reset,
+            bundle->hash_len
+        )
+    };
+}
 
-/** An initializer for a target hash sequence */
+/**
+ * An initializer for a node's target hash sequence
+ *
+ * @param _bundle   The bundle containing the node.
+ * @param _node_idx The index of the node to return the target hashes for.
+ */
 #define HDAG_BUNDLE_TARGETS_HASH_SEQ(_bundle, _node_idx) \
-    (*hdag_bundle_targets_hash_seq_init(                                \
-        &(struct hdag_bundle_targets_hash_seq){}, _bundle, _node_idx    \
-    ))
+    hdag_bundle_targets_hash_seq(_bundle, _node_idx)
 
 /**
  * Lookup the index of a node within a bundle, using its hash.
@@ -808,14 +899,13 @@ extern hdag_res hdag_bundle_organized_from_txt(
                         FILE *stream, uint16_t hash_len);
 
 /** A next-node retrieval function for bundle's node sequence */
-extern hdag_res hdag_bundle_node_seq_next(
-                            struct hdag_node_seq *base_seq,
-                            const uint8_t **phash,
-                            struct hdag_hash_seq **ptarget_hash_seq);
+[[nodiscard]]
+extern hdag_res hdag_bundle_node_seq_next(struct hdag_seq *base_seq,
+                                          void **pitem);
 
 /** A reset function for bundle's node sequence */
-extern void hdag_bundle_node_seq_reset(
-                            struct hdag_node_seq *base_seq);
+[[nodiscard]]
+extern hdag_res hdag_bundle_node_seq_reset(struct hdag_seq *base_seq);
 
 /** Bundle's (resettable) node sequence */
 struct hdag_bundle_node_seq {
@@ -829,27 +919,77 @@ struct hdag_bundle_node_seq {
     size_t                                  node_idx;
     /** The returned node's target hash sequence */
     struct hdag_bundle_targets_hash_seq     targets_hash_seq;
+    /** The returned node item */
+    struct hdag_node_seq_item               item;
 };
 
 /**
- * Initialize a sequence of (known) bundle nodes.
+ * Check if a bundle node sequence is valid.
  *
- * @param pseq          Location for the node sequence.
+ * @param seq   The sequence to check.
+ *
+ * @return True if the sequence is valid, false otherwise.
+ */
+static inline bool
+hdag_bundle_node_seq_is_valid(const struct hdag_bundle_node_seq *seq)
+{
+    return seq != NULL && hdag_node_seq_is_valid(&seq->base) && (
+        hdag_node_seq_is_void(&seq->base) || (
+            hdag_bundle_is_valid(seq->bundle) &&
+            seq->base.hash_len == seq->bundle->hash_len &&
+            seq->node_idx <= hdag_arr_slots_occupied(&seq->bundle->nodes) &&
+            hdag_bundle_targets_hash_seq_is_valid(&seq->targets_hash_seq)
+        )
+    );
+}
+
+/**
+ * Validate a bundle node sequence.
+ *
+ * @param seq   The sequence to validate.
+ *
+ * @return The validated sequence.
+ */
+static inline struct hdag_bundle_node_seq *
+hdag_bundle_node_seq_validate(struct hdag_bundle_node_seq *seq)
+{
+    assert(hdag_bundle_node_seq_is_valid(seq));
+    return seq;
+}
+
+/**
+ * Create a bundle's node sequence
+ *
  * @param bundle        The bundle to initialize the sequence for.
  * @param with_unknown  If true, return unknown nodes too.
  *
- * @return The pointer to the abstract node sequence ("&pseq->base").
+ * @return The created sequence.
  */
-extern struct hdag_node_seq *hdag_bundle_node_seq_init(
-                                struct hdag_bundle_node_seq *pseq,
-                                const struct hdag_bundle *bundle,
-                                bool with_unknown);
+static inline struct hdag_bundle_node_seq
+hdag_bundle_node_seq(const struct hdag_bundle *bundle,
+                     bool with_unknown)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return (struct hdag_bundle_node_seq){
+        .base = HDAG_NODE_SEQ(
+            hdag_bundle_node_seq_next,
+            hdag_bundle_node_seq_reset,
+            bundle->hash_len
+        ),
+        .bundle = bundle,
+        .with_unknown = with_unknown,
+        .targets_hash_seq = HDAG_BUNDLE_TARGETS_HASH_SEQ(bundle, 0)
+    };
+}
 
-/** An initializer for a bundle's node sequence */
+/**
+ * An initializer for a bundle's node sequence.
+ *
+ * @param _bundle       The bundle to initialize the sequence for.
+ * @param _with_unknown If true, return unknown nodes too.
+ */
 #define HDAG_BUNDLE_NODE_SEQ(_bundle, _with_unknown) \
-    (*hdag_bundle_node_seq_init(                                    \
-        &(struct hdag_bundle_node_seq){}, _bundle, _with_unknown    \
-    ))
+    hdag_bundle_node_seq(_bundle, _with_unknown)
 
 /** An initializer for a bundle's any node sequence */
 #define HDAG_BUNDLE_ANY_NODE_SEQ(_bundle) \
@@ -858,6 +998,28 @@ extern struct hdag_node_seq *hdag_bundle_node_seq_init(
 /** An initializer for a bundle's known node sequence */
 #define HDAG_BUNDLE_KNOWN_NODE_SEQ(_bundle) \
     HDAG_BUNDLE_NODE_SEQ(_bundle, false)
+
+/** An initializer for an empty bundle's node sequence */
+#define HDAG_BUNDLE_NODE_SEQ_EMPTY \
+    (struct hdag_bundle_node_seq){.base = HDAG_NODE_SEQ_VOID}
+
+/** Cast a node sequence pointer to a bundle node sequence pointer */
+#define HDAG_BUNDLE_NODE_SEQ_FROM_NODE_SEQ(_seq) \
+    hdag_bundle_node_seq_validate(                                  \
+        HDAG_CONTAINER_OF(struct hdag_bundle_node_seq, base, _seq)  \
+    )
+
+/** Cast an abstract sequence pointer to a bundle node sequence pointer */
+#define HDAG_BUNDLE_NODE_SEQ_FROM_SEQ(_seq) \
+    HDAG_BUNDLE_NODE_SEQ_FROM_NODE_SEQ(HDAG_NODE_SEQ_FROM_SEQ(_seq))
+
+/** Cast a bundle node sequence pointer to an abstract node sequence pointer */
+#define HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(_seq) \
+    (&hdag_bundle_node_seq_validate(_seq)->base)
+
+/** Cast a bundle node sequence pointer to an abstract sequence pointer */
+#define HDAG_BUNDLE_NODE_SEQ_TO_SEQ(_seq) \
+    HDAG_NODE_SEQ_TO_SEQ(HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(_seq))
 
 /** Bundle's (resettable) node hash sequence */
 struct hdag_bundle_node_hash_seq {
@@ -871,40 +1033,114 @@ struct hdag_bundle_node_hash_seq {
     size_t                                  node_idx;
 };
 
-/** A next-hash retrieval function for node hash sequence */
-extern hdag_res hdag_bundle_node_hash_seq_next(struct hdag_hash_seq *base_seq,
-                                               const uint8_t **phash);
-
-/** A reset function for node hash sequence */
-extern void hdag_bundle_node_hash_seq_reset(struct hdag_hash_seq *base_seq);
+/**
+ * Check if a bundle node hash sequence is valid.
+ *
+ * @param seq   The sequence to check.
+ *
+ * @return True if the sequence is valid, false otherwise.
+ */
+static inline bool
+hdag_bundle_node_hash_seq_is_valid(
+                        const struct hdag_bundle_node_hash_seq *seq)
+{
+    return seq != NULL && hdag_hash_seq_is_valid(&seq->base) && (
+        hdag_hash_seq_is_void(&seq->base) || (
+            hdag_bundle_is_valid(seq->bundle) &&
+            seq->base.base.item_size == seq->bundle->hash_len &&
+            seq->node_idx <= hdag_arr_slots_occupied(&seq->bundle->nodes)
+        )
+    );
+}
 
 /**
- * Initialize a sequence of node hashes from a bundle.
+ * Validate a bundle's node hash sequence.
  *
- * @param pseq          Location for the node sequence.
+ * @param seq   The sequence to validate.
+ *
+ * @return The validated sequence.
+ */
+static inline struct hdag_bundle_node_hash_seq*
+hdag_bundle_node_hash_seq_validate(
+                        struct hdag_bundle_node_hash_seq *seq)
+{
+    assert(hdag_bundle_node_hash_seq_is_valid(seq));
+    return seq;
+}
+
+/** A next-hash retrieval function for node hash sequence */
+[[nodiscard]]
+extern hdag_res hdag_bundle_node_hash_seq_next(struct hdag_seq *base_seq,
+                                               void **pitem);
+
+/** A reset function for node hash sequence */
+[[nodiscard]]
+extern hdag_res hdag_bundle_node_hash_seq_reset(struct hdag_seq *base_seq);
+
+/**
+ * Create a bundle's node hash sequence
+ *
  * @param bundle        The bundle to initialize the sequence for.
  * @param with_unknown  If true, return hashes of unknown nodes too.
- *
- * @return The pointer to the abstract hash sequence ("&pseq->base").
  */
-extern struct hdag_hash_seq *hdag_bundle_node_hash_seq_init(
-                                struct hdag_bundle_node_hash_seq *pseq,
-                                const struct hdag_bundle *bundle,
-                                bool with_unknown);
+static inline struct hdag_bundle_node_hash_seq
+hdag_bundle_node_hash_seq(const struct hdag_bundle *bundle,
+                          bool with_unknown)
+{
+    assert(hdag_bundle_is_valid(bundle));
+    return (struct hdag_bundle_node_hash_seq){
+        .bundle = bundle,
+        .with_unknown = with_unknown,
+        .base = HDAG_HASH_SEQ(
+            hdag_bundle_node_hash_seq_next,
+            false, /* Constant items */
+            hdag_bundle_node_hash_seq_reset,
+            bundle->hash_len
+        )
+    };
+}
 
-/** An initializer for a bundle's node hash sequence */
+/**
+ * An initializer for a bundle's node hash sequence
+ *
+ * @param _bundle       The bundle to initialize the sequence for.
+ * @param _with_unknown If true, return hashes of unknown nodes too.
+ */
 #define HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, _with_unknown) \
-    (*hdag_bundle_node_hash_seq_init(                                   \
-        &(struct hdag_bundle_node_hash_seq){}, _bundle, _with_unknown   \
-    ))
+    hdag_bundle_node_hash_seq(_bundle, _with_unknown)
 
 /** An initializer for a bundle's any node hash sequence */
-#define HDAG_BUNDLE_ANY_NODE_HASH_SEQ(_bundle) \
+#define HDAG_BUNDLE_NODE_HASH_ANY_SEQ(_bundle) \
     HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, true)
 
 /** An initializer for a bundle's known node hash sequence */
-#define HDAG_BUNDLE_KNOWN_NODE_HASH_SEQ(_bundle) \
+#define HDAG_BUNDLE_NODE_HASH_KNOWN_SEQ(_bundle) \
     HDAG_BUNDLE_NODE_HASH_SEQ(_bundle, false)
+
+/** Cast a hash sequence pointer to a bundle node hash sequence pointer */
+#define HDAG_BUNDLE_NODE_HASH_SEQ_FROM_HASH_SEQ(_seq) \
+    hdag_bundle_node_hash_seq_validate(                                 \
+        HDAG_CONTAINER_OF(struct hdag_bundle_node_hash_seq, base, _seq) \
+    )
+
+/**
+ * Cast an abstract sequence pointer to a bundle node hash sequence pointer.
+ */
+#define HDAG_BUNDLE_NODE_HASH_SEQ_FROM_SEQ(_seq) \
+    HDAG_BUNDLE_NODE_HASH_SEQ_FROM_HASH_SEQ(HDAG_HASH_SEQ_FROM_SEQ(_seq))
+
+/**
+ * Cast a bundle node hash sequence pointer to an abstract hash sequence
+ * pointer.
+ */
+#define HDAG_BUNDLE_NODE_HASH_SEQ_TO_HASH_SEQ(_seq) \
+    (&hdag_bundle_node_hash_seq_validate(_seq)->base)
+
+/**
+ * Cast a bundle node hash sequence pointer to an abstract sequence pointer.
+ */
+#define HDAG_BUNDLE_NODE_HASH_SEQ_TO_SEQ(_seq) \
+    HDAG_HASH_SEQ_TO_SEQ(HDAG_BUNDLE_NODE_HASH_SEQ_TO_HASH_SEQ(_seq))
 
 /**
  * Check if a bundle is "filed" - having its contents located in a

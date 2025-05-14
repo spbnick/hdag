@@ -26,14 +26,16 @@ add_library(
     lib/hdag/bundle.c
     lib/hdag/file.c
     lib/hdag/ctx.c
-    lib/hdag/node_seq.c
-    lib/hdag/hash_seq.c
     lib/hdag/nodes.c
     lib/hdag/node.c
     lib/hdag/hash.c
     lib/hdag/misc.c
     lib/hdag/res.c
     lib/hdag/seq.c
+    lib/hdag/list_seq.c
+    lib/hdag/concat_seq.c
+    lib/hdag/node_seq.c
+    lib/hdag/txt_node_seq.c
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
 

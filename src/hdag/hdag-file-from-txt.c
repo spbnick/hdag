@@ -59,7 +59,7 @@ main(int argc, const char **argv)
 cleanup:
     hdag_bundle_cleanup(&bundle);
     (void)hdag_file_close(&file);
-    if (hdag_res_is_ok(res)) {
+    if (hdag_res_is_success(res)) {
         return 0;
     }
     fprintf(stderr, "ERROR: %s\n", hdag_res_str(res));

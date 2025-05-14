@@ -1411,3 +1411,6 @@ a const struct for creating a slice of an array out of, so we don't modify the
 original, but we should be able to modify the elements of the new slice.
 
 So, how about we switch to checking the "constant" flag instead?
+---
+We want to be able to create an empty bundle node sequence without specifying
+a bundle, and thus a hash length.

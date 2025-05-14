@@ -6,6 +6,7 @@
 #define _HDAG_RES_H
 
 #include <hdag/fault.h>
+#include <hdag/misc.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
@@ -58,7 +59,7 @@ hdag_res_is_valid(hdag_res res)
  * @return True if the result is a success, false otherwise.
  */
 static inline bool
-hdag_res_is_ok(hdag_res res)
+hdag_res_is_success(hdag_res res)
 {
     assert(hdag_res_is_valid(res));
     return res >= 0;
@@ -219,5 +220,104 @@ extern const char *hdag_res_str_r(hdag_res res, char *buf, size_t size);
  * @return The description of the result.
  */
 extern const char *hdag_res_str(hdag_res res);
+
+/** Comparison results representable in a universal result */
+enum hdag_res_cmp {
+    /** The first value is less than the second */
+    HDAG_RES_CMP_LT = 0,
+    /** The first value is equal to the second */
+    HDAG_RES_CMP_EQ = 1,
+    /** The first value is greater than the second */
+    HDAG_RES_CMP_GT = 2,
+    /** The number of non-fault comparison results (not a result itself) */
+    HDAG_RES_CMP_NUM
+};
+
+/**
+ * Check if a universal comparison result is valid.
+ *
+ * @param res   The result to check.
+ *
+ * @return True if the result is valid, false otherwise.
+ */
+static inline bool
+hdag_res_cmp_is_valid(hdag_res res)
+{
+    return res < HDAG_RES_CMP_NUM;
+}
+
+/**
+ * Validate a universal comparison result.
+ *
+ * @param res   The result to validate.
+ *
+ * @return The validated result.
+ */
+static inline hdag_res
+hdag_res_cmp_validate(hdag_res res)
+{
+    assert(hdag_res_cmp_is_valid(res));
+    return res;
+}
+
+/**
+ * Convert a universal comparison result to a bare comparison result.
+ *
+ * @param res   The result to convert. Must not be a fault.
+ *
+ * @return The normal bare comparison result, in [-1, 1] range.
+ */
+static inline int
+hdag_res_cmp_to_cmp(hdag_res res)
+{
+    assert(hdag_res_is_success(res));
+    assert(hdag_res_cmp_is_valid(res));
+    return hdag_cmp_verify_normal(res - 1);
+}
+
+/**
+ * Convert a bare comparison result to a universal comparison result.
+ *
+ * @param cmp   The result to convert.
+ *
+ * @return The universal comparison result.
+ */
+static inline hdag_res
+hdag_res_cmp_from_cmp(int cmp)
+{
+    hdag_res res = hdag_cmp_normalize(cmp) + 1;
+    assert(hdag_res_is_success(res));
+    assert(hdag_res_cmp_is_valid(res));
+    return res;
+}
+
+/**
+ * The prototype for an abstract value comparison function returning a
+ * universal result.
+ *
+ * @param first     The first value to compare.
+ * @param second    The second value to compare.
+ * @param data      The function's private data.
+ *
+ * @return A universal result code:
+ *         HDAG_RES_CMP_LT - 0 - first < second,
+ *         HDAG_RES_CMP_EQ - 1 - first == second,
+ *         HDAG_RES_CMP_GT - 2 - first > second,
+ *         or a fault.
+ */
+typedef hdag_res (*hdag_res_cmp_fn)(const void *first, const void *second,
+                                    void *data);
+
+/**
+ * Compare two abstract values using memcmp,
+ * return universal comparison result.
+ *
+ * @param first     The first value to compare.
+ * @param second    The second value to compare.
+ * @param data      The size of each value (uintptr_t).
+ *
+ * @return Universal comparison result.
+ */
+extern hdag_res hdag_res_cmp_mem(const void *first, const void *second, void *data);
 
 #endif /* _HDAG_RES_H */

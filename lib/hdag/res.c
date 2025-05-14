@@ -46,3 +46,12 @@ hdag_res_str(hdag_res res)
     assert(hdag_res_is_valid(res));
     return hdag_res_str_r(res, HDAG_RES_STR_BUF, sizeof(HDAG_RES_STR_BUF));
 }
+
+hdag_res
+hdag_res_cmp_mem(const void *first, const void *second, void *data)
+{
+    assert((uintptr_t)data == 0 ||
+           (first != NULL && second != NULL));
+    assert((uintptr_t)data <= SIZE_MAX);
+    return hdag_res_cmp_from_cmp(hdag_cmp_mem(first, second, data));
+}

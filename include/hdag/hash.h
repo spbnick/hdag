@@ -11,16 +11,16 @@
 #include <assert.h>
 
 /**
- * Check if a hash length is valid (divisible by four and not zero).
+ * Check if a hash length is valid (in range, divisible by four and not zero).
  *
  * @param hash_len  The hash length to check.
  *
  * @return True if the hash length is valid, false otherwise.
  */
 static inline bool
-hdag_hash_len_is_valid(uint16_t hash_len)
+hdag_hash_len_is_valid(size_t hash_len)
 {
-    return hash_len != 0 && (hash_len & 3) == 0;
+    return hash_len <= UINT16_MAX && hash_len != 0 && (hash_len & 3) == 0;
 }
 
 /**
@@ -31,10 +31,10 @@ hdag_hash_len_is_valid(uint16_t hash_len)
  * @return The validated hash length.
  */
 static inline uint16_t
-hdag_hash_len_validate(uint16_t hash_len)
+hdag_hash_len_validate(size_t hash_len)
 {
     assert(hdag_hash_len_is_valid(hash_len));
-    return hash_len;
+    return (uint16_t)hash_len;
 }
 
 /**
