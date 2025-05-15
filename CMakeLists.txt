@@ -32,9 +32,15 @@ add_library(
     lib/hdag/misc.c
     lib/hdag/res.c
     lib/hdag/seq.c
+    lib/hdag/iter.c
+    lib/hdag/type.c
+    lib/hdag/list_iter.c
     lib/hdag/list_seq.c
+    lib/hdag/cat_iter.c
     lib/hdag/concat_seq.c
+    lib/hdag/node_iter.c
     lib/hdag/node_seq.c
+    lib/hdag/txt_node_iter.c
     lib/hdag/txt_node_seq.c
 )
 target_link_libraries(hdag ${GRAPHVIZ_LIBRARIES})
