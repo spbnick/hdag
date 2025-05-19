@@ -41,6 +41,8 @@ hdag_node_is_valid(const struct hdag_node *node)
  *
  * @param hash_len  The length of the node ID hash, bytes. Must be valid
  *                  according to hdag_hash_len_is_valid(), or zero.
+ *
+ * @return The size of the node.
  */
 static inline size_t
 hdag_node_size(uint16_t hash_len)
@@ -50,6 +52,23 @@ hdag_node_size(uint16_t hash_len)
     size = sizeof(struct hdag_node) + hash_len;
     assert(size != 0 && (size & 3) == 0);
     return size;
+}
+
+/**
+ * Calculate the node hash length based on a node size.
+ *
+ * @param size  The size of the node to get the hash length for.
+ *
+ * @return The length of the node hash, bytes, or zero, if the node is
+ *         "hashless".
+ */
+static inline size_t
+hdag_node_hash_len(size_t size)
+{
+    assert(size >= sizeof(struct hdag_node));
+    size_t hash_len = size - sizeof(struct hdag_node);
+    assert(hash_len == 0 || hdag_hash_len_is_valid(hash_len));
+    return hash_len;
 }
 
 /**

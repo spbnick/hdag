@@ -5,7 +5,8 @@
 #ifndef _HDAG_CTX_H
 #define _HDAG_CTX_H
 
-#include <hdag/hash_seq.h>
+#include <hdag/iter.h>
+#include <hdag/hash.h>
 
 /* The forward declaration of a context */
 struct hdag_ctx;

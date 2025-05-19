@@ -1264,10 +1264,10 @@ test_txt_buggy_case(void)
 
 #undef WITH_BUNDLES_AND_FILES
 
-/** Test node sequence */
-struct test_node_seq {
-    /** The base abstract node sequence */
-    struct hdag_node_seq        base;
+/** Test node iterator data */
+struct test_node_iter_data {
+    /** The length of the hashes returned by the iterator */
+    size_t                      hash_len;
     /**
      * The values of the test DAG hashes being iterated over.
      * A series of zero-terminated hash value sequences, terminated with an
@@ -1285,175 +1285,208 @@ struct test_node_seq {
      * Location of the buffer to store target hashes in.
      */
     uint8_t                    *target_hash_buf;
-    /** The returned node's target hash sequence */
-    struct hdag_hash_seq        target_hash_seq;
     /** The returned node item */
-    struct hdag_node_seq_item   item;
+    struct hdag_node_iter_item  item;
 };
 
 static hdag_res
-test_hash_seq_next(struct hdag_seq *base_seq,
-                   void **pitem)
+test_hash_iter_next(const struct hdag_iter *iter, void **pitem)
 {
-    struct test_node_seq *seq = HDAG_CONTAINER_OF(
-        struct test_node_seq, target_hash_seq, base_seq
+    struct test_node_iter_data *data = HDAG_CONTAINER_OF(
+        struct test_node_iter_data, item,
+        hdag_node_iter_item_validate(
+            /* Only the iterator is const, the parent item is not */
+            (struct hdag_node_iter_item *)HDAG_CONTAINER_OF(
+                struct hdag_node_iter_item, target_hash_iter, iter
+            )
+        )
     );
-    assert(seq->next_hash_idx < HDAG_ARR_LEN(seq->hash_vals));
-    uint32_t hash_val = seq->hash_vals[seq->next_hash_idx++];
+    assert(data->next_hash_idx < HDAG_ARR_LEN(data->hash_vals));
+    uint32_t hash_val = data->hash_vals[data->next_hash_idx++];
     if (hash_val == 0) {
         return 0;
     }
-    *pitem = hdag_hash_fill(seq->target_hash_buf, seq->base.hash_len,
-                            hash_val);
+    *pitem = hdag_hash_fill(data->target_hash_buf, data->hash_len, hash_val);
     return 1;
 }
 
 static hdag_res
-test_node_seq_next(struct hdag_seq *base_seq, void **pitem)
+test_node_iter_next(const struct hdag_iter *iter, void **pitem)
 {
-    struct test_node_seq *seq = HDAG_CONTAINER_OF(
-        struct test_node_seq, base, base_seq
-    );
-    assert(seq->next_hash_idx < HDAG_ARR_LEN(seq->hash_vals));
-    uint32_t hash_val = seq->hash_vals[seq->next_hash_idx++];
+    struct test_node_iter_data *data = iter->data;
+    assert(data->next_hash_idx < HDAG_ARR_LEN(data->hash_vals));
+    uint32_t hash_val = data->hash_vals[data->next_hash_idx++];
     if (hash_val == 0) {
         return 0;
     }
-    hdag_hash_fill(seq->hash_buf, seq->base.hash_len, hash_val);
-    seq->item.hash = seq->hash_buf;
-    seq->item.target_hash_seq = HDAG_HASH_SEQ_TO_SEQ(&seq->target_hash_seq);
-    *pitem = &seq->item;
+    hdag_hash_fill(data->hash_buf, data->hash_len, hash_val);
+    data->item.hash = data->hash_buf;
+    *pitem = &data->item;
     return 1;
 }
 
-static inline struct test_node_seq
-test_node_seq(size_t hash_len, uint8_t *hash_buf, uint8_t *target_hash_buf,
-              ...)
+bool
+test_node_iter_get_prop(const struct hdag_iter *iter,
+                        enum hdag_iter_prop_id id,
+                        hdag_type type,
+                        void *pvalue)
+{
+    assert(hdag_iter_is_valid(iter));
+    assert(hdag_iter_prop_id_is_valid(id));
+    assert(hdag_type_is_valid(type));
+    struct test_node_iter_data *data = iter->data;
+
+    if (id == HDAG_ITER_PROP_ID_HASH_LEN && type == HDAG_TYPE_SIZE) {
+        if (pvalue != NULL) {
+            *(size_t *)pvalue = data->hash_len;
+        }
+        return true;
+    }
+    return false;
+}
+
+static inline struct hdag_iter
+test_node_iter(struct test_node_iter_data *data,
+               size_t hash_len, uint8_t *hash_buf, uint8_t *target_hash_buf,
+               ...)
 {
     va_list hash_val_args;
     uint32_t hash_val;
     uint32_t prev_hash_val;
     size_t i;
 
+    assert(data != NULL);
     assert(hdag_hash_len_is_valid(hash_len));
     assert(hash_buf != NULL);
     assert(target_hash_buf != NULL);
-    struct test_node_seq seq = {
-        .base = HDAG_NODE_SEQ(test_node_seq_next, NULL, hash_len),
+    *data = (struct test_node_iter_data){
+        .hash_len = hash_len,
         .hash_buf = hash_buf,
         .target_hash_buf = target_hash_buf,
-        .target_hash_seq =
-            HDAG_HASH_SEQ(test_hash_seq_next, false, NULL, hash_len),
+        .item = {
+            .target_hash_iter = hdag_iter(
+                test_hash_iter_next,
+                NULL,
+                HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, hash_len),
+                false,
+                NULL
+            ),
+        },
     };
     va_start(hash_val_args, target_hash_buf);
     for (i = 0, prev_hash_val = 0; ;prev_hash_val = hash_val, i++) {
-        assert(i < HDAG_ARR_LEN(seq.hash_vals));
+        assert(i < HDAG_ARR_LEN(data->hash_vals));
         hash_val = va_arg(hash_val_args, uint32_t);
-        seq.hash_vals[i] = hash_val;
+        data->hash_vals[i] = hash_val;
         if (!(hash_val || prev_hash_val)) {
             break;
         }
     }
     va_end(hash_val_args);
-    return seq;
+    return hdag_iter(
+        test_node_iter_next,
+        test_node_iter_get_prop,
+        HDAG_NODE_ITER_ITEM_TYPE,
+        false,
+        data
+    );
 }
-#define TEST_NODE_SEQ(_hash_len, _hash_buf, _target_hash_buf, \
-                      _hash_vals...) \
-    test_node_seq(_hash_len, _hash_buf, _target_hash_buf, ##_hash_vals, 0)
-
-#define TEST_NODE(_hash_val, _target_hash_vals...) \
-    _hash_val, ##_target_hash_vals, 0
 
 static size_t
 test_file(uint16_t hash_len)
 {
     size_t failed = 0;
-    hdag_res res;
     assert(hdag_hash_len_is_valid(hash_len));
     uint8_t hash_buf[hash_len];
     uint8_t target_hash_buf[hash_len];
-#define NODE_SEQ(_hash_vals...) \
-    TEST_NODE_SEQ(hash_len, hash_buf, target_hash_buf, ##_hash_vals)
+    struct test_node_iter_data node_iter_data;
 
-#define TEST_FILE(_node_seq) \
-    do {                                                            \
-        struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(0);           \
-        struct test_node_seq __node_seq;                            \
-        struct hdag_bundle_node_seq _bundle_node_seq;               \
-        __node_seq = (_node_seq);                                   \
-        res = hdag_bundle_organized_from_node_seq(                  \
-            &bundle, NULL, &__node_seq.base                         \
-        );                                                          \
-        TEST(res == HDAG_RES_OK);                                   \
-        _bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);     \
-        __node_seq = (_node_seq);                                   \
-        TEST(hdag_node_seq_cmp(                                     \
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&_bundle_node_seq),    \
-            &__node_seq.base) == HDAG_RES_CMP_EQ                    \
-        );                                                          \
-        TEST(!hdag_bundle_is_filed(&bundle));                       \
-        TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK); \
-        TEST(hdag_bundle_is_filed(&bundle));                        \
-        _bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);     \
-        __node_seq = (_node_seq);                                   \
-        TEST(hdag_node_seq_cmp(                                     \
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&_bundle_node_seq),    \
-            &__node_seq.base) == HDAG_RES_CMP_EQ                    \
-        );                                                          \
-        TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);           \
-        TEST(!hdag_bundle_is_filed(&bundle));                       \
-        _bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);     \
-        __node_seq = (_node_seq);                                   \
-        TEST(hdag_node_seq_cmp(                                     \
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&_bundle_node_seq),    \
-            &__node_seq.base) == HDAG_RES_CMP_EQ                    \
-        );                                                          \
-        hdag_bundle_cleanup(&bundle);                               \
+#define NODE_ITER(_hash_vals...) \
+    test_node_iter(&node_iter_data, hash_len, hash_buf, target_hash_buf,    \
+                   ##_hash_vals, 0)
+
+#define NODE(_hash_val, _target_hash_vals...) \
+    _hash_val, ##_target_hash_vals, 0
+
+#define TEST_FILE(_node_iter) \
+    do {                                                                    \
+        struct hdag_iter                __node_iter;                        \
+        struct hdag_bundle              _bundle = HDAG_BUNDLE_EMPTY(0);     \
+        struct hdag_bundle_iter_data    _bundle_node_iter_data;             \
+        struct hdag_iter                _bundle_node_iter;                  \
+        __node_iter = (_node_iter);                                         \
+        TEST(hdag_bundle_organized_from_node_iter(                          \
+            &_bundle, NULL, &__node_iter                                    \
+        ) == HDAG_RES_OK);                                                  \
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,  \
+                                                  &_bundle, false);         \
+        __node_iter = (_node_iter);                                         \
+        TEST(hdag_node_iter_cmp(                                            \
+            &_bundle_node_iter, &__node_iter                                \
+        ) == HDAG_RES_CMP_EQ);                                              \
+        TEST(!hdag_bundle_is_filed(&_bundle));                              \
+        TEST(hdag_bundle_file(&_bundle, NULL, 0, 0) == HDAG_RES_OK);        \
+        TEST(hdag_bundle_is_filed(&_bundle));                               \
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,  \
+                                                  &_bundle, false);         \
+        __node_iter = (_node_iter);                                         \
+        TEST(hdag_node_iter_cmp(                                            \
+            &_bundle_node_iter, &__node_iter                                \
+        ) == HDAG_RES_CMP_EQ);                                              \
+        TEST(hdag_bundle_unfile(&_bundle) == HDAG_RES_OK);                  \
+        TEST(!hdag_bundle_is_filed(&_bundle));                              \
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,  \
+                                                  &_bundle, false);         \
+        __node_iter = (_node_iter);                                         \
+        TEST(hdag_node_iter_cmp(                                            \
+            &_bundle_node_iter, &__node_iter                                \
+        ) == HDAG_RES_CMP_EQ);                                              \
+        hdag_bundle_cleanup(&_bundle);                                      \
     } while (0)
 
     do {
-        struct hdag_bundle bundle = HDAG_BUNDLE_EMPTY(0);
-        struct test_node_seq node_seq;
-        struct hdag_bundle_node_seq bundle_node_seq;
-        node_seq = NODE_SEQ();
-        res = hdag_bundle_organized_from_node_seq(
-            &bundle, NULL, &node_seq.base
-        );
-        TEST(res == HDAG_RES_OK);
-        bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);
-        node_seq = NODE_SEQ();
-        TEST(hdag_node_seq_cmp(
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&bundle_node_seq),
-            &node_seq.base) == HDAG_RES_CMP_EQ
-        );
-        TEST(!hdag_bundle_is_filed(&bundle));
-        TEST(hdag_bundle_file(&bundle, NULL, 0, 0) == HDAG_RES_OK);
-        TEST(hdag_bundle_is_filed(&bundle));
-        bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);
-        node_seq = NODE_SEQ();
-        TEST(hdag_node_seq_cmp(
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&bundle_node_seq),
-            &node_seq.base) == HDAG_RES_CMP_EQ
-        );
-        TEST(hdag_bundle_unfile(&bundle) == HDAG_RES_OK);
-        TEST(!hdag_bundle_is_filed(&bundle));
-        bundle_node_seq = HDAG_BUNDLE_KNOWN_NODE_SEQ(&bundle);
-        node_seq = NODE_SEQ();
-        TEST(hdag_node_seq_cmp(
-            HDAG_BUNDLE_NODE_SEQ_TO_NODE_SEQ(&bundle_node_seq),
-            &node_seq.base) == HDAG_RES_CMP_EQ
-        );
-        hdag_bundle_cleanup(&bundle);
+        struct hdag_iter                __node_iter;
+        struct hdag_bundle              _bundle = HDAG_BUNDLE_EMPTY(0);
+        struct hdag_bundle_iter_data    _bundle_node_iter_data;
+        struct hdag_iter                _bundle_node_iter;
+        __node_iter = NODE_ITER();
+        TEST(hdag_bundle_organized_from_node_iter(
+            &_bundle, NULL, &__node_iter
+        ) == HDAG_RES_OK);
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,
+                                                  &_bundle, false);
+        __node_iter = NODE_ITER();
+        TEST(hdag_node_iter_cmp(
+            &_bundle_node_iter, &__node_iter 
+        ) == HDAG_RES_CMP_EQ);
+        TEST(!hdag_bundle_is_filed(&_bundle));
+        TEST(hdag_bundle_file(&_bundle, NULL, 0, 0) == HDAG_RES_OK);
+        TEST(hdag_bundle_is_filed(&_bundle));
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,
+                                                  &_bundle, false);
+        __node_iter = NODE_ITER();
+        TEST(hdag_node_iter_cmp(
+            &_bundle_node_iter, &__node_iter 
+        ) == HDAG_RES_CMP_EQ);
+        TEST(hdag_bundle_unfile(&_bundle) == HDAG_RES_OK);
+        TEST(!hdag_bundle_is_filed(&_bundle));
+        _bundle_node_iter = hdag_bundle_node_iter(&_bundle_node_iter_data,
+                                                  &_bundle, false);
+        __node_iter = NODE_ITER();
+        TEST(hdag_node_iter_cmp(
+            &_bundle_node_iter, &__node_iter 
+        ) == HDAG_RES_CMP_EQ);
+        hdag_bundle_cleanup(&_bundle);
     } while (0);
 
-    TEST_FILE(NODE_SEQ());
-    TEST_FILE(NODE_SEQ(TEST_NODE(1)));
-    TEST_FILE(NODE_SEQ(TEST_NODE(1), TEST_NODE(2)));
-    TEST_FILE(NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2)));
-    TEST_FILE(NODE_SEQ(TEST_NODE(1, 2), TEST_NODE(2, 3)));
-    TEST_FILE(NODE_SEQ(TEST_NODE(1, 2, 3),
-                       TEST_NODE(2, 3),
-                       TEST_NODE(3, 4, 5)));
+    TEST_FILE(NODE_ITER());
+    TEST_FILE(NODE_ITER(NODE(1)));
+    TEST_FILE(NODE_ITER(NODE(1), NODE(2)));
+    TEST_FILE(NODE_ITER(NODE(1, 2), NODE(2)));
+    TEST_FILE(NODE_ITER(NODE(1, 2), NODE(2, 3)));
+    TEST_FILE(NODE_ITER(NODE(1, 2, 3),
+                        NODE(2, 3),
+                        NODE(3, 4, 5)));
 
     return failed;
 }
