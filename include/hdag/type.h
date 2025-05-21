@@ -34,7 +34,7 @@ enum hdag_type_id {
 static_assert(HDAG_TYPE_ID_NUM <= (1 << HDAG_TYPE_ID_BITS));
 
 /** A bitmask covering all possible values of a type ID */
-#define HDAG_TYPE_ID_MASK   ((1 << HDAG_TYPE_ID_BITS) - 1)
+#define HDAG_TYPE_ID_MASK   ((1ULL << HDAG_TYPE_ID_BITS) - 1)
 
 /**
  * Check if a type ID is valid.
@@ -63,29 +63,127 @@ hdag_type_id_validate(enum hdag_type_id id)
     return id;
 }
 
+/** Number of bits in a repetition count (array size) */
+#define HDAG_TYPE_REP_BITS  16
+
+/** A bitmask covering all possible values of a repetition count */
+#define HDAG_TYPE_REP_MASK  ((1ULL << HDAG_TYPE_REP_BITS) - 1)
+
 /**
+ * Check a repetition count is valid.
+ *
+ * @param rep   The repetition count to check.
+ *
+ * @return True if the count is valid.
+ */
+static inline bool
+hdag_type_rep_is_valid(uint64_t rep)
+{
+    return rep <= HDAG_TYPE_REP_MASK;
+}
+
+/**
+ * Validate a repetition count.
+ *
+ * @param rep   The repetition count to validate.
+ *
+ * @return The validated repetition count.
+ */
+static inline uint64_t
+hdag_type_rep_validate(uint64_t rep)
+{
+    assert(hdag_type_rep_is_valid(rep));
+    return rep;
+}
+
+/** Number of bits in a type parameter */
+#define HDAG_TYPE_PRM_BITS  40
+
+/** A bitmask covering all possible values of a parameter */
+#define HDAG_TYPE_PRM_MASK  ((1ULL << HDAG_TYPE_PRM_BITS) - 1)
+
+/**
+ * Check a parameter is valid.
+ *
+ * @param prm   The parameter to check.
+ *
+ * @return True if the parameter is valid.
+ */
+static inline bool
+hdag_type_prm_is_valid(uint64_t prm)
+{
+    return prm <= HDAG_TYPE_PRM_MASK;
+}
+
+/**
+ * Validate a parameter.
+ *
+ * @param prm   The parameter to validate.
+ *
+ * @return The validated parameter.
+ */
+static inline uint64_t
+hdag_type_prm_validate(uint64_t prm)
+{
+    assert(hdag_type_prm_is_valid(prm));
+    return prm;
+}
+
+/**
+ * A (composite) type definition layer.
+ *
+ * The lowest HDAG_TYPE_ID_BITS specify the type ID (enum hdag_type_id),
+ * followed by HDAG_TYPE_PRM_BITS of the type-specific parameter, and
+ * HDAG_TYPE_REP_BITS specifying the number of elements in the array.
+ * One thus signifying a single instance (not really an array).
+ */
+typedef uint64_t hdag_type_layer;
+
+/** Number of bits in a type definition layer */
+#define HDAG_TYPE_LAYER_BITS    (sizeof(hdag_type_layer) * 8)
+
+/** The first bit of the type ID in a type layer */
+#define HDAG_TYPE_LAYER_ID_LSB  0
+
+/** The first bit of the type parameter in a type layer */
+#define HDAG_TYPE_LAYER_PRM_LSB  HDAG_TYPE_ID_BITS
+
+/** The first bit of the repetition count in a type layer */
+#define HDAG_TYPE_LAYER_REP_LSB  (HDAG_TYPE_ID_BITS + HDAG_TYPE_PRM_BITS)
+
+/*
  * Get the type ID from a type definition layer via a constant expression
  * (without validation).
  */
-#define HDAG_TYPE_LAYER_GET_ID(_layer)  ((_layer) & HDAG_TYPE_ID_MASK)
+#define HDAG_TYPE_LAYER_GET_ID(_layer) \
+     (((_layer) & HDAG_TYPE_ID_MASK) >> HDAG_TYPE_LAYER_ID_LSB)
+
+/**
+ * Get the parameter from a type definition layer via a constant
+ * expression (without validation).
+ */
+#define HDAG_TYPE_LAYER_GET_PRM(_layer) \
+    (((_layer) >> HDAG_TYPE_LAYER_PRM_LSB) & HDAG_TYPE_PRM_MASK)
 
 /**
  * Get the repetition count from a type definition layer via a constant
  * expression (without validation).
  */
-#define HDAG_TYPE_LAYER_GET_REP(_layer)  (((_layer) >> HDAG_TYPE_ID_BITS) + 1)
+#define HDAG_TYPE_LAYER_GET_REP(_layer) \
+    (((_layer) >> HDAG_TYPE_LAYER_REP_LSB) & HDAG_TYPE_REP_MASK)
 
 /**
- * A (composite) type definition layer.
+ * Create a type layer via a constant expression.
  *
- * The lowest HDAG_TYPE_ID_BITS specify the type ID (enum hdag_type_id).
- * The remaining bits specify the number of elements in an array, minus one.
- * Zero thus signifying that it's a single instance.
+ * @param _id   The type ID (enum hdag_type_id).
+ * @param _prm  The type parameter.
+ * @param _rep  The repetition count (minimum one).
  */
-typedef uint32_t hdag_type_layer;
-
-/** Number of bits in a type definition layer */
-#define HDAG_TYPE_LAYER_BITS    (sizeof(hdag_type_layer) * 8)
+#define HDAG_TYPE_LAYER(_id, _prm, _rep) ( \
+    (((_id) & HDAG_TYPE_ID_MASK) << HDAG_TYPE_LAYER_ID_LSB) |       \
+    (((_prm) & HDAG_TYPE_PRM_MASK) << HDAG_TYPE_LAYER_PRM_LSB) |    \
+    (((_rep) & HDAG_TYPE_REP_MASK) << HDAG_TYPE_LAYER_REP_LSB)      \
+)
 
 /**
  * Check a type definition layer is valid.
@@ -129,14 +227,33 @@ extern size_t hdag_type_layer_get_size(hdag_type_layer layer);
  * A series of type definition layers, terminated by a layer with type ID
  * other than HDAG_TYPE_ID_PTR. A type can also be treated as its top layer.
  */
-typedef uint64_t hdag_type;
+typedef __uint128_t hdag_type;
 
 /**
- * Define a non-aggregate type via a constant expression (without validation).
+ * Define a type via a constant expression (without validation).
+ *
+ * @param _id   The ID of the type to define.
+ * @param _prm  The parameter to specify for the type.
+ * @param _rep  The number of times the instance is repeated.
+ */
+#define HDAG_TYPE_ANY(_id, _prm, _rep)  HDAG_TYPE_LAYER(_id, _prm, _rep)
+
+/**
+ * Define a parameterless, non-aggregate (simple) type via a constant
+ * expression (without validation).
  *
  * @param _id   The ID of the type to define.
  */
-#define HDAG_TYPE_DEF(_id)  (_id)
+#define HDAG_TYPE_BASIC(_id)  HDAG_TYPE_ANY(_id, 0, 1)
+
+/**
+ * Define a non-aggregate parametrized type via a constant expression (without
+ * validation).
+ *
+ * @param _id   The ID of the type to define.
+ * @param _prm  The parameter to specify for the type.
+ */
+#define HDAG_TYPE_PRM(_id, _prm)  HDAG_TYPE_ANY(_id, _prm, 1)
 
 /**
  * Get the first layer of a type via a constant expression
@@ -153,14 +270,26 @@ typedef uint64_t hdag_type;
     HDAG_TYPE_LAYER_GET_ID(HDAG_TYPE_GET_LAYER(_type))
 
 /**
+ * Get the parameter of a type's first layer via a constant expression
+ * (without validation).
+ */
+#define HDAG_TYPE_GET_PRM(_type) \
+    HDAG_TYPE_LAYER_GET_PRM(HDAG_TYPE_GET_LAYER(_type))
+
+/**
+ * Get the repetition count of a type's first layer via a constant expression
+ * (without validation).
+ */
+#define HDAG_TYPE_GET_REP(_type) \
+    HDAG_TYPE_LAYER_GET_REP(HDAG_TYPE_GET_LAYER(_type))
+
+/**
  * Define an array type via a constant expression (without validation).
  *
  * @param _id   The ID of the type to define.
- * @param _size The non-zero size of the defined array.
+ * @param _rep  The size of the defined array.
  */
-#define HDAG_TYPE_ARR(_id, _size)  ( \
-    (_id) | (((_size) - 1) << HDAG_TYPE_ID_BITS)    \
-)
+#define HDAG_TYPE_ARR(_id, _rep)  HDAG_TYPE_ANY(_id, 0, _rep)
 
 /**
  * Define of a pointer type referencing another type via a constant expression
@@ -169,8 +298,7 @@ typedef uint64_t hdag_type;
  * @param _type The type being referenced.
  */
 #define HDAG_TYPE_REF(_type) ( \
-    ((_type) << HDAG_TYPE_LAYER_BITS) | \
-    HDAG_TYPE_DEF(HDAG_TYPE_ID_PTR)         \
+    ((_type) << HDAG_TYPE_LAYER_BITS) | HDAG_TYPE_ANY(HDAG_TYPE_ID_PTR) \
 )
 
 /** Dereference a type via a constant expression (without validation) */
@@ -181,11 +309,10 @@ typedef uint64_t hdag_type;
  * expression (without validation).
  *
  * @param _type The type being referenced.
- * @param _size The non-zero size of the defined array.
+ * @param _rep  The non-zero size of the defined array.
  */
-#define HDAG_TYPE_REF_ARR(_type, _size) ( \
-    ((_type) << HDAG_TYPE_LAYER_BITS) |     \
-    HDAG_TYPE_ARR(HDAG_TYPE_ID_PTR, _size)  \
+#define HDAG_TYPE_REF_ARR(_type, _rep) ( \
+    ((_type) << HDAG_TYPE_LAYER_BITS) | HDAG_TYPE_ARR(HDAG_TYPE_ID_PTR, _rep)   \
 )
 
 /**
@@ -220,16 +347,19 @@ hdag_type_validate(hdag_type type)
 }
 
 /**
- * Create a non-aggregate type definition.
+ * Create a type definition.
  *
  * @param id    The ID of the type to define.
  *
  * @return The created type definition.
  */
 static inline hdag_type
-hdag_type_def(enum hdag_type_id id)
+hdag_type_any(enum hdag_type_id id, uint64_t prm, uint16_t rep)
 {
-    return hdag_type_validate(HDAG_TYPE_DEF(hdag_type_id_is_valid(id)));
+    assert(hdag_type_id_is_valid(id));
+    assert(hdag_type_prm_is_valid(prm));
+    assert(hdag_type_rep_is_valid(rep));
+    return hdag_type_validate(HDAG_TYPE_ANY(id, prm, rep));
 }
 
 /**
@@ -242,16 +372,16 @@ hdag_type_def(enum hdag_type_id id)
 extern size_t hdag_type_get_size(hdag_type type);
 
 /** The void type */
-#define HDAG_TYPE_VOID HDAG_TYPE_DEF(HDAG_TYPE_ID_VOID)
+#define HDAG_TYPE_VOID HDAG_TYPE_BASIC(HDAG_TYPE_ID_VOID)
 /** The uint8_t type */
-#define HDAG_TYPE_UINT8 HDAG_TYPE_DEF(HDAG_TYPE_ID_UINT8)
+#define HDAG_TYPE_UINT8 HDAG_TYPE_BASIC(HDAG_TYPE_ID_UINT8)
 /** The uint16_t type */
-#define HDAG_TYPE_UINT16 HDAG_TYPE_DEF(HDAG_TYPE_ID_UINT16)
+#define HDAG_TYPE_UINT16 HDAG_TYPE_BASIC(HDAG_TYPE_ID_UINT16)
 /** The uint32_t type */
-#define HDAG_TYPE_UINT32 HDAG_TYPE_DEF(HDAG_TYPE_ID_UINT32)
+#define HDAG_TYPE_UINT32 HDAG_TYPE_BASIC(HDAG_TYPE_ID_UINT32)
 /** The uint64_t type */
-#define HDAG_TYPE_UINT64 HDAG_TYPE_DEF(HDAG_TYPE_ID_UINT64)
+#define HDAG_TYPE_UINT64 HDAG_TYPE_BASIC(HDAG_TYPE_ID_UINT64)
 /** The size_t type */
-#define HDAG_TYPE_SIZE HDAG_TYPE_DEF(HDAG_TYPE_ID_SIZE)
+#define HDAG_TYPE_SIZE HDAG_TYPE_BASIC(HDAG_TYPE_ID_SIZE)
 
 #endif /* _HDAG_TYPE_H */

@@ -21,9 +21,9 @@ struct hdag_node_iter_item {
     struct hdag_iter    target_hash_iter;
 };
 
-/** The type ID of the node iterator item */
+/** The type ID of a single node iterator item */
 #define HDAG_NODE_ITER_ITEM_TYPE \
-    HDAG_TYPE_DEF(HDAG_TYPE_ID_STRUCT_NODE_ITER_ITEM)
+    HDAG_TYPE_BASIC(HDAG_TYPE_ID_STRUCT_NODE_ITER_ITEM)
 
 /**
  * Check if a node iterator item is valid.
