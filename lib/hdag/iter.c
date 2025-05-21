@@ -16,22 +16,6 @@ hdag_iter_empty_next(const struct hdag_iter *iter, void **pitem)
     return HDAG_RES_OK;
 }
 
-bool
-hdag_iter_empty_get_prop(const struct hdag_iter *iter,
-                         enum hdag_iter_prop_id id,
-                         hdag_type type,
-                         void *pvalue)
-{
-    assert(hdag_iter_is_valid(iter));
-    assert(hdag_iter_prop_id_is_valid(id));
-    assert(hdag_type_is_valid(type));
-    (void)iter;
-    (void)id;
-    (void)type;
-    (void)pvalue;
-    return false;
-}
-
 hdag_res
 hdag_iter_cmp(const struct hdag_iter *iter_a, const struct hdag_iter *iter_b,
               hdag_res_cmp_fn cmp_fn, void *cmp_data)

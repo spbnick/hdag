@@ -4,7 +4,6 @@
 #ifndef _HDAG_ITER_H
 #define _HDAG_ITER_H
 
-#include <hdag/iter_prop.h>
 #include <hdag/res.h>
 #include <hdag/type.h>
 #include <hdag/misc.h>
@@ -32,32 +31,10 @@ struct hdag_iter;
 typedef hdag_res (*hdag_iter_next_fn)(const struct hdag_iter *iter,
                                       void **pitem);
 
-/**
- * The prototype for a function returning the value of a property from an
- * iterator.
- *
- * @param iter      The iterator to retrieve the property from.
- * @param id        The ID of the property.
- * @param type      The type of the property.
- * @param pvalue    The location for the retrieved property value.
- *
- * @return True if the iterator had the property and did output its value.
- *         False if the property ID was unknown, or the type was incorrect.
- */
-typedef bool (*hdag_iter_get_prop_fn)(const struct hdag_iter *iter,
-                                      enum hdag_iter_prop_id id,
-                                      hdag_type type,
-                                      void *pvalue);
-
 /** An abstract iterator */
 struct hdag_iter {
     /** The function retrieving the next item from the iterator */
     hdag_iter_next_fn       next_fn;
-    /**
-     * The function retrieving a property from the iterator.
-     * Can be NULL to signify iterator has no properties.
-     */
-    hdag_iter_get_prop_fn   get_prop_fn;
     /**
      * The type of the items, pointers to which are returned by the iterator.
      */
@@ -93,32 +70,6 @@ hdag_iter_is_valid(const struct hdag_iter *iter)
 }
 
 /**
- * Retrieve a property value from an iterator.
- *
- * @param iter      The iterator to retrieve the property from.
- * @param id        The ID of the property.
- * @param type      The type of the property.
- * @param pvalue    The location for the retrieved property value.
- *                  Can be NULL to not output the value.
- *
- * @return True if the iterator had the property (and did output its value
- *         given the location). False if the property ID was unknown or the
- *         property type was incorrect.
- */
-[[nodiscard]]
-static inline bool
-hdag_iter_get_prop(const struct hdag_iter *iter,
-                   enum hdag_iter_prop_id id,
-                   hdag_type type,
-                   void *pvalue)
-{
-    assert(hdag_iter_is_valid(iter));
-    assert(hdag_iter_prop_id_is_valid(id));
-    assert(hdag_type_is_valid(type));
-    return iter->get_prop_fn && iter->get_prop_fn(iter, id, type, pvalue);
-}
-
-/**
  * Check if an iterator is "mutable", that is if the items returned from it
  * can be modified.
  *
@@ -138,8 +89,6 @@ hdag_iter_is_mutable(const struct hdag_iter *iter)
  *
  * @param next_fn       The function retrieving the next item from the
  *                      iterator.
- * @param get_prop_fn   The function retrieving the value of a property from
- *                      the iterator.
  * @param item_type     The type of the items (pointers to which are) returned
  *                      by the iterator.
  * @param item_mutable  True if the items returned by the iterator can be
@@ -151,7 +100,6 @@ hdag_iter_is_mutable(const struct hdag_iter *iter)
  */
 static inline struct hdag_iter
 hdag_iter(hdag_iter_next_fn next_fn,
-          hdag_iter_get_prop_fn get_prop_fn,
           hdag_type item_type,
           bool item_mutable,
           void *data)
@@ -163,7 +111,6 @@ hdag_iter(hdag_iter_next_fn next_fn,
 #endif
     return (struct hdag_iter){
         .next_fn = next_fn,
-        .get_prop_fn = get_prop_fn,
         .item_type = item_type,
 #ifndef NDEBUG
         .item_mutable = item_mutable,
@@ -222,13 +169,6 @@ hdag_iter_next_const(const struct hdag_iter *iter, const void **pitem)
 [[nodiscard]]
 extern hdag_res hdag_iter_empty_next(const struct hdag_iter *iter,
                                      void **pitem);
-
-/** A property value retrieval function which never returns anything */
-[[nodiscard]]
-extern bool hdag_iter_empty_get_prop(const struct hdag_iter *iter,
-                                     enum hdag_iter_prop_id id,
-                                     hdag_type type,
-                                     void *pvalue);
 
 /**
  * Compare items of two iterators.

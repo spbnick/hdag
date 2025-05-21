@@ -78,7 +78,6 @@ hdag_cat_iter(hdag_type item_type,
     assert(hdag_iter_is_valid(iter_iter));
     *data = (struct hdag_cat_iter_data){.iter_iter = iter_iter};
     return hdag_iter(hdag_cat_iter_next,
-                     NULL,
                      item_type,
                      item_mutable,
                      hdag_cat_iter_data_validate(data));

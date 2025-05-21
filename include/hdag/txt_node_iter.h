@@ -102,7 +102,6 @@ hdag_txt_node_iter(size_t hash_len, struct hdag_txt_node_iter_data *data,
             .hash = hash_buf,
             .target_hash_iter = hdag_iter(
                 hdag_txt_node_iter_target_hash_iter_next,
-                NULL,
                 HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, hash_len),
                 true,
                 NULL
@@ -111,7 +110,6 @@ hdag_txt_node_iter(size_t hash_len, struct hdag_txt_node_iter_data *data,
     };
     return hdag_iter(
         hdag_txt_node_iter_next,
-        NULL,
         HDAG_NODE_ITER_ITEM_TYPE(hash_len),
         true,
         hdag_txt_node_iter_data_validate(data)

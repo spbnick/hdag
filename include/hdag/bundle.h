@@ -868,7 +868,6 @@ hdag_bundle_targets_hash_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_targets_hash_iter_next),
-        NULL,
         (bundle == NULL
             ? HDAG_TYPE_VOID
             : HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, bundle->hash_len)),
@@ -912,7 +911,6 @@ hdag_bundle_node_iter(struct hdag_bundle_iter_data *data,
                 (bundle == NULL
                     ? hdag_iter_empty_next
                     : hdag_bundle_node_iter_targets_hash_iter_next),
-                NULL,
                 (bundle == NULL
                     ? HDAG_TYPE_VOID
                     : HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, bundle->hash_len)),
@@ -925,7 +923,6 @@ hdag_bundle_node_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_node_iter_next),
-        NULL,
         (bundle == NULL
             ? HDAG_TYPE_VOID
             : HDAG_NODE_ITER_ITEM_TYPE(bundle->hash_len)
@@ -961,7 +958,6 @@ hdag_bundle_node_hash_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_node_hash_iter_next),
-        NULL,
         (bundle == NULL
             ? HDAG_TYPE_VOID
             : HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, bundle->hash_len)),

@@ -80,7 +80,6 @@ hdag_list_iter(hdag_type item_type,
     assert(list != NULL || len == 0);
     *data = (struct hdag_list_iter_data){.list = list, .len = len};
     return hdag_iter(hdag_list_iter_next,
-                     NULL,
                      item_type,
                      item_mutable,
                      hdag_list_iter_data_validate(data));

@@ -1346,7 +1346,6 @@ test_node_iter(struct test_node_iter_data *data,
         .item = {
             .target_hash_iter = hdag_iter(
                 test_hash_iter_next,
-                NULL,
                 HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, hash_len),
                 false,
                 NULL
@@ -1365,7 +1364,6 @@ test_node_iter(struct test_node_iter_data *data,
     va_end(hash_val_args);
     return hdag_iter(
         test_node_iter_next,
-        NULL,
         HDAG_NODE_ITER_ITEM_TYPE(hash_len),
         false,
         data
