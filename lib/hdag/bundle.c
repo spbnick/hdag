@@ -9,28 +9,6 @@
 #include <hdag/res.h>
 #include <string.h>
 
-bool
-hdag_bundle_iter_get_prop(const struct hdag_iter *iter,
-                          enum hdag_iter_prop_id id,
-                          hdag_type type,
-                          void *pvalue)
-{
-    assert(hdag_iter_is_valid(iter));
-    assert(hdag_iter_prop_id_is_valid(id));
-    assert(hdag_type_is_valid(type));
-    struct hdag_bundle_iter_data *data =
-        hdag_bundle_iter_data_validate(iter->data);
-
-    if (data->bundle != NULL &&
-        id == HDAG_ITER_PROP_ID_HASH_LEN && type == HDAG_TYPE_SIZE) {
-        if (pvalue != NULL) {
-            *(size_t *)pvalue = data->bundle->hash_len;
-        }
-        return true;
-    }
-    return false;
-}
-
 hdag_res
 hdag_bundle_targets_hash_iter_next(const struct hdag_iter *iter,
                                    void **pitem)
@@ -1268,13 +1246,8 @@ hdag_bundle_from_node_iter(struct hdag_bundle *pbundle,
                            const struct hdag_iter *iter)
 {
     assert(hdag_iter_is_valid(iter));
-    assert(iter->item_type == HDAG_NODE_ITER_ITEM_TYPE);
-    size_t              hash_len;
-    bool                hash_len_present = hdag_iter_get_prop(
-        iter, HDAG_ITER_PROP_ID_HASH_LEN, HDAG_TYPE_SIZE, &hash_len
-    );
-    assert(hash_len_present);
-    (void)hash_len_present;
+    assert(hdag_node_iter_item_type_is_valid(iter->item_type));
+    size_t hash_len = hdag_node_iter_item_type_get_hash_len(iter->item_type);
     assert(hdag_hash_len_is_valid(hash_len));
 
     hdag_res            res = HDAG_RES_INVALID;
@@ -1532,13 +1505,8 @@ hdag_bundle_organized_from_node_iter(struct hdag_bundle *pbundle,
                                      const struct hdag_iter *iter)
 {
     assert(hdag_iter_is_valid(iter));
-    assert(iter->item_type == HDAG_NODE_ITER_ITEM_TYPE);
-    size_t              hash_len;
-    bool                hash_len_present = hdag_iter_get_prop(
-        iter, HDAG_ITER_PROP_ID_HASH_LEN, HDAG_TYPE_SIZE, &hash_len
-    );
-    assert(hash_len_present);
-    (void)hash_len_present;
+    assert(hdag_node_iter_item_type_is_valid(iter->item_type));
+    size_t hash_len = hdag_node_iter_item_type_get_hash_len(iter->item_type);
     assert(hdag_hash_len_is_valid(hash_len));
 
     hdag_res            res     = HDAG_RES_INVALID;

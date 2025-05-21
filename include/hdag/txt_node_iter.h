@@ -64,14 +64,6 @@ hdag_txt_node_iter_data_validate(struct hdag_txt_node_iter_data *data)
 extern hdag_res hdag_txt_node_iter_next(
                     const struct hdag_iter *iter, void **pitem);
 
-/** The text node iterator property retrieval function */
-[[nodiscard]]
-extern bool hdag_txt_node_iter_get_prop(
-                    const struct hdag_iter *iter,
-                    enum hdag_iter_prop_id id,
-                    hdag_type type,
-                    void *pvalue);
-
 /** The text node iterator next target hash retrieval function */
 [[nodiscard]]
 extern hdag_res hdag_txt_node_iter_target_hash_iter_next(
@@ -119,8 +111,8 @@ hdag_txt_node_iter(size_t hash_len, struct hdag_txt_node_iter_data *data,
     };
     return hdag_iter(
         hdag_txt_node_iter_next,
-        hdag_txt_node_iter_get_prop,
-        HDAG_NODE_ITER_ITEM_TYPE,
+        NULL,
+        HDAG_NODE_ITER_ITEM_TYPE(hash_len),
         true,
         hdag_txt_node_iter_data_validate(data)
     );

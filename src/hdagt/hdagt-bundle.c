@@ -1325,26 +1325,6 @@ test_node_iter_next(const struct hdag_iter *iter, void **pitem)
     return 1;
 }
 
-bool
-test_node_iter_get_prop(const struct hdag_iter *iter,
-                        enum hdag_iter_prop_id id,
-                        hdag_type type,
-                        void *pvalue)
-{
-    assert(hdag_iter_is_valid(iter));
-    assert(hdag_iter_prop_id_is_valid(id));
-    assert(hdag_type_is_valid(type));
-    struct test_node_iter_data *data = iter->data;
-
-    if (id == HDAG_ITER_PROP_ID_HASH_LEN && type == HDAG_TYPE_SIZE) {
-        if (pvalue != NULL) {
-            *(size_t *)pvalue = data->hash_len;
-        }
-        return true;
-    }
-    return false;
-}
-
 static inline struct hdag_iter
 test_node_iter(struct test_node_iter_data *data,
                size_t hash_len, uint8_t *hash_buf, uint8_t *target_hash_buf,
@@ -1385,8 +1365,8 @@ test_node_iter(struct test_node_iter_data *data,
     va_end(hash_val_args);
     return hdag_iter(
         test_node_iter_next,
-        test_node_iter_get_prop,
-        HDAG_NODE_ITER_ITEM_TYPE,
+        NULL,
+        HDAG_NODE_ITER_ITEM_TYPE(hash_len),
         false,
         data
     );

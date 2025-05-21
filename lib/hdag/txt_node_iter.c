@@ -163,24 +163,3 @@ hdag_txt_node_iter_next(const struct hdag_iter *iter, void **pitem)
     /* Signal we got a node */
     return 1;
 }
-
-bool
-hdag_txt_node_iter_get_prop(const struct hdag_iter *iter,
-                            enum hdag_iter_prop_id id,
-                            hdag_type type,
-                            void *pvalue)
-{
-    assert(hdag_iter_is_valid(iter));
-    assert(hdag_iter_prop_id_is_valid(id));
-    assert(hdag_type_is_valid(type));
-    struct hdag_txt_node_iter_data *data =
-        hdag_txt_node_iter_data_validate(iter->data);
-
-    if (id == HDAG_ITER_PROP_ID_HASH_LEN && type == HDAG_TYPE_SIZE) {
-        if (pvalue != NULL) {
-            *(size_t *)pvalue = data->hash_len;
-        }
-        return true;
-    }
-    return false;
-}

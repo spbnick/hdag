@@ -5,6 +5,7 @@
 #ifndef _HDAG_NODE_ITER_H
 #define _HDAG_NODE_ITER_H
 
+#include <hdag/hash.h>
 #include <hdag/iter.h>
 #include <hdag/res.h>
 #include <stdint.h>
@@ -21,9 +22,67 @@ struct hdag_node_iter_item {
     struct hdag_iter    target_hash_iter;
 };
 
-/** The type ID of a single node iterator item */
-#define HDAG_NODE_ITER_ITEM_TYPE \
-    HDAG_TYPE_BASIC(HDAG_TYPE_ID_STRUCT_NODE_ITER_ITEM)
+/**
+ * Create a type ID for a single node iterator item via a constant expression
+ * (without validation).
+ *
+ * @param _hash_len The length of the hashes referenced by the item.
+ */
+#define HDAG_NODE_ITER_ITEM_TYPE(_hash_len) \
+    HDAG_TYPE_PRM(HDAG_TYPE_ID_STRUCT_NODE_ITER_ITEM, _hash_len)
+
+/**
+ * Check if a node iterator item type is valid.
+ *
+ * @param type  The type to check.
+ *
+ * @return True if the type is a valid node iterator item type, false
+ *         otherwise.
+ */
+static inline bool
+hdag_node_iter_item_type_is_valid(hdag_type type)
+{
+    return hdag_type_is_valid(type) &&
+        HDAG_TYPE_GET_ID(type) == HDAG_TYPE_ID_STRUCT_NODE_ITER_ITEM &&
+        hdag_hash_len_is_valid(HDAG_TYPE_GET_PRM(type));
+}
+
+/**
+ * Create a type ID for a single node iterator item.
+ *
+ * @param hash_len  The length of the hashes referenced by the item.
+ *
+ * @return The created type ID.
+ */
+static inline hdag_type
+hdag_node_iter_item_type(size_t hash_len)
+{
+    assert(hdag_hash_len_is_valid(hash_len));
+    return HDAG_NODE_ITER_ITEM_TYPE(hash_len);
+}
+
+/**
+ * Get the length of hashes referenced by a node iterator item type via a
+ * constant expression (without validation).
+ */
+#define HDAG_NODE_ITER_ITEM_TYPE_GET_HASH_LEN(_type) \
+    HDAG_TYPE_GET_PRM(_type)
+
+/**
+ * Get the length of hashes referenced by a node iterator item type.
+ *
+ * @param type  The node iter item type to get the hash length from.
+ *
+ * @return The retrieved hash length.
+ */
+static inline size_t
+hdag_node_iter_item_type_get_hash_len(hdag_type type)
+{
+    assert(hdag_type_is_valid(type));
+    return hdag_hash_len_validate(
+        HDAG_NODE_ITER_ITEM_TYPE_GET_HASH_LEN(type)
+    );
+}
 
 /**
  * Check if a node iterator item is valid.
@@ -95,23 +154,14 @@ hdag_node_iter_cmp(const struct hdag_iter *iter_a,
                    const struct hdag_iter *iter_b)
 {
     assert(hdag_iter_is_valid(iter_a));
-    assert(iter_a->item_type == HDAG_NODE_ITER_ITEM_TYPE);
+    assert(hdag_node_iter_item_type_is_valid(iter_a->item_type));
     assert(hdag_iter_is_valid(iter_b));
-    assert(iter_b->item_type == HDAG_NODE_ITER_ITEM_TYPE);
+    assert(hdag_node_iter_item_type_is_valid(iter_b->item_type));
 
-    bool                hash_len_present;
-    size_t              hash_len_a;
-    size_t              hash_len_b;
-    hash_len_present = hdag_iter_get_prop(
-        iter_a, HDAG_ITER_PROP_ID_HASH_LEN, HDAG_TYPE_SIZE, &hash_len_a
-    );
-    assert(hash_len_present);
-    (void)hash_len_present;
-    hash_len_present = hdag_iter_get_prop(
-        iter_b, HDAG_ITER_PROP_ID_HASH_LEN, HDAG_TYPE_SIZE, &hash_len_b
-    );
-    assert(hash_len_present);
-    (void)hash_len_present;
+    size_t hash_len_a =
+        hdag_node_iter_item_type_get_hash_len(iter_a->item_type);
+    size_t hash_len_b =
+        hdag_node_iter_item_type_get_hash_len(iter_b->item_type);
 
     assert(hash_len_a == hash_len_b);
 

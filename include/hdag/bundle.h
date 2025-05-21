@@ -837,14 +837,6 @@ hdag_bundle_iter_data_validate(struct hdag_bundle_iter_data *data)
     return data;
 }
 
-/** A property retrieval function for a bundle iterator */
-[[nodiscard]]
-extern bool hdag_bundle_iter_get_prop(
-                    const struct hdag_iter *iter,
-                    enum hdag_iter_prop_id id,
-                    hdag_type type,
-                    void *pvalue);
-
 /** A next-hash retrieval function for target hash iterator */
 [[nodiscard]]
 extern hdag_res hdag_bundle_targets_hash_iter_next(
@@ -876,7 +868,7 @@ hdag_bundle_targets_hash_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_targets_hash_iter_next),
-        hdag_bundle_iter_get_prop,
+        NULL,
         (bundle == NULL
             ? HDAG_TYPE_VOID
             : HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, bundle->hash_len)),
@@ -933,8 +925,11 @@ hdag_bundle_node_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_node_iter_next),
-        hdag_bundle_iter_get_prop,
-        HDAG_NODE_ITER_ITEM_TYPE,
+        NULL,
+        (bundle == NULL
+            ? HDAG_TYPE_VOID
+            : HDAG_NODE_ITER_ITEM_TYPE(bundle->hash_len)
+        ),
         false,
         hdag_bundle_iter_data_validate(data)
     );
@@ -966,7 +961,7 @@ hdag_bundle_node_hash_iter(struct hdag_bundle_iter_data *data,
         (bundle == NULL
             ? hdag_iter_empty_next
             : hdag_bundle_node_hash_iter_next),
-        hdag_bundle_iter_get_prop,
+        NULL,
         (bundle == NULL
             ? HDAG_TYPE_VOID
             : HDAG_TYPE_ARR(HDAG_TYPE_ID_UINT8, bundle->hash_len)),

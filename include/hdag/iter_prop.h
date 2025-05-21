@@ -12,8 +12,6 @@
 enum hdag_iter_prop_id {
     /** No property (invalid ID) */
     HDAG_ITER_PROP_ID_NONE,
-    /** Length of hashes embedded into the items returned by the iterator */
-    HDAG_ITER_PROP_ID_HASH_LEN,
     /** The number of size_t property IDs, not an ID itself */
     HDAG_ITER_PROP_ID_NUM
 };
