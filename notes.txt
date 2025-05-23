@@ -1414,3 +1414,5 @@ So, how about we switch to checking the "constant" flag instead?
 ---
 We want to be able to create an empty bundle node sequence without specifying
 a bundle, and thus a hash length.
+---
+TODO: Consider unifying mutable/constant usage
