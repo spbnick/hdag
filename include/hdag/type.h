@@ -155,7 +155,7 @@ typedef uint64_t hdag_type_layer;
  * (without validation).
  */
 #define HDAG_TYPE_LAYER_GET_ID(_layer) \
-     (((_layer) & HDAG_TYPE_ID_MASK) >> HDAG_TYPE_LAYER_ID_LSB)
+     (((_layer) >> HDAG_TYPE_LAYER_ID_LSB) & HDAG_TYPE_ID_MASK)
 
 /**
  * Get the parameter from a type definition layer via a constant
