@@ -4,7 +4,6 @@
 #ifndef _HDAG_TYPE_H
 #define _HDAG_TYPE_H
 
-#include <hdag/res.h>
 #include <stdbool.h>
 
 /** IDs of various types which we need to identify dynamically */
