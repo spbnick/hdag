@@ -6,10 +6,7 @@
 #include <hdag/type.h>
 #include <hdag/misc.h>
 
-/**
- * The sizes of non-composite types indexed by type ID.
- */
-static size_t hdag_type_sizes[] = {
+const size_t hdag_type_sizes[HDAG_TYPE_ID_NUM] = {
     [HDAG_TYPE_ID_VOID]                     = 0,
     [HDAG_TYPE_ID_PTR]                      = sizeof(void *),
     [HDAG_TYPE_ID_UINT8]                    = sizeof(uint8_t),

@@ -62,6 +62,13 @@ hdag_type_id_validate(enum hdag_type_id id)
     return id;
 }
 
+/**
+ * The sizes of non-composite types indexed by type ID.
+ * If SIZE_MAX, then the corresponding function from
+ * hdag_type_layer_get_inst_size_fns should be used instead.
+ */
+extern const size_t hdag_type_sizes[HDAG_TYPE_ID_NUM];
+
 /** Number of bits in a repetition count (array size) */
 #define HDAG_TYPE_REP_BITS  16
 
